@@ -51,6 +51,9 @@ import {
   removeCount,
 } from "../../../sqliteStore";
 import { LoaderModel } from "../../Modals/LoaderModel";
+import { ErrorAlertModel } from "../../Modals/ErrorAlertModel";
+import { Mixpanel } from "mixpanel-react-native";
+import { AppsFlyerTracker } from "../../EventTracker/AppsFlyerTracker";
 
 const isDarkMode = true;
 const data = [
@@ -66,8 +69,29 @@ export default function CreateBroadcastScreen({ navigation, route }: any) {
   const [products, setProducts] = React.useState(data);
   const [loading, setLoading] = useState(false);
   const { t, i18n } = useTranslation();
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
 
+  const images = [
+    'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739796875560_1739796871443.jpg',
+    'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739796994362_1739796983177.jpg',
+    'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797046221_1739797039370.jpg',
+    'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797091786_1739797084582.jpg',
+    'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797127854_1739797120576.jpg',
+    'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797177163_1739797172456.jpg',
+    'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797278426_1739797253465.jpg',
+   'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797388061_1739797362230.jpg',
+     'https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797436193_1739797429552.jpg'
+  ];
+  const [currentImage, setCurrentImage] = useState(images[0]);
+
+
+  const getRandomImage = () => {
+    const randomIndex = Math.floor(Math.random() * images.length);
+    console.log("random index:",randomIndex)
+    return images[randomIndex];
+  };
   React.useEffect(() => {
+    setCurrentImage(getRandomImage());
     socket.on("connect_error", (error: any) => {
       socket.connect;
 
@@ -78,9 +102,39 @@ export default function CreateBroadcastScreen({ navigation, route }: any) {
   const buttonPress = () => {
     navigation.navigate("NewBroadcastScreen");
   };
+
+  const trackAutomaticEvents = false;
+  const mixpanel = new Mixpanel(
+    `${globalThis.mixpanelToken}`,
+    trackAutomaticEvents
+  );
+  console.log("globalThis.mixpanelToken",globalThis.mixpanelToken);
+    const createBroadcastEvent = (string) => {
+      console.log("string",string,);
+      handleCallEvent("Create Broadcast",string)
+      // Track button click event
+      mixpanel.track("Create Broadcast", {
+        type:"Broadcast",
+        BroadcastName: string,
+      });
+    };
+
+
+    const handleCallEvent = (eventTrack,eventName1) => {
+      const eventName = eventTrack;
+      const eventValues = {
+        af_content_id: eventName1,
+        af_customer_user_id: globalThis.chatUserId,
+        af_quantity: 1,
+      };
+    
+      AppsFlyerTracker(eventName, eventValues, globalThis.chatUserId); // Pass user ID if you want to set it globally
+    };
   const buttonPress2 = async () => {
     if (groupName == "") {
-      Alert.alert("", t("Please provide Broadcast name"), [{ text: t("ok") }]);
+     // Alert.alert("", t("Please provide Broadcast name"), [{ text: t("ok") }]);
+      globalThis.errorMessage = t("Please provide Broadcast name");
+      setErrorAlertModel(true);
     } else {
 
       await ToMakeBroadcast();
@@ -89,11 +143,13 @@ export default function CreateBroadcastScreen({ navigation, route }: any) {
 
   async function ToMakeBroadcast() {
     if (groupName?.toLowerCase()?.includes("tokee")) {
-      Alert.alert(
-        "Alert!",
-        "You can't use 'Tokee' in the broadcast name.",
-        [{ text: t("ok") }]
-      );
+      // Alert.alert(
+      //  t("error"),
+      //  t("you_cn_use_tokee_name_for_broadcast"),
+      //   [{ text: t("ok") }]
+      // );
+      globalThis.errorMessage =  t("you_cn_use_tokee_name_for_broadcast");
+      setErrorAlertModel(true);
       return; // Exit early if "toke" is found
     }
     try {
@@ -103,19 +159,19 @@ export default function CreateBroadcastScreen({ navigation, route }: any) {
           (obj: { chat_user_id: any }) => obj.chat_user_id
         )
       );
-
+      const imageSend = currentImage;
       const groupParams = {
         roomName: groupName,
         //@ts-ignore
         roomOwnerId: globalThis.chatUserId,
         roomMembers: arrayOfChatIds,
         groupType: "broadcast",
-        group_image: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Document/1717401343823_36FA5C33-D2AD-40F0-AC1B-E35C078FCFFE.jpg",
+        group_image: imageSend,
         group_description: "",
         allow: "admin",
         membersRaw: route.params.selected_data,
       };
-
+      createBroadcastEvent(groupName);
       //@ts-ignore
       socket.emit("createBroadcast", groupParams);
       return;
@@ -438,6 +494,13 @@ export default function CreateBroadcastScreen({ navigation, route }: any) {
           backgroundColor: themeModule().theme_background,
         }}
       >
+
+<ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
         {/* // **********    View For Show the StatusBar    ********** /// */}
         {Platform.OS == "android" ? (
           <CustomStatusBar
@@ -480,6 +543,9 @@ export default function CreateBroadcastScreen({ navigation, route }: any) {
           globalThis.selectTheme === "newYearTheme" || //@ts-ignore
           globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
           globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
               source={chatTop().BackGroundImage}
@@ -491,6 +557,7 @@ export default function CreateBroadcastScreen({ navigation, route }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null

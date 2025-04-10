@@ -66,7 +66,7 @@ export function StoryTimeConverter({ isoTime }) {
     const daysAgo = Math.floor(timeDifference / 86400);
     return (
       <Text style={{ color: "white", fontSize: 14,fontFamily: font.bold(), }}>
-        {`${daysAgo} ${daysAgo === 1 ? "day" : "days"} `}
+        {`${daysAgo} ${daysAgo === 1 ? t("day"): t("days")} `}
         {t("ago")}
       </Text>
     );
@@ -84,7 +84,6 @@ export function MyStoryTimeConverter({ isoTime, textColor }) {
     fontSize: 14,
     fontFamily: font.bold(),
     paddingLeft: 10,
-    height: 20,
   };
 
   if (timeDifference < 60) {
@@ -111,7 +110,7 @@ export function MyStoryTimeConverter({ isoTime, textColor }) {
     const daysAgo = Math.floor(timeDifference / 86400);
     return (
       <Text style={textStyle}>
-        {`${daysAgo} ${daysAgo === 1 ? "day" : "days"} `}
+        {`${daysAgo} ${daysAgo === 1 ?  t("day"): t("days")} `}
         {t("ago")}
       </Text>
     );
@@ -152,7 +151,7 @@ export function StoryTimeConverter2({ isoTime }) {
     const daysAgo = Math.floor(timeDifference / 86400);
     return (
       <Text style={{ color: "grey", fontSize: 14, paddingLeft: 10 ,fontFamily: font.bold(),}}>
-        {`${daysAgo} ${daysAgo === 1 ? "day" : "days"} `}
+        {`${daysAgo} ${daysAgo === 1 ? t("day"): t("days")} `}
         {t("ago")}
       </Text>
     );

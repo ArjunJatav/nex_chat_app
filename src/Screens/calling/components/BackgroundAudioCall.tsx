@@ -41,7 +41,7 @@ const BackgroundAudioCall = (props: BackgroundAudioCallProps) => {
         <AppImageIcon
           wrapperStyle={styles.micStyle}
           image={props?.isMuted ? images.mic_off : images.mic_on}
-          iconStyle={{ tintColor: colors.white }}
+          iconStyle={{ tintColor: colors.white,height:30,width:30 }}
           onPress={props?.toggleMuteAudio}
         />
         <View style={styles.textWrapper}>
@@ -57,7 +57,7 @@ const BackgroundAudioCall = (props: BackgroundAudioCallProps) => {
           ]}
           image={images.speaker_on}
           iconStyle={{
-            tintColor: props?.isSpeakerOn ? colors.black : colors.white,
+            tintColor: props?.isSpeakerOn ? colors.black : colors.white,height:30,width:30
           }}
           onPress={props?.toggleSpeaker}
         />
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "center",
     justifyContent: "space-between",
-    marginTop: 150,
+    marginTop: 100,
     zIndex: 200,
   },
   ongoingCallText: {

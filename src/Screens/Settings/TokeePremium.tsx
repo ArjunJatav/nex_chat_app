@@ -6,17 +6,20 @@ import {
   Platform,
   Text,
   View,
-  Image
+  Image,
+  TouchableOpacity,
 } from "react-native";
 import MainComponent from "../../Components/MainComponent/MainComponent";
 import ThemeContext from "../../Components/ThemeContext/ThemeContext";
-import { COLORS, themeModule } from "../../Components/Colors/Colors";
+import { COLORS, iconTheme, themeModule } from "../../Components/Colors/Colors";
 import CustomStatusBar from "../../Components/CustomStatusBar/CustomStatusBar";
 import TopBar from "../../Components/TopBar/TopBar";
 import { StyleSheet } from "react-native";
 import DeviceInfo from "react-native-device-info";
-import { settingTop } from "../../Navigation/Icons";
+import { chatTop, settingTop } from "../../Navigation/Icons";
 import { FlatList } from "react-native";
+import { font } from "../../Components/Fonts/Font";
+import Video from "react-native-video";
 const isDarkMode = true;
 
 export default function TokeePremium({ navigation }: any) {
@@ -38,14 +41,14 @@ export default function TokeePremium({ navigation }: any) {
       paddingBottom: 20,
     },
     slide: {
-      width: viewportWidth * 0.8,
-     // justifyContent: "center",
-      // alignItems: "center",
-      backgroundColor: "#ccc",
+      width: viewportWidth * 1.0,
+       justifyContent: "center",
+       alignItems: "center",
+     backgroundColor: "#ccc",
       borderRadius: 8,
-      padding: 20,
-      marginHorizontal: 10,
-      height: Dimensions.get("window").height - 250,
+     // padding: 20,
+    paddingHorizontal: 2,
+      height: Dimensions.get("window").height - 180,
     },
     title: {
       fontSize: 24,
@@ -69,7 +72,7 @@ export default function TokeePremium({ navigation }: any) {
     },
     chatContainer: {
       backgroundColor: "white",
-      borderWidth: 15,
+     // borderWidth: 15,
       borderColor: "transparent",
       borderTopEndRadius: 25,
       borderTopStartRadius: 25,
@@ -85,35 +88,11 @@ export default function TokeePremium({ navigation }: any) {
       text: "Text 1",
       blocks: [
         {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
+       //   video: require("../../Assets/Video/Opened_Your_Story.mp4"),
+          name: "Slider 1",
+          description: "Under Development",
         },
-        {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
-        },
-        {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
-        },
-        {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
-        },
-        {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
-        },
+     
       ],
     },
     {
@@ -122,23 +101,11 @@ export default function TokeePremium({ navigation }: any) {
       text: "Text 2",
       blocks: [
         {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
+       //   video: require("../../Assets/Video/Pinned-Chat.mp4"),
+          name: "Slider 2",
+          description: "Under Development",
         },
-        {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
-        },
-        {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
-        },
+       
       ],
     },
     {
@@ -147,50 +114,86 @@ export default function TokeePremium({ navigation }: any) {
       text: "Text 3",
       blocks: [
         {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
+       //   video: require("../../Assets/Video/Premium_Badges_video.mp4"),
+          name: "Slider 3",
+          description: "Under Development",
         },
+       
+      ],
+    },
+    {
+      id: "4",
+      title: "Item 4",
+      text: "Text 4",
+      blocks: [
         {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
+       //   video: require("../../Assets/Video/Stealth_Mode_video.mp4"),
+          name: "Slider 3",
+          description: "Under Development",
         },
+       
+      ],
+    },
+    {
+      id: "5",
+      title: "Item 5",
+      text: "Text 5",
+      blocks: [
         {
-          icon: require('../../Assets/Icons/Status_MG_active.png'),
-          name: "Double Limits",
-          description:
-            "Up to 1000 channels, 20 flders, 10 pins, 20 public links, 4 accouns and more...",
+      //    video: require("../../Assets/Video/Tokee_Last_Seen_Times.mp4"),
+          name: "Slider 3",
+          description: "Under Development",
         },
+       
+      ],
+    },
+    {
+      id: "6",
+      title: "Item 6",
+      text: "Text 6",
+      blocks: [
+        {
+       //   video: require("../../Assets/Video/Tokee_Story_Views.mp4"),
+          name: "Slider 3",
+          description: "Under Development",
+        },
+       
       ],
     },
   ];
 
   const renderItem = ({ item }) => (
     <View style={styles.slide}>
-      {item?.blocks?.map((res)=>(
-        <View style={{backgroundColor:"red",padding:10,marginBottom:20,flexDirection:"row",   shadowColor: 'yellow',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 7.3,
-          shadowRadius: 10,
-          // Android shadow property
-          elevation: 10,}}>
-
-          {/* icon */}
-          <View style={{width:"10%",alignItems:"center",justifyContent:"center"}}>
-         <Image source={res.icon} style={{height:30,width:30}} resizeMode="contain"/>
-          </View>
-
-          {/* name & des */}
-          <View style={{width:"90%",paddingLeft:10,flexDirection:"column"}}>
-          <Text>{res.name}</Text>
-          <Text>{res.description}</Text>
-            </View>
-
+      {item?.blocks?.map((res, index) => (
+        <View
+          key={index}
+          style={{
+            padding: 0,
+            marginBottom: 0,
+           // flexDirection: 'row',
+            // borderRadius: 5,
+           backgroundColor:"red",
+            height: Dimensions.get("window").height,
+            width: Dimensions.get("window").width,
+            flex: 1,
+          }}
+        >
+          <Video
+            source={res.video} // Dynamically using the video from blocks
+            muted={false}
+            repeat={false}
+            resizeMode="contain"
+            volume={1.0}
+            rate={1.0}
+            autoplay={true}
+            style={{
+              height: '100%',
+              width: '100%',
+              //borderRadius: 5,
+            }}
+          />
         </View>
-      ))}  
+      ))}
     </View>
   );
 
@@ -233,6 +236,9 @@ export default function TokeePremium({ navigation }: any) {
         globalThis.selectTheme === "newYearTheme" ||
         globalThis.selectTheme === "mongoliaTheme" ||
         globalThis.selectTheme === "mexicoTheme" ||
+        globalThis.selectTheme === "indiaTheme" ||
+        globalThis.selectTheme === "englandTheme" ||
+        globalThis.selectTheme === "americaTheme" ||
         globalThis.selectTheme === "usindepTheme" ? (
           <ImageBackground
             source={settingTop().BackGroundImage}
@@ -244,6 +250,7 @@ export default function TokeePremium({ navigation }: any) {
               position: "absolute",
               bottom: 0,
               zIndex: 0,
+              top:  chatTop().top
             }}
           ></ImageBackground>
         ) : null}

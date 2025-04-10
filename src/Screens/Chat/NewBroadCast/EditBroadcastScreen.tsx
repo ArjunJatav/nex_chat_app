@@ -32,6 +32,7 @@ import { chatTop } from "../../../Navigation/Icons";
 import { setroominfo } from "../../../Redux/ChatHistory";
 import { updateroominfo } from "../../../sqliteStore";
 import { useTranslation } from "react-i18next";
+import { ErrorAlertModel } from "../../Modals/ErrorAlertModel";
 
 const isDarkMode = true;
 const data = [
@@ -53,6 +54,8 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
   );
   const [loading, setLoading] = useState(false);
   const { t, i18n } = useTranslation();
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+
 
   const buttonPress = () => {
     navigation.navigate("BottomBar");
@@ -91,11 +94,13 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
   };
   const GroupEditApi = async () => {
     if (groupName?.toLowerCase()?.includes("tokee")) {
-      Alert.alert(
-        "Alert!",
-        "You can't use 'Tokee' in the broadcast name.",
-        [{ text: t("ok") }]
-      );
+      // Alert.alert(
+      //   t("error"),
+      //   t("you_cn_use_tokee_name_for_broadcast"),
+      //   [{ text: t("ok") }]
+      // );
+      globalThis.errorMessage =  t("you_cn_use_tokee_name_for_broadcast");
+      setErrorAlertModel(true);
       return; // Exit early if "toke" is found
     }
     const urlStr = chatBaseUrl + groupEditApi;
@@ -279,6 +284,13 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
           backgroundColor: themeModule().theme_background,
         }}
       >
+
+<ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
         {Platform.OS == "android" ? (
           <CustomStatusBar
             barStyle={isDarkMode ? "dark-content" : "dark-content"}
@@ -287,7 +299,7 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
         ) : null}
 
         {/* // **********    View For Show the TopBar    ********** /// */}
-        <TopBar showTitle={true} title="Edit Broadcast" checked={
+        <TopBar showTitle={true} title={t("edit_broadcast")} checked={
             //@ts-ignore
             globalThis.selectTheme
           }/>
@@ -295,14 +307,14 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
         <View style={styles.chatTopContainer}>
           <View style={styles.groupContainer}>
             <TouchableOpacity onPress={() => buttonPress()} activeOpacity={0.7}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t("cancel")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => GroupEditApi()}
             >
-              <Text style={styles.cancelText}>Save</Text>
+              <Text style={styles.cancelText}>{t("save")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -313,6 +325,9 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
             globalThis.selectTheme === "newYear" || //@ts-ignore
             globalThis.selectTheme === "newYearTheme" || //@ts-ignore
             globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
+            globalThis.selectTheme === "indiaTheme" ||
+            globalThis.selectTheme === "englandTheme" ||
+            globalThis.selectTheme === "americaTheme" ||
             globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
             globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -325,6 +340,7 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null
@@ -333,7 +349,7 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
 
       <View style={styles.chatContainer}>
         <View style={styles.nameTextContainer}>
-          <Text style={styles.nameText}>Broadcast Name</Text>
+          <Text style={styles.nameText}>{t("broadcast_name")}</Text>
         </View>
         <View style={styles.nameInputTextContainer}>
           <TextInput
@@ -348,7 +364,7 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
           />
         </View>
         <View style={styles.nameTextContainer}>
-          <Text style={styles.nameText}>Broadcast Members</Text>
+          <Text style={styles.nameText}>{t("broadcast_members")}</Text>
         </View>
         <View
           style={{
@@ -388,7 +404,7 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
                       }}
                     >
                       <Text numberOfLines={1}>
-                        {item.name || item.phone_number}
+                        {item.name || item.userName}
                       </Text>
                     </View>
                   </>
@@ -405,8 +421,8 @@ export default function EditBroadcastScreen({ navigation, route }: any) {
               source={require("../../../Assets/Icons/plus.png")}
               style={styles.plusIcon}
             />
-            <Text style={styles.addText}>Add</Text>
-            <Text style={styles.addText}>Members</Text>
+            <Text style={styles.addText}>{t("addMembers")}</Text>
+           
           </TouchableOpacity>
         </View>
       </View>

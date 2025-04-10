@@ -9,18 +9,19 @@
 /* Begin PBXBuildFile section */
 		00E356F31AD99517003FC87E /* TokeeTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F21AD99517003FC87E /* TokeeTests.m */; };
 		033EAEE1D7484FB1AAC3F8C7 /* Skateboarder-mL439.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0D975D9F382E44CAA8AA4679 /* Skateboarder-mL439.ttf */; };
+		0E7D61C805B06C9FD15DB0B4 /* libPods-tokee-TokeeTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B2680D53D74B6B46BA396C4D /* libPods-tokee-TokeeTests.a */; };
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		13F1ACE2193640638CB964C8 /* Dearstory-7B79E.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2F9CF819AF2F4A0594FCA568 /* Dearstory-7B79E.ttf */; };
 		27A9F3D3F6A373C241862867 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 12E132816C6F07CDF8428243 /* PrivacyInfo.xcprivacy */; };
-		404D22F642F866610B457195 /* libPods-tokee-TokeeTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 43C0CD73D9DF3DFB0FE794E7 /* libPods-tokee-TokeeTests.a */; };
-		409BB6B29810F1FDD907D437 /* libPods-tokee.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 331ABC7775ABB9CF5EEDD970 /* libPods-tokee.a */; };
-		59763BBEC81C5EEF5EE07751 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		59763BBEC81C5EEF5EE07751 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		5B6B02612B8DC81400467477 /* Stipop.plist in Resources */ = {isa = PBXBuildFile; fileRef = 5B6B02602B8DC81400467477 /* Stipop.plist */; };
 		5B6B02642B8DCEE200467477 /* StipopModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6B02632B8DCEE200467477 /* StipopModule.swift */; };
 		5B6B02662B8DCF2B00467477 /* StipopEmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6B02652B8DCF2B00467477 /* StipopEmitter.swift */; };
 		5B6B02682B8DD75400467477 /* StipopModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 5B6B02672B8DD75400467477 /* StipopModule.m */; };
+		5BD4FB532D1063A5001C3155 /* PushNotificationManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 5BD4FB522D1063A5001C3155 /* PushNotificationManager.m */; };
+		6F4B5EAF4E85DD70D3F0F262 /* libPods-tokee.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B968C885E81C82334641503E /* libPods-tokee.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		83620283A2E94CC182070A7D /* PinkStory-3lO6p.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 653CBB69734342658D0F8F9B /* PinkStory-3lO6p.ttf */; };
 		8EC8EF972AC6EAA1002E83D2 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8EC8EF962AC6EAA1002E83D2 /* GoogleService-Info.plist */; };
@@ -67,15 +68,14 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Tokee/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = Tokee/main.m; sourceTree = "<group>"; };
 		2F9CF819AF2F4A0594FCA568 /* Dearstory-7B79E.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Dearstory-7B79E.ttf"; path = "../src/Assets/fonts/Dearstory-7B79E.ttf"; sourceTree = "<group>"; };
-		331ABC7775ABB9CF5EEDD970 /* libPods-tokee.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-tokee.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		38458ADCAC334A73B81928EA /* Dancing_Script_copy.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = Dancing_Script_copy.ttf; path = ../src/Assets/fonts/Dancing_Script_copy.ttf; sourceTree = "<group>"; };
-		43C0CD73D9DF3DFB0FE794E7 /* libPods-tokee-TokeeTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-tokee-TokeeTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		51F3467DADBCB9B78C30708C /* Pods-tokee.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee.debug.xcconfig"; path = "Target Support Files/Pods-tokee/Pods-tokee.debug.xcconfig"; sourceTree = "<group>"; };
 		5B6B02602B8DC81400467477 /* Stipop.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Stipop.plist; sourceTree = "<group>"; };
 		5B6B02622B8DCEE200467477 /* Tokee-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Tokee-Bridging-Header.h"; sourceTree = "<group>"; };
 		5B6B02632B8DCEE200467477 /* StipopModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StipopModule.swift; sourceTree = "<group>"; };
 		5B6B02652B8DCF2B00467477 /* StipopEmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StipopEmitter.swift; sourceTree = "<group>"; };
 		5B6B02672B8DD75400467477 /* StipopModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StipopModule.m; sourceTree = "<group>"; };
+		5BD4FB522D1063A5001C3155 /* PushNotificationManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PushNotificationManager.m; sourceTree = "<group>"; };
+		6436020044C5481AB34B3BEC /* Pods-tokee.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee.debug.xcconfig"; path = "Target Support Files/Pods-tokee/Pods-tokee.debug.xcconfig"; sourceTree = "<group>"; };
 		653CBB69734342658D0F8F9B /* PinkStory-3lO6p.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PinkStory-3lO6p.ttf"; path = "../src/Assets/fonts/PinkStory-3lO6p.ttf"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Tokee/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8EA47B332AC9D7FE00EB7478 /* Tokee.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Tokee.entitlements; path = Tokee/Tokee.entitlements; sourceTree = "<group>"; };
@@ -88,9 +88,10 @@
 		8EF1A59B2B876E180026F121 /* Skateboarder-mL439.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Skateboarder-mL439.ttf"; path = "../android/app/src/main/assets/fonts/Skateboarder-mL439.ttf"; sourceTree = "<group>"; };
 		8EF1A59D2B876EC80026F121 /* PartyStory-ZVA6z.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "PartyStory-ZVA6z.ttf"; path = "../android/app/src/main/assets/fonts/PartyStory-ZVA6z.ttf"; sourceTree = "<group>"; };
 		8EF1A59F2B876F200026F121 /* PinkStory-3lO6p.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "PinkStory-3lO6p.ttf"; path = "../android/app/src/main/assets/fonts/PinkStory-3lO6p.ttf"; sourceTree = "<group>"; };
-		9DED7D5712D35359DEFC7C19 /* Pods-tokee-TokeeTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee-TokeeTests.debug.xcconfig"; path = "Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests.debug.xcconfig"; sourceTree = "<group>"; };
+		B2680D53D74B6B46BA396C4D /* libPods-tokee-TokeeTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-tokee-TokeeTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B8E6D8C60B81D6DBAF2AA9E5 /* Pods-tokee-TokeeTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee-TokeeTests.release.xcconfig"; path = "Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests.release.xcconfig"; sourceTree = "<group>"; };
+		B968C885E81C82334641503E /* libPods-tokee.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-tokee.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF1D51C9E0644768A3EBEF44 /* PartyStory-ZVA6z.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PartyStory-ZVA6z.ttf"; path = "../src/Assets/fonts/PartyStory-ZVA6z.ttf"; sourceTree = "<group>"; };
-		D4C6303BA6EF0D8B4B7AF2E4 /* Pods-tokee.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee.release.xcconfig"; path = "Target Support Files/Pods-tokee/Pods-tokee.release.xcconfig"; sourceTree = "<group>"; };
 		D55526642B2EDB7D00BC3368 /* libRNCallKeep.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libRNCallKeep.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D55526662B2EDB7D00BC3368 /* CallKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CallKit.framework; path = System/Library/Frameworks/CallKit.framework; sourceTree = SDKROOT; };
 		D55526672B2EDB7D00BC3368 /* libswiftCallKit.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libswiftCallKit.tbd; path = usr/lib/swift/libswiftCallKit.tbd; sourceTree = SDKROOT; };
@@ -103,10 +104,11 @@
 		D5F33ECB2BD1511700E264CE /* DancingScript-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DancingScript-SemiBold.ttf"; sourceTree = "<group>"; };
 		D5F33ECD2BD1511700E264CE /* DancingScript-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DancingScript-Regular.ttf"; sourceTree = "<group>"; };
 		D5F33ECE2BD1511700E264CE /* DancingScript-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DancingScript-Medium.ttf"; sourceTree = "<group>"; };
-		E0212CCEAFF640B9AC84E899 /* Pods-tokee-TokeeTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee-TokeeTests.release.xcconfig"; path = "Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests.release.xcconfig"; sourceTree = "<group>"; };
+		DE43E1948D00F52BB0363F11 /* Pods-tokee.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee.release.xcconfig"; path = "Target Support Files/Pods-tokee/Pods-tokee.release.xcconfig"; sourceTree = "<group>"; };
 		E10820E794B446679E2D56CF /* IBMPlexSans-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "IBMPlexSans-Bold.ttf"; path = "../src/Assets/fonts/IBMPlexSans-Bold.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F167D9D4FA4B4A04A8A584C3 /* FeltCondolences-3zV06.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "FeltCondolences-3zV06.otf"; path = "../src/Assets/fonts/FeltCondolences-3zV06.otf"; sourceTree = "<group>"; };
+		F85055342E83D208C0EB7192 /* Pods-tokee-TokeeTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tokee-TokeeTests.debug.xcconfig"; path = "Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,8 +116,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				59763BBEC81C5EEF5EE07751 /* BuildFile in Frameworks */,
-				404D22F642F866610B457195 /* libPods-tokee-TokeeTests.a in Frameworks */,
+				59763BBEC81C5EEF5EE07751 /* (null) in Frameworks */,
+				0E7D61C805B06C9FD15DB0B4 /* libPods-tokee-TokeeTests.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,7 +129,7 @@
 				D55526682B2EDB7D00BC3368 /* CallKit.framework in Frameworks */,
 				D55526692B2EDB7D00BC3368 /* libswiftCallKit.tbd in Frameworks */,
 				D55526652B2EDB7D00BC3368 /* libRNCallKeep.a in Frameworks */,
-				409BB6B29810F1FDD907D437 /* libPods-tokee.a in Frameworks */,
+				6F4B5EAF4E85DD70D3F0F262 /* libPods-tokee.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,6 +156,7 @@
 		13B07FAE1A68108700A75B9A /* Tokee */ = {
 			isa = PBXGroup;
 			children = (
+				CE0DEBE72C7C9992001E9DC8 /* AppIcons */,
 				8EA47B332AC9D7FE00EB7478 /* Tokee.entitlements */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
@@ -196,8 +199,8 @@
 				D55526672B2EDB7D00BC3368 /* libswiftCallKit.tbd */,
 				D55526642B2EDB7D00BC3368 /* libRNCallKeep.a */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				331ABC7775ABB9CF5EEDD970 /* libPods-tokee.a */,
-				43C0CD73D9DF3DFB0FE794E7 /* libPods-tokee-TokeeTests.a */,
+				B968C885E81C82334641503E /* libPods-tokee.a */,
+				B2680D53D74B6B46BA396C4D /* libPods-tokee-TokeeTests.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -212,6 +215,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				5BD4FB522D1063A5001C3155 /* PushNotificationManager.m */,
 				13B07FAE1A68108700A75B9A /* Tokee */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				00E356EF1AD99517003FC87E /* TokeeTests */,
@@ -237,10 +241,10 @@
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				51F3467DADBCB9B78C30708C /* Pods-tokee.debug.xcconfig */,
-				D4C6303BA6EF0D8B4B7AF2E4 /* Pods-tokee.release.xcconfig */,
-				9DED7D5712D35359DEFC7C19 /* Pods-tokee-TokeeTests.debug.xcconfig */,
-				E0212CCEAFF640B9AC84E899 /* Pods-tokee-TokeeTests.release.xcconfig */,
+				6436020044C5481AB34B3BEC /* Pods-tokee.debug.xcconfig */,
+				DE43E1948D00F52BB0363F11 /* Pods-tokee.release.xcconfig */,
+				F85055342E83D208C0EB7192 /* Pods-tokee-TokeeTests.debug.xcconfig */,
+				B8E6D8C60B81D6DBAF2AA9E5 /* Pods-tokee-TokeeTests.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -259,6 +263,13 @@
 			name = Resources;
 			sourceTree = "<group>";
 		};
+		CE0DEBE72C7C9992001E9DC8 /* AppIcons */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = AppIcons;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -266,12 +277,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 00E357021AD99517003FC87E /* Build configuration list for PBXNativeTarget "TokeeTests" */;
 			buildPhases = (
-				1D137C8058B1ADDF31FD1CA1 /* [CP] Check Pods Manifest.lock */,
+				6AD058C9833E4536084EBF59 /* [CP] Check Pods Manifest.lock */,
 				00E356EA1AD99517003FC87E /* Sources */,
 				00E356EB1AD99517003FC87E /* Frameworks */,
 				00E356EC1AD99517003FC87E /* Resources */,
-				D6D686C4F5D945963C824708 /* [CP] Embed Pods Frameworks */,
-				84FA1A58CF3E4C881F93D50D /* [CP] Copy Pods Resources */,
+				68BDAF93422BB98CCACF5568 /* [CP] Embed Pods Frameworks */,
+				DA11F489810A461792EF04CB /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -287,15 +298,16 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "tokee" */;
 			buildPhases = (
-				816D68E0FEB2C9DC0E28DCCE /* [CP] Check Pods Manifest.lock */,
+				2E6C0C486F465C40B0D1B278 /* [CP] Check Pods Manifest.lock */,
 				FD10A7F022414F080027D42C /* Start Packager */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				8C9A8B5125F1FC41D25C0B18 /* [CP] Embed Pods Frameworks */,
-				0C20B1DBC191144822FFAEBA /* [CP] Copy Pods Resources */,
-				EEFCE5DCB6037D60E78BD004 /* [CP-User] [RNFB] Core Configuration */,
+				8808FC6E8D626489838AE1AB /* [CP] Embed Pods Frameworks */,
+				DB2EC016F339DAFD45FC124F /* [CP] Copy Pods Resources */,
+				E046616DD9051B65C6F3B164 /* [CP-User] [RNFB] Core Configuration */,
+				B10A2CF5FD5A9507B879BD37 /* [CP-User] [RNFB] Crashlytics Configuration */,
 			);
 			buildRules = (
 			);
@@ -397,46 +409,7 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"../node_modules/react-native/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"../node_modules/react-native/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
 		};
-		0C20B1DBC191144822FFAEBA /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		1D137C8058B1ADDF31FD1CA1 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-tokee-TokeeTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		816D68E0FEB2C9DC0E28DCCE /* [CP] Check Pods Manifest.lock */ = {
+		2E6C0C486F465C40B0D1B278 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -458,41 +431,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		84FA1A58CF3E4C881F93D50D /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		8C9A8B5125F1FC41D25C0B18 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D6D686C4F5D945963C824708 /* [CP] Embed Pods Frameworks */ = {
+		68BDAF93422BB98CCACF5568 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -509,7 +448,94 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		EEFCE5DCB6037D60E78BD004 /* [CP-User] [RNFB] Core Configuration */ = {
+		6AD058C9833E4536084EBF59 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-tokee-TokeeTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		8808FC6E8D626489838AE1AB /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B10A2CF5FD5A9507B879BD37 /* [CP-User] [RNFB] Crashlytics Configuration */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${TARGET_NAME}",
+				"$(BUILT_PRODUCTS_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "[CP-User] [RNFB] Crashlytics Configuration";
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/usr/bin/env bash\n#\n# Copyright (c) 2016-present Invertase Limited & Contributors\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this library except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#   http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\nset -e\n\nif [[ ${PODS_ROOT} ]]; then\n  echo \"info: Exec FirebaseCrashlytics Run from Pods\"\n  \"${PODS_ROOT}/FirebaseCrashlytics/run\"\nelse\n  echo \"info: Exec FirebaseCrashlytics Run from framework\"\n  \"${PROJECT_DIR}/FirebaseCrashlytics.framework/run\"\nfi\n";
+		};
+		DA11F489810A461792EF04CB /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tokee-TokeeTests/Pods-tokee-TokeeTests-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		DB2EC016F339DAFD45FC124F /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E046616DD9051B65C6F3B164 /* [CP-User] [RNFB] Core Configuration */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -528,6 +554,7 @@
 			files = (
 			);
 			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-tokee/Pods-tokee-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
 			inputPaths = (
 			);
@@ -556,6 +583,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5BD4FB532D1063A5001C3155 /* PushNotificationManager.m in Sources */,
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				5B6B02682B8DD75400467477 /* StipopModule.m in Sources */,
@@ -578,7 +606,7 @@
 /* Begin XCBuildConfiguration section */
 		00E356F61AD99517003FC87E /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9DED7D5712D35359DEFC7C19 /* Pods-tokee-TokeeTests.debug.xcconfig */;
+			baseConfigurationReference = F85055342E83D208C0EB7192 /* Pods-tokee-TokeeTests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -610,7 +638,7 @@
 		};
 		00E356F71AD99517003FC87E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E0212CCEAFF640B9AC84E899 /* Pods-tokee-TokeeTests.release.xcconfig */;
+			baseConfigurationReference = B8E6D8C60B81D6DBAF2AA9E5 /* Pods-tokee-TokeeTests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -639,14 +667,15 @@
 		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 51F3467DADBCB9B78C30708C /* Pods-tokee.debug.xcconfig */;
+			baseConfigurationReference = 6436020044C5481AB34B3BEC /* Pods-tokee.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Tokee/Tokee.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.0;
+				CURRENT_PROJECT_VERSION = 1.2;
 				DEVELOPMENT_TEAM = PHLZF6HC53;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Tokee/Info.plist;
@@ -659,7 +688,7 @@
 					"$(inherited)",
 					"$(SDKROOT)/usr/lib/swift",
 				);
-				MARKETING_VERSION = 5.5;
+				MARKETING_VERSION = 6.6;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -681,14 +710,15 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D4C6303BA6EF0D8B4B7AF2E4 /* Pods-tokee.release.xcconfig */;
+			baseConfigurationReference = DE43E1948D00F52BB0363F11 /* Pods-tokee.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Tokee/Tokee.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.0;
+				CURRENT_PROJECT_VERSION = 1.2;
 				DEVELOPMENT_TEAM = PHLZF6HC53;
 				INFOPLIST_FILE = Tokee/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
@@ -700,7 +730,7 @@
 					"$(inherited)",
 					"$(SDKROOT)/usr/lib/swift",
 				);
-				MARKETING_VERSION = 5.5;
+				MARKETING_VERSION = 6.6;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -788,7 +818,11 @@
 					"-DFOLLY_MOBILE=1",
 					"-DFOLLY_USE_LIBCPP=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl",
+					"-ld_classic",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 			};
@@ -858,7 +892,11 @@
 					"-DFOLLY_MOBILE=1",
 					"-DFOLLY_USE_LIBCPP=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl",
+					"-ld_classic",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;

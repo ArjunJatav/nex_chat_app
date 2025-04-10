@@ -19,19 +19,20 @@ import {
 import CustomStatusBar from "../../Components/CustomStatusBar/CustomStatusBar";
 import MainComponent from "../../Components/MainComponent/MainComponent";
 import TopBar from "../../Components/TopBar/TopBar";
-import {  settingTop } from "../../Navigation/Icons";
+import { chatTop, settingTop } from "../../Navigation/Icons";
 import { font } from "../../Components/Fonts/Font";
 import { t } from "i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ConfirmAlertModel } from "../Modals/ConfirmAlertModel";
 
 const isDarkMode = true;
-
 
 // eslint-disable-next-line
 export default function FontSettingScreen({ navigation }: any) {
   const windowWidth = Dimensions.get("window").width;
   const windowHeight = Dimensions.get("window").height;
   const [selectedFont, setSelectedFont] = useState(globalThis.checkBoxPressed);
+  const [confirmAlertModel, setConfirmAlertModel] = useState(false);
 
   const styles = StyleSheet.create({
     groupContainer: {
@@ -77,7 +78,7 @@ export default function FontSettingScreen({ navigation }: any) {
       borderWidth: 2,
       padding: 3,
       width: 25,
-      marginTop: 5,
+      // marginTop: 5,
     },
     fontNameText: {
       color: COLORS.black,
@@ -97,7 +98,7 @@ export default function FontSettingScreen({ navigation }: any) {
     },
     applyButtonStyle: {
       height: 50,
-      marginTop: 10,
+      // marginTop: 10,
       width: "100%",
       borderRadius: 10,
       justifyContent: "center",
@@ -144,41 +145,57 @@ export default function FontSettingScreen({ navigation }: any) {
     if (selectFontStyle === globalThis.checkBoxPressed) {
       boxPressed(selectFontStyle);
       globalThis.checkBoxPressed == selectFontStyle;
-      navigation.pop()
-    
-    } else{
-      Alert.alert(t("confirm"), t("change_app_font_style"), [
-        {
-          text: t("cancel"),
-    
-          onPress: async () => {
-           
-            globalThis.checkBoxPressed = selectFontStyle
-            navigation.pop()
+      navigation.pop();
+    } else {
+      setConfirmAlertModel(true);
+      // Alert.alert(t("confirm"), t("change_app_font_style"), [
+      //   {
+      //     text: t("cancel"),
 
-          }
-        },
-        {
-          text: t("yes"),
-          onPress: async () => {
-            AsyncStorage.setItem("fontStyleSet", globalThis.checkBoxPressed);
-          //  navigation.goBack();
-            await navigation.reset({
-              index: 0,
-              routes: [
-                {
-                  name: "BottomBar",
-                },
-              ],
-            });
-          },
-        },
-      ]);
+      //     onPress: async () => {
 
+      //       globalThis.checkBoxPressed = selectFontStyle
+      //       navigation.pop()
+
+      //     }
+      //   },
+      //   {
+      //     text: t("yes"),
+      //     onPress: async () => {
+      //       AsyncStorage.setItem("fontStyleSet", globalThis.checkBoxPressed);
+      //     //  navigation.goBack();
+      //       await navigation.reset({
+      //         index: 0,
+      //         routes: [
+      //           {
+      //             name: "BottomBar",
+      //           },
+      //         ],
+      //       });
+      //     },
+      //   },
+      // ]);
     }
-  
-    
-   
+  };
+
+  const changeFontStyle = async () => {
+    setConfirmAlertModel(false); // Close the modal
+
+    // Wait for the modal to close
+    await new Promise((resolve) => setTimeout(resolve, 300)); // Adjust delay as needed
+
+    // Save font style setting
+    await AsyncStorage.setItem("fontStyleSet", globalThis.checkBoxPressed);
+
+    // Navigate to BottomBar
+    navigation.reset({
+      index: 0,
+      routes: [
+        {
+          name: "BottomBar",
+        },
+      ],
+    });
   };
 
   return (
@@ -187,7 +204,13 @@ export default function FontSettingScreen({ navigation }: any) {
       statusBarColr="#000"
       safeAreaColr={themeModule().theme_background}
     >
-     
+      <ConfirmAlertModel
+        visible={confirmAlertModel}
+        onRequestClose={() => setConfirmAlertModel(false)}
+        confirmText={t("change_app_font_style")}
+        cancel={() => setConfirmAlertModel(false)}
+        confirmButton={() => changeFontStyle()}
+      />
 
       <View
         style={{
@@ -205,31 +228,31 @@ export default function FontSettingScreen({ navigation }: any) {
           showTitleForBack={true}
           title={t("Font_Settings")}
           goBack={true}
-          checked={
-            globalThis.selectTheme
-          }
+          checked={globalThis.selectTheme}
           navState={navigation}
           clickGoBack={applyFontstyle}
         />
-        {
-          globalThis.selectTheme === "christmas" || 
-          globalThis.selectTheme === "newYear" || 
-          globalThis.selectTheme === "newYearTheme" || 
-          globalThis.selectTheme === "mongoliaTheme" ? (
-            <ImageBackground
-              source={settingTop().BackGroundImage}
-              resizeMode="contain"
-              style={{
-                height: "100%",
-                width: windowWidth,
-                marginTop: 0,
-                position: "absolute",
-                bottom: 0,
-                zIndex: 0,
-              }}
-            ></ImageBackground>
-          ) : null
-        }
+        {globalThis.selectTheme === "christmas" ||
+        globalThis.selectTheme === "newYear" ||
+        globalThis.selectTheme === "indiaTheme" ||
+        globalThis.selectTheme === "englandTheme" ||
+        globalThis.selectTheme === "americaTheme" ||
+        globalThis.selectTheme === "newYearTheme" ||
+        globalThis.selectTheme === "mongoliaTheme" ? (
+          <ImageBackground
+            source={settingTop().BackGroundImage}
+            resizeMode="contain"
+            style={{
+              height: "100%",
+              width: windowWidth,
+              marginTop: 0,
+              position: "absolute",
+              bottom: 0,
+              zIndex: 0,
+              top: chatTop().top,
+            }}
+          ></ImageBackground>
+        ) : null}
         <View style={styles.chatTopContainer}></View>
 
         <View style={styles.groupContainer}></View>

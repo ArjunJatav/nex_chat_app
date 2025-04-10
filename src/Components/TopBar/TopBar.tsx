@@ -19,6 +19,7 @@ import { FontSize } from "../DeviceSpecs/DeviceStyles";
 import { font } from "../Fonts/Font";
 import ThemeContext from "../ThemeContext/ThemeContext";
 import renderIf from "../renderIf";
+import { t } from "i18next";
 
 export default function TopBar(props: any) {
   const { colorTheme } = useContext(ThemeContext);
@@ -48,7 +49,13 @@ export default function TopBar(props: any) {
     title: {
       //@ts-ignore
       color:
-        props.checked === "usindepTheme"
+        props.checked === "englandTheme"
+          ? "#FFFFFF"
+          : props.checked === "americaTheme"
+          ? "#FFFFFF"
+          : props.checked === "indiaTheme"
+          ? "#FFFFFF"
+          : props.checked === "usindepTheme"
           ? "#FFFFFF"
           : props.checked === "mexicoTheme"
           ? "#003422"
@@ -124,7 +131,13 @@ export default function TopBar(props: any) {
       borderRadius: 5,
       //@ts-ignore
       backgroundColor:
-        props.checked === "usindepTheme"
+        props.checked === "englandTheme"
+          ? "#5770A8"
+          : props.checked === "americaTheme"
+          ? "#0F3343"
+          : props.checked === "indiaTheme"
+          ? COLORS.primary_light_green
+          : props.checked === "usindepTheme"
           ? "#1A255B"
           : props.checked === "mexicoTheme"
           ? "#003422"
@@ -216,9 +229,10 @@ export default function TopBar(props: any) {
         props.showEdit == true,
         <TouchableOpacity
           style={styles.editIconContainer}
-          onPress={() => {
-            props.navState.navigate("NewChatScreen", { data: "NewChat" });
-          }}
+          onPress={props.onEditClick}
+          // onPress={() => {
+          //   props.navState.navigate("NewChatScreen", { data: "NewChat" });
+          // }}
         >
           <Image
             source={require("../../Assets/Icons/NotePen.png")}
@@ -231,14 +245,30 @@ export default function TopBar(props: any) {
       {renderIf(
         props.backArrow == true,
         <TouchableOpacity
-          style={styles.backArrowContainer}
+          style={[
+            styles.backArrowContainer,
+            {
+              width: 25,
+              height: 25,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+            },
+          ]}
           onPress={() => {
-            props.navState.pop();
+            if (props.title == t("Pending_Requests")) {
+              props.navState.navigate("BottomBar");
+            } else {
+              props.navState.pop();
+            }
           }}
         >
           <Image
-            source={require("../../Assets/Icons/Back.png")}
-            style={styles.backIcon}
+            source={require("../../Assets/Icons/back2.png")}
+            style={[
+              styles.backIcon,
+              { width: "100%", height: 13, resizeMode: "contain" },
+            ]}
             resizeMode="contain"
           />
         </TouchableOpacity>
@@ -247,12 +277,24 @@ export default function TopBar(props: any) {
       {renderIf(
         props.goBack == true,
         <TouchableOpacity
-          style={styles.backArrowContainer}
+          style={[
+            styles.backArrowContainer,
+            {
+              width: 25,
+              height: 25,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+            },
+          ]}
           onPress={props.clickGoBack}
         >
           <Image
-            source={require("../../Assets/Icons/Back.png")}
-            style={styles.backIcon}
+            source={require("../../Assets/Icons/back2.png")}
+            style={[
+              styles.backIcon,
+              { width: "100%", height: 13, resizeMode: "contain" },
+            ]}
             resizeMode="contain"
           />
         </TouchableOpacity>

@@ -1,6 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import { t } from "i18next";
-import React, {  useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -15,6 +15,9 @@ import Video from "react-native-video";
 import { PostApiCall } from "../../Components/ApiServices/PostApi";
 import { add_story } from "../../Constant/Api";
 import { LoaderModel } from "../Modals/LoaderModel";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
 
 const SCREEN_WIDTH = Dimensions.get("screen").width;
 export const FRAME_PER_SEC = 1;
@@ -26,15 +29,19 @@ export const CropVideoScreen = ({ navigation, route }: any) => {
   const [loaderMoedl, setloaderMoedl] = useState(false);
   const selectedVideo = route.params.path;
   const videoPlayerRef = useRef();
+  const [isVideoLong, setIsVideoLong] = useState(false);
 
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
   // **********   Headers for api ********** ///
   const headers = {
     "Content-Type": "application/x-www-form-urlencoded",
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     "Content-Type": "multipart/form-data",
     Accept: "application/json",
-    Authorization: "Bearer " + globalThis.Authtoken, 
-    "localization":globalThis.selectLanguage,
+    Authorization: "Bearer " + globalThis.Authtoken,
+    localization: globalThis.selectLanguage,
   };
 
   // **********  Sendig Data as Parameter  ********** ///
@@ -53,44 +60,65 @@ export const CropVideoScreen = ({ navigation, route }: any) => {
 
   // **********   Add story api  ********** ///
   const addStoryApi = () => {
-    // ********** InterNet Permission    ********** ///
-    NetInfo.fetch().then((state) => {
-      if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
+    if (isVideoLong == false) {
+      // ********** InterNet Permission    ********** ///
+      NetInfo.fetch().then((state) => {
+        if (state.isConnected === false) {
+          // Alert.alert(t("noInternet"), t("please_check_internet"), [
+          //   { text: t("ok") },
+          // ]);
+          setNoInternetModel(true);
+          return;
+        } else {
+          setloaderMoedl(true);
 
-        return;
-      } else {
-        setloaderMoedl(true);
-
-        PostApiCall(
-          add_story,
-          uploaddata,
-          headers,
-          navigation,
-          (ResponseData, ErrorStr) => {
-            apiSuccess(ResponseData, ErrorStr);
-          }
-        );
-      }
-    });
+          PostApiCall(
+            add_story,
+            uploaddata,
+            headers,
+            navigation,
+            (ResponseData, ErrorStr) => {
+              apiSuccess(ResponseData, ErrorStr);
+            }
+          );
+        }
+      });
+    } else {
+      setloaderMoedl(false);
+      // Alert.alert(t("videolong"), t("videovalidation"));
+      globalThis.errorMessage = t("videolong") + ", "+t("videovalidation");
+      setErrorAlertModel(true);
+    }
   };
   // **********   Method for Navigation for Further screen  ********** ///
   // eslint-disable-next-line
   const apiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);  
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
-      Alert.alert(t("success"), t("story_has_posted"), [
-        {
-          text: t("ok"),
-          onPress: () =>
-            navigation.navigate("BottomBar", { screen: "chatScreen" }),
-        },
-      ]);
+      // Alert.alert(t("success"), t("story_has_posted"), [
+      //   {
+      //     text: t("ok"),
+      //     onPress: () =>
+      //       navigation.navigate("BottomBar", { screen: "chatScreen" }),
+      //   },
+      // ]);
+      setSuccessAlertModel(true);
       setloaderMoedl(false);
+    }
+  };
+
+  const handleLoad = (data: any) => {
+    const videoDurationInSeconds = data.duration;
+    console.log("Video duration >>>>>>>>", videoDurationInSeconds);
+
+    // Duration is provided in milliseconds
+    if (videoDurationInSeconds > 15) {
+      setIsVideoLong(true);
+      console.log("video is greater than 15 seconds");
     }
   };
 
@@ -101,6 +129,31 @@ export const CropVideoScreen = ({ navigation, route }: any) => {
         onRequestClose={() => setloaderMoedl(false)}
         cancel={() => setloaderMoedl(false)}
       />
+
+      <SuccessModel
+        visible={successAlertModel}
+        onRequestClose={() => setSuccessAlertModel(false)}
+        succesText={t("story_has_posted")}
+        doneButton={() => {
+          setSuccessAlertModel(false),
+            navigation.navigate("BottomBar", { screen: "chatScreen" });
+          // successModalCheck()
+        }}
+      />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
+
       <View
         style={{
           flexDirection: "row",
@@ -143,13 +196,14 @@ export const CropVideoScreen = ({ navigation, route }: any) => {
         <>
           <View style={styles.videoContainer}>
             <Video
-            // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+              // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
               ref={videoPlayerRef}
               style={styles.video}
               resizeMode={"cover"}
               source={{ uri: selectedVideo }}
               repeat={true}
               paused={paused}
+              onLoad={handleLoad}
             />
           </View>
         </>

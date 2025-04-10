@@ -23,6 +23,9 @@ import { LoaderModel } from "../Modals/LoaderModel";
 import { GetApiCall } from "../../Components/ApiServices/GetApi";
 import { useSelector } from "react-redux";
 import PremiumAlert from "../../Components/CustomAlert/PremiumAlert";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
 let premiumAlertHeading = "";
 let premiumAlertSubHeading = "";
 let premiumAlertFirstButtonText = "";
@@ -34,19 +37,23 @@ export default function AddTextStatusScreen({ navigation }: any) {
   const [showPremiumAlert, setShowPremiumAlert] = useState(false);
   const [current, setCurrent] = useState(0);
   const [loaderMoedl, setloaderMoedl] = useState(false);
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+
   const userPremium = useSelector(
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     (state) => state?.friendListSlice.userPremium
   );
   const [isColorPickerVisible, setColorPickerVisible] = useState(false);
   const { t } = useTranslation();
-const bgColor = [
-  { backgroundColor: "#F6EB7A" },
-  { backgroundColor: "#19B043" },
-  { backgroundColor: "#EC4E4E" },
-  { backgroundColor: "#5652EF" },
-  { backgroundColor: "#FFFFFF" },
-]
+  const bgColor = [
+    { backgroundColor: "#F6EB7A" },
+    { backgroundColor: "#19B043" },
+    { backgroundColor: "#EC4E4E" },
+    { backgroundColor: "#5652EF" },
+    { backgroundColor: "#FFFFFF" },
+  ];
   const openColorModel = () => {
     if (!isColorPickerVisible) {
       setColorPickerVisible(true);
@@ -81,10 +88,10 @@ const bgColor = [
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
-
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
+        setNoInternetModel(true);
         return;
       } else {
         setloaderMoedl(true);
@@ -99,7 +106,7 @@ const bgColor = [
           headers,
           navigation,
           (ResponseData, ErrorStr) => {
-            countApiSuccess(ResponseData, ErrorStr)
+            countApiSuccess(ResponseData, ErrorStr);
           }
         );
         // PostApiCall(
@@ -117,47 +124,61 @@ const bgColor = [
   // **********   Method for Navigation for Further screen  ********** ///
   // eslint-disable-next-line
   const apiSuccess = (ResponseData: any, ErrorStr: any) => {
-    console.log("story ppost api response",ResponseData)
+    console.log("story ppost api response", ResponseData);
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderMoedl(false);
+      setErrorAlertModel(true);
     } else {
       setloaderMoedl(false);
-      Alert.alert(t("success"), t("story_has_posted"), [
-        {
-          text: t("ok"),
-          onPress: () =>
-            navigation.navigate("BottomBar", { screen: "chatScreen" }),
-        },
-      ]);
+      setSuccessAlertModel(true);
+      // Alert.alert(t("success"), t("story_has_posted"), [
+      //   {
+      //     text: t("ok"),
+      //     onPress: () =>
+      //       navigation.navigate("BottomBar", { screen: "chatScreen" }),
+      //   },
+      // ]);
     }
   };
 
- // eslint-disable-next-line
+  // eslint-disable-next-line
   const countApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderMoedl(false);
-    }else{
-      console.log("count api response >>>>",ResponseData)
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+     
+    } else {
+      console.log("count api response >>>>", ResponseData);
       if (userPremium) {
-           PostApiCall(
+        PostApiCall(
           add_story,
           data,
           headers,
           navigation,
           (ResponseData, ErrorStr) => {
+        
+            console.log("story ppost api response", ResponseData);
+         
             apiSuccess(ResponseData, ErrorStr);
           }
         );
       } else {
-        if (ResponseData?.data?.total_stories == 30 || ResponseData?.data?.total_stories > 30) {
-          premiumAlertHeading = "You can add a maximum of 30 stories.";
-          premiumAlertSubHeading = "Upgrade to Premium for unlimited stories. If you prefer to stay on the FREE plan, we will remove your first story to maintain the 30-story limit.";
+        if (
+          ResponseData?.data?.total_stories == 30 ||
+          ResponseData?.data?.total_stories > 30
+        ) {
+          premiumAlertHeading = t("You_can_add_a_maximum_o_stories");
+          premiumAlertSubHeading = t(
+            "Upgrade_to_Premium_for_unlimited_stories"
+          );
           premiumAlertFirstButtonText = "Continue with Free Plan";
           premiumAlertSecondButtonText = "Go To Premium";
           setShowPremiumAlert(true);
-        //  Alert.alert("Oops!","You have exceed your stories limit.")
+          //  Alert.alert("Oops!","You have exceed your stories limit.")
         } else {
           PostApiCall(
             add_story,
@@ -165,13 +186,14 @@ const bgColor = [
             headers,
             navigation,
             (ResponseData, ErrorStr) => {
+              console.log("story ppost api response", ResponseData);
               apiSuccess(ResponseData, ErrorStr);
             }
           );
         }
       }
     }
-  }
+  };
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -228,17 +250,48 @@ const bgColor = [
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ height: "100%" }}
     >
-        <PremiumAlert
-          visible={showPremiumAlert}
-          onRequestClose={() => setShowPremiumAlert(false)}
-          cancel={() => setShowPremiumAlert(false)}
-          Heading={premiumAlertHeading}
-          SubHeading={premiumAlertSubHeading}
-          FirstButton={premiumAlertFirstButtonText}
-          SecondButton={premiumAlertSecondButtonText}
-          firstButtonClick={()=>setShowPremiumAlert(false)}
-          secondButtonClick={()=>navigation.navigate("TokeePremium")}
-        />
+      <PremiumAlert
+        visible={showPremiumAlert}
+        onRequestClose={() => setShowPremiumAlert(false)}
+        cancel={() => setShowPremiumAlert(false)}
+        Heading={premiumAlertHeading}
+        SubHeading={premiumAlertSubHeading}
+        FirstButton={premiumAlertFirstButtonText}
+        SecondButton={premiumAlertSecondButtonText}
+        firstButtonClick={() => setShowPremiumAlert(false)}
+        secondButtonClick={() => {
+          if (premiumAlertSecondButtonText == "Cancel") {
+            setShowPremiumAlert(false);
+          } else {
+            setShowPremiumAlert(false);
+            navigation.navigate("PremiumFeaturesScreen");
+          }
+        }}
+      />
+
+      <SuccessModel
+        visible={successAlertModel}
+        onRequestClose={() => setSuccessAlertModel(false)}
+        succesText={t("story_has_posted")}
+        doneButton={() => {
+          setSuccessAlertModel(false),
+            navigation.navigate("BottomBar", { screen: "chatScreen" });
+        }}
+      />
+
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
       <StatusBar translucent backgroundColor="transparent" />
       <LoaderModel
         visible={loaderMoedl}
@@ -290,11 +343,8 @@ const bgColor = [
             placeholderTextColor={COLORS.grey}
             autoFocus={true}
             maxLength={250}
-            onSubmitEditing={()=>Keyboard.dismiss()}
-
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
-
-   
 
           {text.length > 0 ? (
             <View

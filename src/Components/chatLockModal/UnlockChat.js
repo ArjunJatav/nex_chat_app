@@ -1,15 +1,15 @@
 // PinModal.js
 
-import React, { useState } from "react";
+import React from "react";
 import {
   Modal,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  TouchableWithoutFeedback,
 } from "react-native";
 import PinInput from "./GeneratePin";
+import { t } from "i18next";
 
 const UnlockChatPinModal = ({
   isVisible,
@@ -33,16 +33,16 @@ const UnlockChatPinModal = ({
         activeOpacity={0.7}
       >
         <TouchableOpacity style={styles.modalContent} activeOpacity={1}>
-          <Text style={styles.title}>Enter PIN</Text>
+          <Text style={styles.title}>{t("Enter_PIN")}</Text>
           <PinInput pinLength={pinLength} onPinEntered={onPinEntered} />
           <View
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
             <TouchableOpacity onPress={() => onForgotten()}>
-              <Text style={styles.closeButton}>Forgot PIN</Text>
+              <Text style={styles.closeButton}>{t("forgot_pin")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => onSubmit()}>
-              <Text style={styles.closeButton}>Done</Text>
+              <Text style={styles.closeButton}>{t("done")}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

@@ -1,9 +1,10 @@
 import React from "react";
-import { Modal, Text, View } from "react-native";
-import { COLORS, iconTheme } from "../Colors/Colors";
+import { Image, Modal, Text, View } from "react-native";
+import { COLORS, iconTheme, searchBar } from "../Colors/Colors";
 import { StyleSheet } from "react-native";
 import { TouchableOpacity } from "react-native";
 import { font } from "../Fonts/Font";
+import { t } from "i18next";
 
 export default function PremiumAlert({
   visible: visible,
@@ -24,8 +25,8 @@ export default function PremiumAlert({
       right: 0,
       position: "absolute",
       backgroundColor: COLORS.white,
-      borderTopEndRadius: 12,
-      borderTopStartRadius: 12,
+      borderTopEndRadius: 24,
+      borderTopStartRadius: 24,
       elevation: 6,
       // justifyContent: "center",
       shadowColor: COLORS.black,
@@ -43,14 +44,23 @@ export default function PremiumAlert({
     },
     headingContainer: {
       // height: 50,
-      marginTop: 30,
+      marginTop: 20,
       justifyContent: "center",
       alignItems: "center",
+     // backgroundColor:"red"
     },
     heading: {
       color: "#000",
-      fontSize: 20,
-      fontFamily: font.bold(),
+      fontSize: 15,
+      fontFamily: font.medium(),
+    },
+    cancel_button: {
+      position: "absolute",
+      borderRadius: 20,
+      padding: 7,
+      backgroundColor: searchBar().back_ground,
+      right: 20,
+      top: 20,
     },
     SubHeadingContainer: {
       height: 50,
@@ -87,12 +97,26 @@ export default function PremiumAlert({
     },
     premiumTextContainer: {
       alignItems: "center",
-      marginTop: 10,
+      marginTop: 50,
     },
     premiumText: {
       color: "#000",
-      fontSize: 25,
+      fontSize: 20,
+      fontFamily: font.semibold(),
+    },
+    buttonText: {
+      fontSize: 20,
+      color: COLORS.white,
       fontFamily: font.bold(),
+    },
+    button: {
+      height: 50,
+      marginTop: 10,
+      width: "100%",
+      borderRadius: 10,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: iconTheme().textColorForNew,
     },
   });
   return (
@@ -109,35 +133,46 @@ export default function PremiumAlert({
         style={{ flex: 1, backgroundColor: "rgba(52, 52, 52, 0.4)" }}
         onPress={cancel}
       >
-        <View style={[styles.modal_view, { height: "35%", paddingHorizontal:10 }]}>
+        <View style={[styles.modal_view, { height: 300, paddingHorizontal:16 }]}>
+
+        <TouchableOpacity style={[styles.cancel_button]} onPress={()=> onRequestClose()}>
+          <Image
+            source={require("../../Assets/Icons/Cross.png")}
+            style={{
+              height: 15,
+              width: 15,
+              tintColor: iconTheme().iconColor,
+              //
+            }}
+          />
+        </TouchableOpacity>
           {/* premium-text */}
           <View style={styles.premiumTextContainer}>
-            <Text style={styles.premiumText}>Upgrade To Premium</Text>
+            <Text style={styles.premiumText}>{Heading}</Text>
           </View>
           {/* heading */}
           <View style={styles.headingContainer}>
-            <Text style={styles.heading}>{Heading}</Text>
+            <Text style={styles.heading}>{SubHeading}</Text>
           </View>
 
-          {/* sub-heading */}
-          <View style={styles.SubHeadingContainer}>
-            <Text style={styles.SubHeading}>{SubHeading}</Text>
-          </View>
 
-          {/* button-container */}
-          <View style={styles.buttonContainer}>
-            {/* first-button */}
-            <TouchableOpacity style={styles.firstButtonContainer} onPress={()=>firstButtonClick()}>
-              <Text style={styles.firstButtonText}>{FirstButton}</Text>
-            </TouchableOpacity>
-
-            {/* second-button */}
-            <TouchableOpacity style={styles.secondButtonContainer} onPress={()=>secondButtonClick()}>
-              <Text style={styles.firstButtonText}>{SecondButton}</Text>
-            </TouchableOpacity>
-          </View>
+          <View
+          style={{
+            marginVertical: 30,
+            flexDirection: "column",
+            paddingHorizontal: 30,
+            justifyContent: "space-between",
+          }}
+        >
+          <TouchableOpacity style={styles.button} onPress={()=>secondButtonClick()}>
+            <Text style={styles.buttonText}>{t("Upgrade_to_Premium")}</Text>
+          </TouchableOpacity>
         </View>
+      </View>
+
+       
       </TouchableOpacity>
     </Modal>
   );
 }
+

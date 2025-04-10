@@ -57,6 +57,10 @@ import {
   setyesstart,
 } from "../../Redux/ChatHistory";
 import { HeartLike } from "../../Components/HeartLike";
+import { ChannelTypeModal } from "../Modals/ChannelTypeModal";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { createRoomRequest } from "../agora/agoraHandler";
+import { encryptMessage } from "../../utils/CryptoHelper";
 
 const { width, height } = Dimensions.get("screen");
 
@@ -87,7 +91,10 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
   const [isMainImageLoaded, setIsMainImageLoaded] = useState(false);
   const [stickerLoadStates, setStickerLoadStates] = useState([]);
   const [expanded, setExpanded] = useState(false);
+  const [isChannelTypeModal, setChannelTypeModal] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
 
+  const publicSelected = true;
   const dispatch = useDispatch();
 
   const userPremium = useSelector(
@@ -97,8 +104,6 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
   const bottomsheetFrom = useSelector(
     (state) => state?.friendListSlice.bottomSheetStory
   );
-
-  console.log("content====================================", content);
 
   const bottomSheetRef = React.useRef(null);
   const handlePresentModalPress = () => bottomSheetRef?.current?.present();
@@ -113,7 +118,6 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
       start();
     }
   }, [bottomsheetFrom]);
-
 
   const allStickersLoaded =
     stickerLoadStates.length === content[current]?.sticker_postion?.length &&
@@ -132,11 +136,19 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
       "https://tokeecorp.com/backend/public/images/user-avatar.png",
   });
 
-  const submitReply = () => {
-    const encryptedMessage = CryptoJS.AES.encrypt(
-      replyText,
-      EncryptionKey
-    ).toString();
+  const submitReply = async () => {
+    const response = await createRoomRequest(globalThis.userChatId, [
+      user?.chat_user_id,
+    ]);
+    const roomId = response?.data?.members?.roomId;
+    console.log('story reply roomId====================================',roomId);
+  
+    // const encryptedMessage = CryptoJS.AES.encrypt(
+    //   replyText,
+    //   EncryptionKey
+    // ).toString();
+
+    const encryptedMessage = encryptMessage(roomId, replyText);
     const attach = [];
 
     if (content) {
@@ -170,7 +182,7 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
       roomOwnerId: globalThis.userChatId,
       message: encryptedMessage,
       message_type: "story", //@ts-ignore
-      roomMembers: [user.chat_user_id],
+      roomMembers: [user?.chat_user_id],
       isForwarded: false,
       attachment: attach, //@ts-ignore
       from: globalThis.userChatId,
@@ -180,7 +192,7 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
       parent_message: {},
       createdAt: new Date(),
       isDeletedForAll: false, //@ts-ignore
-      phoneNumber: user.phone_number,
+      phoneNumber: user?.phone_number,
     };
 
     socket.emit("sendmessage", paramsOfSendlive);
@@ -206,19 +218,19 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
   useEffect(() => {
     const unsubscribe2 = navigation.addListener("focus", () => {
       setTimeout(() => {
-        console.log('route?.params?.fromScreen',route?.params?.fromScreen);
-        
-        route?.params?.fromScreen == "BottomSheet" ? AllPostsListApi(userID) :  getStoryApi();
+        console.log("route?.params?.fromScreen", route?.params?.fromScreen);
+
+        route?.params?.fromScreen == "BottomSheet"
+          ? AllPostsListApi(userID)
+          : getStoryApi();
       }, 100);
     });
     return unsubscribe2;
   }, []);
 
-
-
-  ////  
-    const AllPostsListApi = async (chatid: any, ) => {
-      console.log("AllPostsListApi.data",);
+  ////
+  const AllPostsListApi = async (chatid: any) => {
+    console.log("AllPostsListApi.data");
     const headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -235,7 +247,7 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
       headers,
       navigation,
       (ResponseData, ErrorStr) => {
-        apiSuccess(ResponseData, ErrorStr,);
+        apiSuccess(ResponseData, ErrorStr);
       }
     );
   };
@@ -250,12 +262,14 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
   };
 
   useEffect(() => {
-    console.log("globalThis.stealthMode ",globalThis.stealthMode );
-    
-    if (!globalThis.stealthMode || globalThis.stealthMode == "false" ) {
+    console.log("globalThis.stealthMode ", globalThis.stealthModeValue);
+
+    if (
+      !globalThis.stealthModeValue ||
+      globalThis.stealthModeValue == "false"
+    ) {
       ViewStory();
     }
-    
   }, [isId]);
 
   /////////////////////view story///////////////////////////
@@ -309,12 +323,11 @@ export default function FriendStoryViewScreen({ navigation, route }: any) {
   // **********  Method for return the get profilr api Response   ********** ///
   const apiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+      //  Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       // Navigate to another screen or handle the error in some way
     } else {
-console.log("ResponseData.data",ResponseData.data);
-
-
       let tempData = ResponseData.data.map((item: any) => {
         item.sticker_postion = JSON.parse(item.sticker_postion);
         item.image_text = JSON.parse(item.image_text);
@@ -323,10 +336,29 @@ console.log("ResponseData.data",ResponseData.data);
       });
 
       setIsId(ResponseData.data[0].id);
+      console.log("tempData", tempData);
       setContent(tempData);
-      setUser(ResponseData.user);
+      if (ResponseData?.user) {
+        setUser(ResponseData.user);
+      } else if (ResponseData?.data[0]?.user) {
+        console.log("userrrrrr", ResponseData?.data[0]?.user);
+        setUser(ResponseData?.data[0]?.user);
+      }
+      setCurrent(route.params.bottomIndex);
     }
   };
+
+  function AfterChoosingChannelType(value) {
+    setChannelTypeModal(false);
+
+    if (value == "public") {
+      navigation.navigate("NewChannelScreen", { type: "public" });
+    } else {
+      navigation.navigate("NewChannelScreen", { type: "private" });
+    }
+
+    //newGroupPress(value);
+  }
 
   const start = (n: number) => {
     if (content[current]?.file_type == "video") {
@@ -461,7 +493,9 @@ console.log("ResponseData.data",ResponseData.data);
     );
 
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+      //  Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
 
       // Navigate to another screen or handle the error in some way
     } else {
@@ -475,6 +509,7 @@ console.log("ResponseData.data",ResponseData.data);
           sticker_position: stickerPosition,
           display_name: userData.first_name,
           profile_image: ResponseData?.data?.user?.profile_image,
+          userProfile: ResponseData?.data?.user?.profile_image,
         })
       );
       stopAnimation();
@@ -685,6 +720,12 @@ console.log("ResponseData.data",ResponseData.data);
       enabled
       style={{ flex: 1 }}
     >
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
       <View style={styles.containerModal}>
         <StatusBar hidden />
         {content.length > 0 ? (
@@ -752,7 +793,7 @@ console.log("ResponseData.data",ResponseData.data);
                       <View
                         style={{
                           //@ts-ignore
-                          backgroundColor: content[current].background_color,
+                          backgroundColor: content[current]?.background_color,
                           justifyContent: "center",
                           alignItems: "center",
                           paddingHorizontal: 15,
@@ -770,20 +811,20 @@ console.log("ResponseData.data",ResponseData.data);
                         >
                           {
                             //@ts-ignore
-                            content[current].title
+                            content[current]?.title
                           }
                         </Text>
                       </View>
                     </FastImage>
                   ) : (
-                    <ColorMatrix
+                    <View
                       //@ts-ignore
-                      matrix={
-                        //@ts-ignore
-                        content[current].background_color == null
-                          ? filters[0].matrix //@ts-ignore
-                          : filters[content[current].background_color].matrix
-                      }
+                      // matrix={
+                      //   //@ts-ignore
+                      //   content[current]?.background_color == null
+                      //     ? filters[0]?.matrix //@ts-ignore
+                      //     : filters[content[current]?.background_color]?.matrix
+                      // }
                       style={{ flex: 1 }}
                     >
                       {isPreLoading && (
@@ -800,17 +841,17 @@ console.log("ResponseData.data",ResponseData.data);
                         />
                       )}
 
-                      <ImageBackground
-                        source={require("../../Assets/Image/whiteBackground.jpeg")}
+                      <View
+                        //  source={require("../../Assets/Image/whiteBackground.jpeg")}
                         style={styles.background}
                       >
                         <ColorMatrix
                           //@ts-ignore
                           matrix={
                             //@ts-ignore
-                            content[current].background_color == null
-                              ? filters[0].matrix //@ts-ignore
-                              : filters[content[current].background_color]
+                            content[current]?.background_color == null
+                              ? filters[0]?.matrix //@ts-ignore
+                              : filters[content[current]?.background_color]
                                   .matrix
                           }
                           style={{ flex: 1 }}
@@ -823,7 +864,7 @@ console.log("ResponseData.data",ResponseData.data);
                             }}
                             source={{
                               //@ts-ignore
-                              uri: content[current].file,
+                              uri: content[current]?.file,
                             }}
                             resizeMode="contain"
                             onLoadStart={() => setPreLoading(true)}
@@ -836,23 +877,23 @@ console.log("ResponseData.data",ResponseData.data);
                                 {
                                   //@ts-ignore
                                   scale:
-                                    content[current].scale == null
+                                    content[current]?.scale == null
                                       ? 0 //@ts-ignore
                                       : parseFloat(content[current].scale),
                                 },
                                 {
                                   //@ts-ignore
                                   rotate:
-                                    content[current].rotation == null
+                                    content[current]?.rotation == null
                                       ? `${0}deg` //@ts-ignore
-                                      : `${content[current].rotation}deg`,
+                                      : `${content[current]?.rotation}deg`,
                                 },
                               ],
                             }}
                           />
                         </ColorMatrix>
-                      </ImageBackground>
-                    </ColorMatrix>
+                      </View>
+                    </View>
                   )
                 }
 
@@ -1235,6 +1276,15 @@ console.log("ResponseData.data",ResponseData.data);
         ref={bottomSheetRef} //@ts-ignore
         navigation={navigation}
         newChattingPress={newChattingPress}
+        openChannelModal={() => {
+          setChannelTypeModal(true);
+        }}
+      />
+      <ChannelTypeModal
+        visible={isChannelTypeModal}
+        isPublicSelected={publicSelected}
+        onRequestClose={() => setChannelTypeModal(false)}
+        onNextClick={AfterChoosingChannelType}
       />
     </KeyboardAvoidingView>
   );

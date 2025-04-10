@@ -7,6 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
   Keyboard,
+  Alert,
 } from "react-native";
 import React, { forwardRef, useMemo, useState } from "react";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
@@ -19,37 +20,79 @@ import { CheckIsRoomBlocked } from "../sqliteStore";
 import { useFocusEffect } from "@react-navigation/native";
 import { iconTheme } from "./Colors/Colors";
 import FastImage from "react-native-fast-image";
-import { setBottomSheetStory } from "../reducers/friendListSlice";
-import ExpendableScreen from "./SlideButton/ExpendableScreen";
-import { Base_Url, sendfriendrequest } from "../Constant/Api";
+import { t } from "i18next";
+import { font } from "./Fonts/Font";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { Base_Url, get_story_count, sendfriendrequest } from "../Constant/Api";
+import { setmyrequestdata } from "../Redux/ChatHistory";
+import { setBottomSheetStory, setStorylist } from "../reducers/friendListSlice";
+import ExpendableScreen from "./SlideButton/ExpendableScreen";
+import { GetApiCall } from "./ApiServices/GetApi";
+import { StatusType } from "../Screens/Modals/StatusType";
+import PremiumAlert from "./CustomAlert/PremiumAlert";
+import { setChannelSliceData, setProfileData } from "../Redux/MessageSlice";
+import { ChannelTypeModal } from "../Screens/Modals/ChannelTypeModal";
+import renderIf from "./renderIf";
+import { ErrorAlertModel } from "../Screens/Modals/ErrorAlertModel";
 export type Ref = BottomSheetModal;
 
 const CustomBottomSheetModal = forwardRef<Ref>(
-  ({ navigation, newChattingPress, fromScreen}: any, ref) => {
+  ({ navigation, newChattingPress, fromScreen,openChannelModal }: any, ref) => {
     const [isRoomBlocked, setIsRoomBlocked] = React.useState(true);
     const [reportModal, setReportModal] = React.useState(false);
     const [reason, setReason] = React.useState("");
     const [loading, setLoading] = React.useState(false);
     const [coverImageLoad, setCoverImageLoad] = React.useState(false);
+    const [isStatusModal, setStatusModal] = useState(false);
+    const [showPremiumAlert, setShowPremiumAlert] = useState(false);
+    const [premiumheading,setpremiumheading] = useState("")
+    const [premiumsubheading,setpremiumsubheading] = useState("")
+    const [errorAlertModel, setErrorAlertModel] = useState(false);
+    const [showAcceptCancelButton, setShowAcceptCancelButtons] =
+    React.useState(false);
 
     const dispatch = useDispatch();
     const profileData = useSelector(
       (state: any) => state?.message?.profileData
     );
+
     const callState = useSelector(
       (state: any) => state?.VoipReducer?.call_state
     );
-
+    
     const bottomsheetFrom = useSelector(
+       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       (state) => state?.friendListSlice.bottomSheetStory
     );
+    const userPremium = useSelector(
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+
+      (state) => state?.friendListSlice.userPremium
+    );
+
+    const handleClose = () => {
+      if (ref.current) {
+        ref.current.close(); // Safely access the `close` method
+      } else {
+        console.log("BottomSheet ref is null");
+      }
+    };
 
     const snapPoints = useMemo(() => ["100%"], []);
+    const publicSelected = true;
+    const [isFriendalready, setisFriendalready] = useState(false);
+    const [sendrequestloading, setsendrequestloading] = useState(false);
+    const [requestsent, setRequestsent] = useState(false);
+    const myrequestdata = useSelector(
+      (state: any) => state.chatHistory.myrequestdata
+    );
 
-    const [isFriendalready,setisFriendalready] = useState(false)
-    const [sendrequestloading,setsendrequestloading] = useState(false)
-    const [requestsent,setRequestsent] = useState(false)
+    const otherrequestdata = useSelector(
+      (state: any) => state.chatHistory.otherrequestdata
+    );
+
+  
 
     React.useEffect(() => {
       if (callState.state != "outgoing") {
@@ -60,32 +103,60 @@ const CustomBottomSheetModal = forwardRef<Ref>(
     // React.useEffect(() => {
 
     // }, []);
-console.log(fromScreen);
 
-
-    const checkIsFriendAlready = async() => {
+    const checkIsFriendAlready = async () => {
       const allFriendsfromstorage = await AsyncStorage.getItem(
         "tokeeContactListTemp"
       );
 
-      if(allFriendsfromstorage){
+      if (allFriendsfromstorage) {
         const allFriendsfromstorageparsedata = JSON.parse(
           //@ts-ignore
           allFriendsfromstorage
         );
 
-        if(allFriendsfromstorageparsedata && allFriendsfromstorageparsedata?.length){
-          const exists = allFriendsfromstorageparsedata?.some(item => item.chat_user_id === profileData?.chat_user_id);
+        if (
+          allFriendsfromstorageparsedata &&
+          allFriendsfromstorageparsedata?.length
+        ) {
+          const exists = allFriendsfromstorageparsedata?.some(
+            (item) => item.chat_user_id === profileData?.chat_user_id
+          );
           setisFriendalready(exists);
-          console.log("allFriendsfromstorage",exists)
+          const existsinpending = myrequestdata?.some(
+            (item) => item?.to_user?.id == profileData?.id
+          );
+          if (existsinpending) {
+            setRequestsent(true);
+          }
+        }
+
+        const existsInOtherRequests = otherrequestdata?.some(
+          (item) => item?.from_user?.id === profileData?.id
+        );
+        if (existsInOtherRequests) {
+          setShowAcceptCancelButtons(true);
+        } else {
+          setShowAcceptCancelButtons(false);
+        }
+      }else{
+        const existsInOtherRequests = otherrequestdata?.some(
+          (item) => item?.from_user?.id === profileData?.id
+        );
+        if (existsInOtherRequests) {
+          setShowAcceptCancelButtons(true);
+        } else {
+          setShowAcceptCancelButtons(false);
         }
       }
     };
 
 
-    const SendFriendRequest = async() => {
-      setsendrequestloading(true)
-      console.log("profileData?.id",profileData?.id)
+  
+
+
+    const SendFriendRequest = async () => {
+      setsendrequestloading(true);
       // return
       const url = Base_Url + sendfriendrequest;
       try {
@@ -103,65 +174,200 @@ console.log(fromScreen);
           },
         })
           .then((response) => {
-            console.log("response",response)
+            console.log("responsesfdsfdsfdsfsdf", response);
             if (response.data.status == true) {
-              setsendrequestloading(false)
-              setRequestsent(true)
+              setsendrequestloading(false);
+              setRequestsent(true);
+              const newobject = {
+                to_user: {
+                  id: profileData?.id,
+                },
+              };
+              const newdataaa = [...myrequestdata, newobject];
+              console.log("newdataaa", newdataaa);
+              dispatch(setmyrequestdata(newdataaa));
             } else {
-              setsendrequestloading(false)
+              setsendrequestloading(false);
             }
           })
           .catch((error) => {
-            console.log("error",error)
-            setsendrequestloading(false)
+            console.log("error", error);
+            setsendrequestloading(false);
           });
       } catch (error) {
-        console.log("error",error)
-        setsendrequestloading(false)
+        console.log("error", error);
+        setsendrequestloading(false);
       }
-    }
+    };
 
     useFocusEffect(
       React.useCallback(() => {
-        checkIsFriendAlready()
-        const userid = profileData?.chat_user_id;
-        if (userid) {
-          CheckIsRoomBlocked(userid, (isBlocked: any) => {
-            setIsRoomBlocked(isBlocked);
-          });
+        
+        if (profileData) {
+          checkIsFriendAlready();
+          const userid = profileData?.chat_user_id;
+          if (userid) {
+            CheckIsRoomBlocked(userid, (isBlocked: any) => {
+              setIsRoomBlocked(isBlocked);
+            });
+          }
         }
       }, [profileData])
     );
 
     const messagePress = () => {
-      console.log("hjdhjdsh");
-      ref.current.close();
+      console.log("hjdhjdsh",profileData?.premium);
+       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+       handleClose();
+      dispatch(setStorylist([]));
+      dispatch(setProfileData({}));
+      dispatch(setChannelSliceData([]));
       newChattingPress({
         profileImage: profileData?.profile_image,
         contactName: profileData?.display_name,
         chatId: profileData?.chat_user_id, // Modify according to your data structure
         FriendNumber: profileData?.phone_number || "", // Modify according to your data structure
+        isUserPremium:profileData?.premium,
+        isDiamonds:profileData?.is_diamonds || 0
+      });
+    };
+
+    /////////////////////////////////////////////////////////////////
+
+    // eslint-disable-next-line
+
+    const postsViewScreen = (index) => {
+      console.log("story index",index)
+       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+       handleClose();
+      dispatch(setStorylist([]));
+      dispatch(setProfileData({}));
+      dispatch(setChannelSliceData([]));
+      navigation.navigate("FriendStoryViewScreen", {
+        userId: profileData?.chat_user_id,
+
+        userImage: profileData?.profile_image,
+
+        userName: profileData?.display_name || profileData?.first_name,
+
+        fromScreen: "BottomSheet",
+        bottomIndex:index
       });
     };
 
 
+    const onChannelClick = (item)=>{
+        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+       handleClose();
+      dispatch(setStorylist([]));
+      dispatch(setProfileData({}));
+      dispatch(setChannelSliceData([]));
+      navigation.navigate("ChannelChatting", { channelId: item._id||item.channelId,deepLinking: true })
+    }
+    const myAllPostsViewScreen = (index) => {
+      console.log("index:",index)
+       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+       handleClose();
+      dispatch(setStorylist([]));
+      dispatch(setProfileData({}));
+      dispatch(setChannelSliceData([]));
+      navigation.navigate("MyStatusViewScreen", {
+        index: index,
+        fromScreen: fromScreen,
+        userId: profileData?.chat_user_id,
+      });
+    };
 
-      // eslint-disable-next-line
-   const postsViewScreen = () => {
-    ref?.current?.close();
-    navigation.navigate("FriendStoryViewScreen", {
-      userId: profileData?.chat_user_id,
-      userImage: profileData?.profile_image,
-      userName:  profileData?.display_name ||  profileData?.first_name,
-      fromScreen:"BottomSheet",
-    });
-  };
-   const myAllPostsViewScreen = () => {
-    ref?.current?.close();
-    navigation.navigate("MyStatusViewScreen", { index: 0 ,fromScreen :fromScreen, userId: profileData?.chat_user_id,});
-  };
+    // const navigationToAddStory = () => {
 
-    /////////////////////////////////////////////////////////////////
+    //    handleClose();
+
+    //   navigation.navigate("MyStatusScreen");
+
+    // };
+
+
+  
+
+    const headers = {
+      Accept: "application/json",
+
+      "Content-Type": "application/x-www-form-urlencoded",
+
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+
+      "Content-Type": "multipart/form-data",
+
+      Authorization: "Bearer " + globalThis.Authtoken,
+
+      localization: globalThis.selectLanguage,
+    };
+
+    function navigationToAddStory() {
+      GetApiCall(
+        get_story_count,
+
+        headers,
+
+        navigation,
+
+        (ResponseData, ErrorStr) => {
+          countApiSuccess(ResponseData, ErrorStr);
+        }
+      );
+    }
+
+    // eslint-disable-next-line
+
+    const countApiSuccess = (ResponseData: any, ErrorStr: any) => {
+      if (ErrorStr) {
+        // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+        globalThis.errorMessage = ErrorStr;
+        setErrorAlertModel(true)
+        // setloaderMoedl(false);
+      } else {
+        if (userPremium) {
+          setStatusModal(true);
+        } else {
+          if (
+            ResponseData?.data?.total_stories == 30 ||
+            ResponseData?.data?.total_stories > 30
+          ) {
+            setpremiumheading(t("You_can_add_a_maximum_o_stories"))
+            setpremiumsubheading(t("Upgrade_to_Premium_for_unlimited_stories"))
+            setShowPremiumAlert(true);
+
+            // Alert.alert("Oops!", "You have exceed your stories limit.");
+          } else {
+            setStatusModal(true);
+          }
+        }
+      }
+    };
+
+    // eslint-disable-next-line
+
+    function StatusTypeSelected(value: any) {
+      setStatusModal(false);
+
+      if (value == "text") {
+         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+         handleClose();
+        dispatch(setStorylist([]));
+        dispatch(setProfileData({}));
+        dispatch(setChannelSliceData([]));
+        navigation.navigate("AddTextStatusScreen");
+      } else {
+         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+         handleClose();
+        dispatch(setStorylist([]));
+        dispatch(setProfileData({}));
+        dispatch(setChannelSliceData([]));
+        navigation.navigate("AddCameraStoryScreen");
+      }
+    }
+
+    
 
     return (
       <BottomSheetModal
@@ -176,6 +382,42 @@ console.log(fromScreen);
         }}
       >
         <StatusBar translucent backgroundColor="transparent" />
+
+        <StatusType
+          visible={isStatusModal}
+          onRequestClose={() => setStatusModal(false)}
+          onNextClick={StatusTypeSelected}
+        />
+         <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+
+        
+     
+
+
+        <PremiumAlert
+          visible={showPremiumAlert}
+          onRequestClose={() => setShowPremiumAlert(false)}
+          cancel={() => setShowPremiumAlert(false)}
+          Heading={premiumheading}
+          SubHeading={premiumsubheading}
+          FirstButton={"Ok"}
+          SecondButton={"Go To Premium"}
+          firstButtonClick={() => setShowPremiumAlert(false)}
+          secondButtonClick={() => {setShowPremiumAlert(false); setisFriendalready(false);
+            setsendrequestloading(false);
+            setRequestsent(false);
+             // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+             handleClose();
+            dispatch(setStorylist([]));
+            dispatch(setProfileData({}));
+            dispatch(setChannelSliceData([]));
+            navigation.navigate("PremiumFeaturesScreen")}}
+        />
         <FastImage
           style={{ flex: 1 }}
           source={{ uri: profileData?.cover_image }}
@@ -304,14 +546,21 @@ console.log(fromScreen);
                 bottomsheetFrom == "open from story"
                   ? dispatch(setBottomSheetStory("close for story"))
                   : null;
-                ref.current.close();
+                setisFriendalready(false);
+                setsendrequestloading(false);
+                setRequestsent(false);
+                 // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                 handleClose();
+                dispatch(setStorylist([]));
+                dispatch(setProfileData({}));
+                dispatch(setChannelSliceData([]));
               }}
               style={{
                 justifyContent: "center",
                 alignItems: "center",
                 height: 35,
                 width: 35,
-                backgroundColor: "rgba(0,0,0,0.8)",
+                backgroundColor: "rgba(20, 20, 20, 0.8)",
                 borderRadius: 5,
               }}
             >
@@ -339,6 +588,14 @@ console.log(fromScreen);
                   contact_id: profileData?.id,
                 })
               }
+             // channelCreateClick={onChannelClickBack}
+              channelCreateClick={()=>{
+                handleClose();
+                openChannelModal()
+               
+              }
+                
+              }
               videoCallPress={() =>
                 onCallPress({
                   call_type: "video",
@@ -353,9 +610,22 @@ console.log(fromScreen);
                 })
               }
               isRoomBlocked={isRoomBlocked}
-              postsViewScreen={fromScreen != "settingScreen" ?postsViewScreen  : myAllPostsViewScreen}
+              isFriendalready={isFriendalready}
+              sendrequestloading={sendrequestloading}
+              requestsent={requestsent}
+              SendFriendRequest={SendFriendRequest}
+              postsViewScreen={
+                fromScreen != "settingScreen"
+                  ? postsViewScreen
+                  : myAllPostsViewScreen
+              }
               fromScreen={fromScreen}
-
+              navigationToAddStory={navigationToAddStory}
+              setShowPremiumAlert={setShowPremiumAlert}
+              setpremiumheading={setpremiumheading}
+              setpremiumsubheading={setpremiumsubheading}
+              channelClick={onChannelClick}
+              showRequestBothButton={showAcceptCancelButton}
             />
           </View>
           {profileData?.sticker_position &&

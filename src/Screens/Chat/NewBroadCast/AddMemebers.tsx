@@ -49,7 +49,12 @@ import {
 } from "../../../sqliteStore";
 import { ContactLoaderModel } from "../../Modals/ContactLoaderModel";
 import ToShowContactName from "../../calling/components/ContactShow";
-import { updateAppState, updatedmembersall } from "../../../reducers/getAppStateReducers";
+import {
+  updateAppState,
+  updatedmembersall,
+} from "../../../reducers/getAppStateReducers";
+import { ErrorAlertModel } from "../../Modals/ErrorAlertModel";
+import { encryptMessage } from "../../../utils/CryptoHelper";
 
 const isDarkMode = true;
 const data = [
@@ -68,6 +73,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
   const [loading, setLoading] = useState(false);
   const { t, i18n } = useTranslation();
   const [conatctLoaderModel, setContactLoaderModel] = useState(true);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
 
   const [allContactsInTokee, setallContactsInTokes] = useState([]);
 
@@ -82,6 +88,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
     navigation.pop();
   };
   const sendMemberNotify = (membersArray: any, type: any) => {
+    console.log("dddddddddddddddddddddddddddddddd", membersArray);
     const mId = Math.floor(Math.random() * 9000) + 1000;
     let finalString = "";
     if (membersArray.length <= 0) {
@@ -96,7 +103,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
         addMemberString += membersArray[0].name + ", ";
         membersArray
           .slice(1)
-          .forEach((member:any) => (addMemberString += member.name + ", "));
+          .forEach((member: any) => (addMemberString += member.name + ", "));
         addMemberString = addMemberString.slice(0, -2);
       }
 
@@ -104,12 +111,16 @@ export default function AddMembersScreen({ navigation, route }: any) {
     } else if (type == "remove") {
       let removeMemberString = `Admin Removed `;
       if (membersArray.length == 1) {
-        removeMemberString += membersArray[0].userName;
+        removeMemberString += membersArray[0].userName || membersArray[0].name;
       } else {
-        removeMemberString += membersArray[0].userName + ", ";
+        removeMemberString +=
+          membersArray[0].userName || membersArray[0].name + ", ";
         membersArray
           .slice(1)
-          .forEach((member:any) => (removeMemberString += member.userName + ", "));
+          .forEach(
+            (member: any) =>
+              (removeMemberString += member.userName || member.name + ", ")
+          );
         removeMemberString = removeMemberString.slice(0, -2);
       }
       finalString = removeMemberString;
@@ -124,7 +135,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
       roomImage: route.params?.groupImage,
       roomType: route.params?.grouptyp, //@ts-ignore
       roomOwnerId: globalThis.userChatId,
-      message: CryptoJS.AES.encrypt(finalString, EncryptionKey).toString(),
+      message: encryptMessage(route.params?.roomId,  finalString),//CryptoJS.AES.encrypt(finalString, EncryptionKey).toString(),
       message_type:
         route.params?.grouptyp == "broadcast" ? "broadcast_notify" : "notify",
       roomMembers: [],
@@ -137,53 +148,55 @@ export default function AddMembersScreen({ navigation, route }: any) {
       createdAt: new Date(),
       isDeletedForAll: false,
       mId: mId,
-      phoneNumber: Number(
-        globalThis.phone_number.substr(-10)
-      ),
+      phoneNumber: Number(globalThis.phone_number.substr(-10)),
       currentUserPhoneNumber: globalThis.phone_number,
       shouldDisappear: 0,
-      disappearTime:  0,
+      disappearTime: 0,
     };
 
     socket.emit("sendmessage", paramsOfSendlive);
   };
-
 
   var count = 1;
 
   const UpdateGroupApiCalling = async (grpMembers: any) => {
     let chatIds = grpMembers.map((data: any) => data.id); //@ts-ignore
     chatIds.push(globalThis.userChatId);
+    console.log("globalThis.userChatId >>>>>", globalThis.userChatId);
+    chatIds = chatIds.filter(function (item, pos) {
+      return chatIds.indexOf(item) == pos;
+    });
+    console.log("chat ids >>>>>", chatIds);
+
     setLoading(true);
     const members = grpMembers.map((m: any) => {
       return {
         chat_user_id: m.id,
-        contact_name: m.userName,
+        contact_name: m.contact_name,
         profile_image: m.profile_image,
         phone_number: m.contact,
-        name: m.userName,
+        name: m.userName || m.contact_name,
+        isAdmin: m.id == globalThis.userChatId ? true : m.isAdmin, //@ts-ignore
+        userName: m.userName || m.contact_name,
       };
     });
-
-    members.push({
-      //@ts-ignore
-      chat_user_id: globalThis.userChatId, //@ts-ignore
-      contact_name: globalThis.displayName, //@ts-ignore
-      profile_image: globalThis.image, //@ts-ignore
-      phone_number: globalThis.phone_number,
-      isAdmin: true, //@ts-ignore
-      name: globalThis.displayName,
-    });
-
+    console.log("route.params.groupMembers", route.params.groupMembers);
     let removedMembers = route.params.groupMembers.filter(
       (obj2: any) =>
         !members.some((obj1: any) => obj1["chat_user_id"] == obj2["userId"])
     );
-    removedMembers = removedMembers.filter( //@ts-ignore
+    removedMembers = removedMembers.filter(
+      //@ts-ignore
       (m) => m.userId != globalThis.chatUserId
     );
     sendMemberNotify(removedMembers, "remove");
     const urlStr = chatBaseUrl + groupUpdateApi;
+
+    console.log("sendddddtoooo", {
+      userId: globalThis.userChatId,
+      roomId: route.params.roomId,
+      members: [...chatIds],
+    });
     try {
       await axios({
         method: "post",
@@ -204,33 +217,54 @@ export default function AddMembersScreen({ navigation, route }: any) {
             // removeAllMembersFromRoomMembersSql(route.params.roomId, () => {
             //   addMembersToRoomMembersSql(members, route.params.roomId);
             // });
+            console.log("membersupdated", membersupdated);
 
             addMembersToRoomMembersSqlnew(members, route.params.roomId, () => {
               count = count + 1;
               dispatch(updateAppState({ updatemediauseeeffect: count + 1 }));
-             
-              dispatch(updatedmembersall(membersupdated))
-      
+              const myObj = {
+                chat_user_id: globalThis.userChatId,
+                contact_name: globalThis.displayName,
+                isAdmin: 1,
+                name: globalThis.displayName,
+                phone_number: globalThis.phone_number,
+                profile_image: globalThis.image,
+                userName: globalThis.displayName,
+              };
+              dispatch(updatedmembersall(membersupdated));
             });
 
-            let membersIds = route.params.groupMembers.map((m:any) => m.userId); //@ts-ignore
+            let membersIds = route.params.groupMembers.map(
+              (m: any) => m.userId
+            ); //@ts-ignore
             membersIds.push(globalThis.userChatId);
 
             let newMembers = members.filter(
-              (m:any) => !membersIds.includes(m.userId)
+              (m: any) => !membersIds.includes(m.userId)
             );
 
-            const temp = newMembers.map((m:any) => m.chat_user_id);
+            const temp = newMembers.map((m: any) => m.chat_user_id);
             membersIds = [...membersIds, ...temp];
+            console.log("members:::", members);
+            const myObj = {
+              chat_user_id: globalThis.chatUserId,
+              contact_name: globalThis.userName,
+              isAdmin: 1,
+              name: globalThis.userName,
+              phone_number: globalThis.phone_number,
+              profile_image:globalThis.image,
+              userName: globalThis.userName,
+            };
+            const arr = [...members,myObj]
             socket.emit("updateGroupDetails", {
               new_group_name: route.params.groupName,
               new_group_description: route.params.groupdescription,
               new_group_allow: route.params.groupAllow,
               new_group_image: route.params.groupImage,
-              remaningMembers: members,
+              remaningMembers: arr,
               membersList: membersIds,
               roomId: route.params.roomId, //@ts-ignore
-              owner: globalThis.chatUserId,
+              owner: route.params.owner,
             });
             let newAddedMembers = members.filter(
               (obj1: any) =>
@@ -239,7 +273,8 @@ export default function AddMembersScreen({ navigation, route }: any) {
                 )
             );
 
-            newAddedMembers = newAddedMembers.filter( //@ts-ignore
+            newAddedMembers = newAddedMembers.filter(
+              //@ts-ignore
               (m) => m["chat_user_id"] != globalThis.userChatId
             );
             sendMemberNotify(newAddedMembers, "add");
@@ -277,7 +312,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
   const callState = useSelector(
     (state: any) => state?.VoipReducer?.call_state || {}
   );
- //@ts-ignore
+  //@ts-ignore
   const getContactAllList = async (selected_products) => {
     // setIsLoading(true);
 
@@ -300,8 +335,8 @@ export default function AddMembersScreen({ navigation, route }: any) {
 
     // Update the state with retrieved values
     if (storedTokeeContactListTemp || storedContactListTemp !== null) {
-      const chatIds = selected_products.map((m:any) => m.id);
-      const temp = storedTokeeContactListTemp.map((m:any) => {
+      const chatIds = selected_products.map((m: any) => m.id);
+      const temp = storedTokeeContactListTemp.map((m: any) => {
         if (chatIds.includes(m.chat_user_id)) {
           return { ...m, isChecked: true };
         } else {
@@ -328,20 +363,23 @@ export default function AddMembersScreen({ navigation, route }: any) {
   useEffect(() => {
     let selected_products = route.params.groupMembers.map((member: any) => {
       return {
-        contact_name: member.userName,
+        contact_name: member.userName || member.name,
         profile_image: member.image,
         id: member.userId,
         contact: String(member.phone_number).substr(-10),
         isChecked: true,
-        isAdmin: member.isAdmin,
+        isAdmin: member.userId == member.owner ? true : member.isAdmin,
+        owner: member.owner,
         name: member.name,
-        userName: member.userName,
+        userName: member.userName || member.name,
       };
     });
+
     setSelected(selected_products);
     getContactUploadStatus(selected_products);
   }, []);
- //@ts-ignore
+  // console.log("selected_products",route.params.groupMembers)
+  //@ts-ignore
   const getContactUploadStatus = async (selected_products) => {
     setTokeeContacts([]);
     setContactLoaderModel(true);
@@ -359,10 +397,9 @@ export default function AddMembersScreen({ navigation, route }: any) {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
         {
-          title: "Contacts",
-          message: "This app would like to view your contacts.",
-          buttonNegative: "Cancel",
-          buttonPositive: "OK",
+          title: t("tokee_would_like_to_access_your_contact"),
+          message: t("this_permission_is_requried_for_app_to_funcation_well "),
+          buttonPositive: "Ok",
         }
       );
       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
@@ -445,7 +482,6 @@ export default function AddMembersScreen({ navigation, route }: any) {
                     country_code: "",
                     phone_number: result,
                     contact_name: ToShowContactName(item),
-
                   };
 
                   contactArr.push(contactDict);
@@ -492,8 +528,10 @@ export default function AddMembersScreen({ navigation, route }: any) {
   // **********  Method for return the api Response   ********** ///
   const apiSuccess = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
       setContactLoaderModel(false);
+      setErrorAlertModel(true);
     } else {
       await AsyncStorage.setItem("isContactUploaded", "true");
       //@ts-ignore
@@ -557,13 +595,16 @@ export default function AddMembersScreen({ navigation, route }: any) {
       profile_image: selected_product[0].profile_image, //@ts-ignore
       name: selected_product[0].name, //@ts-ignore
       userName: selected_product[0].name,
+      isAdmin: false,
     };
 
-    let temp = contactsInTokee.filter( //@ts-ignore
+    let temp = contactsInTokee.filter(
+      //@ts-ignore
       (product: any) => phone_number !== product.phone_number
     ); //@ts-ignore
     const idx = contactsInTokee.findIndex((m) => m.chat_user_id == userId);
-    if (idx) { //@ts-ignore
+    if (idx) {
+      //@ts-ignore
       contactsInTokee[idx].isChecked = true;
     } //@ts-ignore
     const isAlreadyAvail = selected.find((m) => m.id == userId);
@@ -593,9 +634,10 @@ export default function AddMembersScreen({ navigation, route }: any) {
     };
 
     let temp = selected.filter((product: any) => userId !== product.id);
- //@ts-ignore
+    //@ts-ignore
     const idx = contactsInTokee.findIndex((s) => s.chat_user_id == userId);
-    if (idx >= 0) { //@ts-ignore
+    if (idx >= 0) {
+      //@ts-ignore
       contactsInTokee[idx].isChecked = false;
     }
     setSelected(temp);
@@ -730,11 +772,11 @@ export default function AddMembersScreen({ navigation, route }: any) {
       marginBottom: 5,
     },
     profile1Container: {
-      marginTop: 10,
+      paddingVertical: Platform.OS == "ios" ? 10 : 5,
       flexDirection: "row",
-      height: 60,
-      borderBottomWidth: 0.5,
-      borderBottomColor: "#F6EBF3",
+      // height: 60,
+      borderBottomWidth: 1,
+      borderBottomColor: "#EAEAEA",
     },
     profile1Container2: {
       marginTop: 10,
@@ -817,7 +859,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
 
       setTokeeContacts(filter);
     } else {
-     // getContactAllList();
+      // getContactAllList();
     }
   };
 
@@ -840,6 +882,12 @@ export default function AddMembersScreen({ navigation, route }: any) {
         }}
       >
         <ContactLoaderModel visible={conatctLoaderModel} />
+        <ErrorAlertModel
+          visible={errorAlertModel}
+          onRequestClose={() => setErrorAlertModel(false)}
+          errorText={globalThis.errorMessage}
+          cancelButton={() => setErrorAlertModel(false)}
+        />
         <View>
           {Platform.OS == "android" ? (
             <CustomStatusBar
@@ -856,13 +904,13 @@ export default function AddMembersScreen({ navigation, route }: any) {
         <View style={styles.chatTopContainer}>
           <View style={styles.groupContainer}>
             <TouchableOpacity onPress={() => buttonPress()} activeOpacity={0.7}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t("cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => buttonPress2()}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelText}>Save</Text>
+              <Text style={styles.cancelText}>{t("save")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -875,6 +923,9 @@ export default function AddMembersScreen({ navigation, route }: any) {
           globalThis.selectTheme === "newYear" || //@ts-ignore
           globalThis.selectTheme === "newYearTheme" || //@ts-ignore
           globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -887,6 +938,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top: chatTop().top,
               }}
             ></ImageBackground>
           ) : null
@@ -898,7 +950,7 @@ export default function AddMembersScreen({ navigation, route }: any) {
           search={searchableData}
           value={searchValue}
           clickCross={clearInput}
-          placeHolder= {t("search")}  
+          placeHolder={t("search")}
         />
 
         <View style={{ marginBottom: 10, height: 80 }}>
@@ -907,53 +959,53 @@ export default function AddMembersScreen({ navigation, route }: any) {
           <FlatList
             horizontal
             data={selected}
-            renderItem={({ item, index }: any) => (
-              <TouchableOpacity
-                style={[styles.profile1Container2]}
-                //@ts-ignore
-                onPress={() => handleChange2(item.id)}
-              >
-                <View style={{ paddingHorizontal: 10, width: 80 }} key={index}>
+            renderItem={({ item, index }: any) => {
+              if (item.id != globalThis.userChatId && item.id != item.owner) {
+                return (
+                  // Add return here
                   <TouchableOpacity
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      zIndex: 10,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      height: 20,
-                      width: 20,
-                      borderRadius: 50,
-                      backgroundColor: COLORS.light_pink,
-                    }}
+                    style={[styles.profile1Container2]}
                     onPress={() => handleChange2(item.id)}
                   >
-                    <Image
-                      source={require("../../../Assets/Icons/Cross.png")}
-                      style={styles.newChatIcon}
-                    />
+                    <View
+                      style={{ paddingHorizontal: 10, width: 80 }}
+                      key={index}
+                    >
+                      <TouchableOpacity
+                        style={{
+                          position: "absolute",
+                          right: 10,
+                          zIndex: 10,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          height: 20,
+                          width: 20,
+                          borderRadius: 50,
+                          backgroundColor: COLORS.light_pink,
+                        }}
+                        onPress={() => handleChange2(item.id)}
+                      >
+                        <Image
+                          source={require("../../../Assets/Icons/Cross.png")}
+                          style={styles.newChatIcon}
+                        />
+                      </TouchableOpacity>
+                      <Image
+                        source={
+                          item.profile_image
+                            ? { uri: item.profile_image }
+                            : require("../../../Assets/Image/girl_profile.png")
+                        }
+                        style={styles.circleImageLayout}
+                        resizeMode="cover"
+                      />
+                      <Text numberOfLines={1}>{item.contact_name}</Text>
+                    </View>
                   </TouchableOpacity>
-                  <Image
-                    source={
-                      //@ts-ignore
-                      item.profile_image
-                        ? //@ts-ignore
-                          { uri: item.profile_image }
-                        : require("../../../Assets/Image/girl_profile.png")
-                    }
-                    style={styles.circleImageLayout}
-                    resizeMode="cover"
-                  />
-
-                  <Text numberOfLines={1}>
-                    {
-                      //@ts-ignore
-                      item.contact_name
-                    }
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                );
+              }
+              return null; // Return null for items that don't match the condition
+            }}
           />
         </View>
 
@@ -986,7 +1038,9 @@ export default function AddMembersScreen({ navigation, route }: any) {
                   {/* // **********   View for Name and Cintect number Show    ********** /// */}
                   <View style={styles.nameInviteContainer}>
                     <Text style={styles.name1conText}>{item.contact_name}</Text>
-                    <Text style={styles.name2conText}>+{item.phone_number}</Text>
+                    <Text style={styles.name2conText}>
+                      +{item.phone_number}
+                    </Text>
                   </View>
 
                   {/* // **********   View for RedioButton    ********** /// */}

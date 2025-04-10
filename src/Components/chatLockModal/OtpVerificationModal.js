@@ -1,8 +1,9 @@
 // PinModal.js
 
-import React, { useState } from "react";
+import React from "react";
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import PinInput from "./GeneratePin";
+import { t } from "i18next";
 
 const OtpVerificationModal = ({
   isVisible,
@@ -24,16 +25,16 @@ const OtpVerificationModal = ({
         activeOpacity={1}
       >
         <TouchableOpacity style={styles.modalContent} activeOpacity={1}>
-          <Text style={styles.title}>Please Enter OTP</Text>
+          <Text style={styles.title}>{t("please_enter_OTP.")}</Text>
           <PinInput pinLength={pinLength} onPinEntered={onPinEntered} />
           <View
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
             <TouchableOpacity onPress={() => onClose()}>
-              <Text style={styles.closeButton}>Close</Text>
+              <Text style={styles.closeButton}>{t("Close")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => VerifyOtp()}>
-              <Text style={styles.closeButton}>Verify</Text>
+              <Text style={styles.closeButton}>{t("Verify")}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

@@ -17,6 +17,8 @@ export default function AfterLogin({ navigation }: any) {
   // **********   Method for Navigation for Further screen  ********** ///
   const Navigation = async () => {
     const seenIntroScreen = await AsyncStorage.getItem("seenIntroScreen");
+    console.log('seenIntroScreen=======',seenIntroScreen);
+    
 
     setTimeout(() => {
       {
@@ -29,7 +31,7 @@ export default function AfterLogin({ navigation }: any) {
                 },
               ],
             })
-          : navigation.push("HomeIntroScreen");
+          : navigation.push("BottomBar");
       }
     }, 3000);
   };

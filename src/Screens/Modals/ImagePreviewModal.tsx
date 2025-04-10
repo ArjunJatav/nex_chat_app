@@ -1,9 +1,10 @@
 import React from "react";
-import {  Image } from "react-native";
+import {  Image, Platform } from "react-native";
 import { Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import DeviceInfo from "react-native-device-info";
 import Video from "react-native-video";
 import AudioMessage from "../Chat/AudioMessage";
+import { COLORS, themeModule } from "../../Components/Colors/Colors";
 
 // eslint-disable-next-line
 export const ImagePreviewModel = (props: any) => {
@@ -46,17 +47,40 @@ export const ImagePreviewModel = (props: any) => {
 
       <View style={styles.FullView}>
         <View style={styles.backContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => props.onRequestClose()}
+        <TouchableOpacity
+            style={{
+              left: 10,
+              position: "absolute",
+              borderRadius: 5,
+              zIndex: 900000,
+              top: Platform.OS === "ios" ? 60 : 20,
+              backgroundColor:
+              themeModule().premiumBackIcon,
+                  width: 25,
+                  height: 25,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+            }}
+            onPress={() => {
+              props.onRequestClose()
+            }}
           >
             <Image
-              source={require("../../Assets/Icons/Back_Arrow.png")}
-              style={{ height: 20, width: 20, tintColor: "#fff" }}
+              source={require("../../Assets/Icons/back2.png")}
+              style={{
+                width: "100%", height: 13, resizeMode: "contain",
+                tintColor:
+                  globalThis.selectTheme == "third"
+                    ? COLORS.dark_pink
+                    : COLORS.white,
+              }}
               resizeMode="contain"
             />
           </TouchableOpacity>
         </View>
+
+        
 
         <View style={{ justifyContent: "center", alignItems: "center" }}>
           {props?.file?.type == "image" ? (

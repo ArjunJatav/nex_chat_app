@@ -4,15 +4,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { showToast } from "../CustomToast/Action";
 import { t } from "i18next";
 
+let isSessionExpired = false;
+
 export const GetApiCall = async (
-  apiUrl: String,
-  headerData: any,
-  navigation: any,
-  successCallback: (ResponseData: any, ErrorStr: any) => void
+  apiUrl: string,
+  headerData,
+  navigation,
+  successCallback: (ResponseData, ErrorStr) => void
 ) => {
   const urlStr = Base_Url + apiUrl;
   try {
-   await axios({
+    await axios({
       method: "Get",
       url: urlStr,
       headers: headerData,
@@ -24,25 +26,33 @@ export const GetApiCall = async (
           successCallback(null, response.data.message);
         }
       })
-      .catch(async (error: any) => {
+      .catch(async (error) => {
+        console.log("api error>>>>>", error.response.data.message);
         if (error.response.status == 401) {
-          await AsyncStorage.removeItem("authToken");
-          await AsyncStorage.removeItem("userImage");
-          await AsyncStorage.removeItem("userName");
-          await AsyncStorage.removeItem("chatUserID");
-          await AsyncStorage.removeItem("isContactUploaded");
-          await AsyncStorage.removeItem("lockChatPinCode");
-          await AsyncStorage.removeItem("chatlockusernumber");
-          await AsyncStorage.removeItem("isAllContactUploaded");
-          await AsyncStorage.removeItem("tokeeContactListTemp");
+          if (!isSessionExpired) {
+            isSessionExpired = true; // Prevent multiple calls
+            await AsyncStorage.removeItem("authToken");
+            await AsyncStorage.removeItem("userImage");
+            await AsyncStorage.removeItem("userName");
+            await AsyncStorage.removeItem("chatUserID");
+            await AsyncStorage.removeItem("isContactUploaded");
+            await AsyncStorage.removeItem("lockChatPinCode");
+            await AsyncStorage.removeItem("chatlockusernumber");
+            await AsyncStorage.removeItem("isAllContactUploaded");
+            await AsyncStorage.removeItem("tokeeContactListTemp");
 
-          showToast(t("sessionExpired"));
-          navigation.push("Login");
+            showToast(t("sessionExpired"));
+            navigation.push("Login");
+
+            setTimeout(() => {
+              isSessionExpired = false; // Reset after some time
+            }, 5000);
+          }
         } else {
           successCallback(null, t("serverError"));
         }
       });
-  } catch (error: any) {
+  } catch (error) {
     successCallback(null, error.message);
   }
 };

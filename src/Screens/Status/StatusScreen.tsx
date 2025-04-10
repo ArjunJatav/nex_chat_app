@@ -28,8 +28,12 @@ import { font } from "../../Components/Fonts/Font";
 import MainComponent from "../../Components/MainComponent/MainComponent";
 import TopBar from "../../Components/TopBar/TopBar";
 import { get_active_story, get_user_story } from "../../Constant/Api";
-import { statusTop } from "../../Navigation/Icons";
+import { chatTop, statusTop } from "../../Navigation/Icons";
 import { LoaderModel } from "../Modals/LoaderModel";
+import { ConfirmAlertModel } from "../Modals/ConfirmAlertModel";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
 
 const isDarkMode = true;
 
@@ -41,6 +45,12 @@ export default function StatusScreen({ navigation }: any) {
   const [getActiveStory, setActiveStory] = useState([]);
   const [loaderModel, setloaderModel] = useState(false);
   const { t } = useTranslation();
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+
+
+
+
 
   useEffect(() => {
     setloaderModel(true);
@@ -48,10 +58,11 @@ export default function StatusScreen({ navigation }: any) {
       // ********** InterNet Permission    ********** ///
       NetInfo.fetch().then((state) => {
         if (state.isConnected === false) {
-          Alert.alert(t("noInternet"), t("please_check_internet"), [
-            { text: t("ok") },
-          ]);
+          // Alert.alert(t("noInternet"), t("please_check_internet"), [
+          //   { text: t("ok") },
+          // ]);
           setloaderModel(false);
+          setNoInternetModel(true);
           return;
         } else {
           getStoryApi();
@@ -101,8 +112,11 @@ export default function StatusScreen({ navigation }: any) {
   // eslint-disable-next-line
   const getActiveStoryApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderModel(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // setloaderModel(false);
     } else {
       setActiveStory(ResponseData.data);
       setloaderModel(false);
@@ -113,8 +127,11 @@ export default function StatusScreen({ navigation }: any) {
   // eslint-disable-next-line
   const userStoryApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderModel(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // setloaderModel(false);
     } else {
       setContent(ResponseData.data);
       setloaderModel(false);
@@ -135,6 +152,7 @@ export default function StatusScreen({ navigation }: any) {
       userId: userId,
       userImage: userImage,
       userName: userName,
+      bottomIndex:0
     });
   };
   const addTextStory = () => {
@@ -414,6 +432,21 @@ export default function StatusScreen({ navigation }: any) {
       safeAreaColr={themeModule().theme_background}
     >
       <LoaderModel visible={loaderModel} />
+
+     
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
       <View
         style={{
           position: "relative",
@@ -441,6 +474,9 @@ export default function StatusScreen({ navigation }: any) {
           globalThis.selectTheme === "christmas" || 
           globalThis.selectTheme === "newYear" || 
           globalThis.selectTheme === "newYearTheme" || 
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "mongoliaTheme" ||
           globalThis.selectTheme === "mexicoTheme" || 
           globalThis.selectTheme === "usindepTheme" ? (
@@ -454,6 +490,7 @@ export default function StatusScreen({ navigation }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null

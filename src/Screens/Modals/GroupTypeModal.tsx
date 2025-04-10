@@ -64,7 +64,7 @@ export const GroupTypeModal = (props: any) => {
             fontFamily:font.semibold()
           }}
         >
-          {t("please_select_group_type")}
+          {t("please_select_group_type")}{" "}<Text style={{color:"#505050",fontSize:12}}>{t("this_setting")}</Text>
         </Text>
         <View
           style={{

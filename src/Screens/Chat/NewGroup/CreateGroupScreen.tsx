@@ -23,7 +23,7 @@ import { useTranslation } from "react-i18next"; //@ts-ignore
 import CryptoJS from "react-native-crypto-js";
 import DeviceInfo from "react-native-device-info";
 import ImagePicker from "react-native-image-crop-picker";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import RNFetchBlob from "rn-fetch-blob";
 import { badword } from "../../../Components/BadWord/Bad_words";
 import {
@@ -32,6 +32,7 @@ import {
   iconTheme,
   searchBar,
   setWallpaper,
+  textTheme,
   themeModule,
 } from "../../../Components/Colors/Colors";
 import CustomStatusBar from "../../../Components/CustomStatusBar/CustomStatusBar";
@@ -67,11 +68,25 @@ import {
 } from "../../../sqliteStore";
 import { LoaderModel } from "../../Modals/LoaderModel";
 import { SetProfileModal } from "../../Modals/SetProfileModel";
+import { ErrorAlertModel } from "../../Modals/ErrorAlertModel";
+import { Mixpanel } from "mixpanel-react-native";
+import { AppsFlyerTracker } from "../../EventTracker/AppsFlyerTracker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getRemainingSuspensionDays, updateViolationAttempt } from "../../agora/agoraHandler";
+import {
+  setUserBanned,
+  setUserSuspendedDays,
+} from "../../../reducers/userBanSlice";
+import WarningModal from "../../Modals/WarningModal";
 
 const isDarkMode = true;
 const data = [
   { id: 1, name: "Eun Kyung", contact: "+91-9065812452", isChecked: false },
 ];
+
+let banType = "Warning";
+let banMessage = "";
+let banTitle = "";
 export default function CreateGroupScreen({ navigation, route }: any) {
   const dispatch = useDispatch();
   const { colorTheme } = useContext(ThemeContext);
@@ -79,9 +94,22 @@ export default function CreateGroupScreen({ navigation, route }: any) {
   const windowHeight = Dimensions.get("window").height;
   const [loading, setLoading] = useState(false);
   const [groupName, setGroupName] = useState(route?.params?.groupTitle);
+  const [warningModalVisible, setWarningModalVisible] = useState(false);
   const [groupDescription, setGroupDescription] = useState(
     route?.params?.groupDesc || ""
   );
+  const images = [
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739796875560_1739796871443.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739796994362_1739796983177.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797046221_1739797039370.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797091786_1739797084582.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797127854_1739797120576.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797177163_1739797172456.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797278426_1739797253465.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797388061_1739797362230.jpg",
+    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Profile/1739797436193_1739797429552.jpg",
+  ];
+  const [currentImage, setCurrentImage] = useState(images[0]);
   const [products, setProducts] = React.useState(data);
   const [checked, setChecked] = useState("first");
   const [isPublic, setIsPublic] = useState("private");
@@ -90,9 +118,20 @@ export default function CreateGroupScreen({ navigation, route }: any) {
   const { t, i18n } = useTranslation();
   const [groupType, setGroupType] = useState(route?.params?.groupType);
   const [membersData, setMembersData] = useState(route.params.selected_data);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const isUserBanned = useSelector(
+    (state: any) => state.userBanSlice.isUserBanned
+  );
   // socket.connect;
 
+  const getRandomImage = () => {
+    const randomIndex = Math.floor(Math.random() * images.length);
+    console.log("random index:", randomIndex);
+    return images[randomIndex];
+  };
+
   React.useEffect(() => {
+    setCurrentImage(getRandomImage());
     socket.on("connect_error", (error: any) => {
       socket.connect;
       // Handle the error (e.g., display an error message)
@@ -106,20 +145,26 @@ export default function CreateGroupScreen({ navigation, route }: any) {
       navigation.navigate("NewGroupScreen");
     }
   };
+
   const buttonPress2 = () => {
     if (groupName?.toLowerCase()?.includes("tokee")) {
-      Alert.alert(
-        "Alert!",
-        "You can't use 'Tokee' in the group name.",
-        [{ text: t("ok") }]
-      );
+      // Alert.alert(
+      //   "Alert!",
+      //   "You can't use 'Tokee' in the group name.",
+      //   [{ text: t("ok") }]
+      // );
+      globalThis.errorMessage = "You can't use 'Tokee' in the group name.";
+      setErrorAlertModel(true);
+
       return; // Exit early if "toke" is found
     }
     if (groupName == "" || groupName == "undefined" || groupName == null) {
-      Alert.alert("", t("please_provide_group_name"), [{ text: t("ok") }]);
+      // Alert.alert("", t("please_provide_group_name"), [{ text: t("ok") }]);
+      globalThis.errorMessage = t("please_provide_group_name");
+      setErrorAlertModel(true);
     } else {
       if (filePath == "") {
-        const imageSend = "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Document/1717401343823_36FA5C33-D2AD-40F0-AC1B-E35C078FCFFE.jpg";
+        const imageSend = currentImage;
 
         if (groupType == "public") {
           createPublicGroup(imageSend);
@@ -127,9 +172,11 @@ export default function CreateGroupScreen({ navigation, route }: any) {
           if (membersData.length > 0) {
             createGroup(imageSend);
           } else {
-            Alert.alert("", t("please_provide_group_name"), [
-              { text: t("ok") },
-            ]);
+            // Alert.alert("", t("please_provide_group_name"), [
+            //   { text: t("ok") },
+            // ]);
+            globalThis.errorMessage = t("please_provide_group_name");
+            setErrorAlertModel(true);
           }
 
           //
@@ -160,6 +207,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
         cropping: true,
         compressImageQuality: 0.2,
         cropperCircleOverlay: true,
+        mediaType: "photo",
       })
         .then((image) => {
           if (image !== undefined && image !== null) {
@@ -218,6 +266,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
         cropping: true,
         compressImageQuality: 0.2,
         cropperCircleOverlay: true,
+        mediaType: "photo",
       }).then((image: any) => {
         if (image !== undefined) {
           setFilePath(image.path);
@@ -276,9 +325,9 @@ export default function CreateGroupScreen({ navigation, route }: any) {
     },
 
     newChatIcon: {
-      height: DeviceInfo.isTablet() ? 25 : 20,
-      width: DeviceInfo.isTablet() ? 25 : 20,
-      tintColor: iconTheme().iconColor,
+      height: DeviceInfo.isTablet() ? 45 : 40,
+      width: DeviceInfo.isTablet() ? 45 : 40,
+      //tintColor: iconTheme().iconColor,
     },
     newChatIcon2: {
       justifyContent: "center",
@@ -388,6 +437,32 @@ export default function CreateGroupScreen({ navigation, route }: any) {
     },
   });
 
+  const trackAutomaticEvents = false;
+  const mixpanel = new Mixpanel(
+    `${globalThis.mixpanelToken}`,
+    trackAutomaticEvents
+  );
+  console.log("globalThis.mixpanelToken", globalThis.mixpanelToken);
+  const createGroupEvent = (string) => {
+    console.log("string", string, "groupType", groupType);
+    handleCallEvent("Create Group", string);
+    // Track button click event
+    mixpanel.track("Create Group", {
+      type: groupType,
+      GroupName: string,
+    });
+  };
+  const handleCallEvent = (eventTrack, eventName1) => {
+    const eventName = eventTrack;
+    const eventValues = {
+      af_content_id: eventName1,
+      af_customer_user_id: globalThis.chatUserId,
+      af_quantity: 1,
+    };
+
+    AppsFlyerTracker(eventName, eventValues, globalThis.chatUserId); // Pass user ID if you want to set it globally
+  };
+
   function createPublicGroup(image: any) {
     setLoading(true);
 
@@ -414,8 +489,9 @@ export default function CreateGroupScreen({ navigation, route }: any) {
       allow: checked == "first" ? "public" : "admin",
       isPublic: groupType == "public" ? true : false,
     };
+    createGroupEvent(groupName);
 
-    console.log("groupParamsgroupParams",groupParams)
+    console.log("groupParamsgroupParams", groupParams);
     //@ts-ignore
     socket.emit("createGroup", groupParams);
   }
@@ -451,7 +527,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
       allow: checked == "first" ? "public" : "admin",
       isPublic: groupType == "public" ? true : false,
     };
-
+    createGroupEvent(groupName);
     //@ts-ignore
     socket.emit("createGroup", groupParams);
     // }
@@ -465,8 +541,9 @@ export default function CreateGroupScreen({ navigation, route }: any) {
     ).toString();
     //@ts-ignore
     const handlenewGroupCreated = async (data: any) => {
-      console.log("datadatadata",data)
-      try { //@ts-ignore
+      console.log("datadatadata", data);
+      try {
+        //@ts-ignore
         if (data.result.fromUser == globalThis.chatUserId) {
           const mId = Math.floor(Math.random() * 9000) + 1000;
           const paramsOfSend = {
@@ -612,8 +689,8 @@ export default function CreateGroupScreen({ navigation, route }: any) {
     setLoading(true);
 
     const s3 = new AWS.S3({
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
+      accessKeyId: globalThis.accessKey,
+      secretAccessKey: globalThis.awsSecretAccessKey,
       region: "us-east-2",
       //@ts-ignore
       s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com",
@@ -666,16 +743,17 @@ export default function CreateGroupScreen({ navigation, route }: any) {
   }
 
   async function TranslateWord(text: any) {
-      // First, check if the input text contains "toke"
-  if (text?.toLowerCase()?.includes("tokee")) {
-    Alert.alert(
-      "Alert!",
-      "You can't use 'Tokee' in the group name.",
-      [{ text: t("ok") }]
-    );
-    return; // Exit early if "toke" is found
-  }
-
+    // First, check if the input text contains "toke"
+    if (text?.toLowerCase()?.includes("tokee")) {
+      // Alert.alert(
+      //   "Alert!",
+      //   "You can't use 'Tokee' in the group name.",
+      //   [{ text: t("ok") }]
+      // );
+      globalThis.errorMessage = "You can't use 'Tokee' in the group name.";
+      setErrorAlertModel(true);
+      return; // Exit early if "toke" is found
+    }
 
     const urlStr =
       "https://www.googleapis.com/language/translate/v2?key=" +
@@ -694,44 +772,93 @@ export default function CreateGroupScreen({ navigation, route }: any) {
           Accept: "application/json",
         },
       })
-        .then((response) => {
+        .then(async (response) => {
           setLoading(false);
-     
+
           var textEnteredByUser =
             response.data.data.translations[0].translatedText;
           const userInput = textEnteredByUser.toLowerCase();
 
           // Split the input sentence into words
           const inputWords = userInput.split(" ");
+          const checkBadWord = await AsyncStorage.getItem("BadWords");
 
+          let badWordsInArr: string[] = [];
+          if (checkBadWord) {
+            badWordsInArr = JSON.parse(checkBadWord);
+          } else {
+            badWordsInArr = badword[0].words;
+          }
           // Check if any of the input words match any word in the array
-          const match = inputWords.some((word:any) =>
-            badword[0].words.includes(word)
+          const match = inputWords.some((word: any) =>
+            badWordsInArr.includes(word)
           );
 
           if (match) {
             if (groupType == "public") {
-              Alert.alert(
-                "Alert!",
-                t(
-                  "This group name has an inappropriate content which is prohibited to use."
-                ),
-                [{ text: t("ok") }]
-              );
+              //const resion = text; // You can replace this with any other value
+
+              const resion = `The user attempted to create a group with an inappropriate name: "${text}".`;
+
+              const result = await updateViolationAttempt(resion); // Call the custom function
+
+              if (result.success) {
+          const remainingDays = getRemainingSuspensionDays(result?.data?.suspended_remove_date);
+
+                if (result.data.violation_attempt == 1) {
+                  banType = "Warning";
+                  setWarningModalVisible(true);
+                } else if (result.data.violation_attempt > 1 && result.data.violation_attempt <= 4) {
+                  banType = "Ban";
+                  dispatch(setUserSuspendedDays(remainingDays));
+                  setWarningModalVisible(true);
+                  dispatch(setUserBanned(result.data.is_ban));
+                } else if (result.data.violation_attempt == 5) {
+                  banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                  banTitle = "Account Suspended!";
+                  dispatch(setUserSuspendedDays(remainingDays));
+                  setWarningModalVisible(true);
+                  dispatch(setUserBanned(result.data.is_ban));
+                } else if (result.data.violation_attempt > 5) {
+                  banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                  banTitle = "Account Permanently Suspended!";
+                  setWarningModalVisible(true);
+                  dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                } else {
+                  globalThis.errorMessage =
+                    "This group name has an inappropriate content which is prohibited to use.";
+                  setErrorAlertModel(true);
+                }
+              } else {
+                globalThis.errorMessage =
+                  "This group name has an inappropriate content which is prohibited to use.";
+                setErrorAlertModel(true);
+              }
             } else {
               buttonPress2();
             }
           } else {
-            buttonPress2();
+            if (isUserBanned) {
+              banType = "cannotCreate";
+              setWarningModalVisible(true);
+            } else {
+              buttonPress2();
+            }
           }
         })
         .catch((error) => {
           setLoading(false);
-          Alert.alert(error);
+          console.log("sdfdsfdsfdsf", error);
+          // Alert.alert(error);
+          globalThis.errorMessage = error;
+          setErrorAlertModel(true);
         });
-    } catch (error:any) {
+    } catch (error: any) {
       setLoading(false);
-      Alert.alert(error);
+      console.log("sdfdsfdsfdsf", error);
+      // Alert.alert(error);
+      globalThis.errorMessage = error;
+      setErrorAlertModel(true);
     }
   }
 
@@ -750,6 +877,35 @@ export default function CreateGroupScreen({ navigation, route }: any) {
         cancel={() => setCameraModal(false)}
       />
 
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+
+      <WarningModal
+        visible={warningModalVisible}
+        type={banType}
+        onClose={() => {
+          if (
+            banTitle === "Account Suspended!" ||
+            banTitle === "Account Permanently Suspended!"
+          ) {
+            setWarningModalVisible(false);
+            banType = "Warning";
+            banMessage = "";
+            banTitle = "";
+            dispatch(setUserSuspendedDays(0));
+            navigation.push("Login");
+          } else {
+            setWarningModalVisible(false);
+          }
+        }}
+        message={banMessage}
+        title={banTitle}
+      />
+
       <View
         style={{
           position: "relative",
@@ -764,10 +920,14 @@ export default function CreateGroupScreen({ navigation, route }: any) {
           />
         ) : null}
         {/* // **********    View For Show the TopBar    ********** /// */}
-        <TopBar showTitle={true} title={t("new_group")} checked={
+        <TopBar
+          showTitle={true}
+          title={t("new_group")}
+          checked={
             //@ts-ignore
             globalThis.selectTheme
-          } />
+          }
+        />
 
         {/* // **********    View For Show the Screen Container     ********** /// */}
         <View style={styles.chatTopContainer}>
@@ -777,12 +937,15 @@ export default function CreateGroupScreen({ navigation, route }: any) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={
-                () => {
-                  groupType == "public" ?(groupName == "" || groupName == "undefined" || groupName == null) ?  buttonPress2():  TranslateWord(groupName) :buttonPress2()  
-
-                }
-              }
+              onPress={() => {
+                groupType == "public"
+                  ? groupName == "" ||
+                    groupName == "undefined" ||
+                    groupName == null
+                    ? buttonPress2()
+                    : TranslateWord(groupName)
+                  : buttonPress2();
+              }}
               activeOpacity={0.7}
             >
               <Text style={styles.cancelText}>{t("create_group")}</Text>
@@ -791,14 +954,17 @@ export default function CreateGroupScreen({ navigation, route }: any) {
         </View>
         {/* // **********    TopBar   ********** /// */}
 
-    {
-            //@ts-ignore
-            globalThis.selectTheme === "christmas" || //@ts-ignore
-            globalThis.selectTheme === "newYear" || //@ts-ignore
-            globalThis.selectTheme === "newYearTheme" || //@ts-ignore
-            globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
-            globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
-            globalThis.selectTheme === "usindepTheme" ? (
+        {
+          //@ts-ignore
+          globalThis.selectTheme === "christmas" || //@ts-ignore
+          globalThis.selectTheme === "newYear" || //@ts-ignore
+          globalThis.selectTheme === "newYearTheme" || //@ts-ignore
+          globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
+          globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
+          globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
               source={chatTop().BackGroundImage}
               resizeMode="cover" // Update the path or use a URL
@@ -809,6 +975,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top: chatTop().top,
               }}
             ></ImageBackground>
           ) : null
@@ -833,7 +1000,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                 >
                   {filePath == "" ? (
                     <Image
-                      source={require("../../../Assets/Icons/AddGroup.png")}
+                      source={{ uri: currentImage }}
                       style={styles.newChatIcon}
                       resizeMode="contain"
                     />
@@ -858,8 +1025,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                   defaultValue={groupName}
                   onChangeText={(text) => setGroupName(text)}
                   maxLength={40}
-                  onSubmitEditing={()=>Keyboard.dismiss()}
-
+                  onSubmitEditing={() => Keyboard.dismiss()}
                 />
               </View>
             </View>
@@ -874,8 +1040,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
               defaultValue={groupDescription}
               onChangeText={(text) => setGroupDescription(text)}
               maxLength={150}
-              onSubmitEditing={()=>Keyboard.dismiss()}
-
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
           <View style={styles.nameTextContainer}>
@@ -912,7 +1077,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                 }}
               ></View>
             </TouchableOpacity>
-            <Text style={{ paddingLeft: 10,   fontFamily: font.regular(), }}>
+            <Text style={{ paddingLeft: 10, fontFamily: font.regular() }}>
               {t("allow_user_and_admin_msg")}
             </Text>
           </View>
@@ -943,7 +1108,9 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                 }}
               ></View>
             </TouchableOpacity>
-            <Text style={{ paddingLeft: 10 ,   fontFamily: font.regular(),}}>{t("allow_admin_msg")}</Text>
+            <Text style={{ paddingLeft: 10, fontFamily: font.regular() }}>
+              {t("allow_admin_msg")}
+            </Text>
           </View>
 
           {renderIf(
@@ -958,36 +1125,35 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                   data={membersData}
                   ListFooterComponent={() => (
                     <TouchableOpacity
+                      onPress={() => OnAddMemberClick()}
+                      activeOpacity={0.7}
                       style={{
                         backgroundColor: searchBar().back_ground,
+                        width: 80,
                         justifyContent: "center",
                         alignItems: "center",
-                        paddingHorizontal: 5,
-                        borderWidth: 1,
-                        borderColor: "transparent",
                         borderRadius: 10,
+                        marginTop: 5,
+                        height: 95,
                       }}
-                      onPress={() => OnAddMemberClick()}
                     >
-                      <Text
+                      <Image
+                        source={require("../../../Assets/Icons/plus.png")}
                         style={{
-                          fontSize: 35,
-                          color: setWallpaper().iconColor,
+                          height: 20,
+                          width: 20,
+                          tintColor: textTheme().textColor,
+                          marginBottom: 10,
                         }}
-                      >
-                        +
-                      </Text>
+                      />
                       <Text
                         style={{
-                          marginTop: 10,
                           color: setWallpaper().iconColor,
                           fontFamily: font.regular(),
+                          textAlign: "center",
                         }}
                       >
-                        Add
-                      </Text>
-                      <Text style={{ color: setWallpaper().iconColor ,fontFamily: font.regular(),}}>
-                        Members
+                        {t("addMembers")}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -1017,6 +1183,29 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                         />
                         <TouchableOpacity
                           style={{
+                            position: "absolute",
+                            right: 10,
+                            zIndex: 10,
+                            justifyContent: "center",
+                            alignItems: "center",
+                            height: 20,
+                            width: 20,
+                            borderRadius: 50,
+                            backgroundColor: searchBar().back_ground,
+                          }}
+                          onPress={() => handleRemoveMember(index)}
+                        >
+                          <Image
+                            source={require("../../../Assets/Icons/Cross.png")}
+                            style={{
+                              height: 10,
+                              width: 10,
+                              tintColor: iconTheme().iconColor,
+                            }}
+                          />
+                        </TouchableOpacity>
+                        {/* <TouchableOpacity
+                          style={{
                             backgroundColor: searchBar().back_ground,
                             position: "absolute",
                             top: 0,
@@ -1039,9 +1228,15 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                           >
                             x
                           </Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
 
-                        <Text style={{ alignSelf: "center",fontFamily: font.regular(), }} numberOfLines={1}>
+                        <Text
+                          style={{
+                            alignSelf: "center",
+                            fontFamily: font.regular(),
+                          }}
+                          numberOfLines={1}
+                        >
                           {item.name}
                         </Text>
                       </View>

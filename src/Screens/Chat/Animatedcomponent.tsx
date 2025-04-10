@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 const Animatedcomponent = React.memo(
-  ({ handleSwipeRight, content, isLeft, data }: any) => {
+  ({ handleSwipeRight, content, isLeft, data }: object) => {
     const startingPosition = 0;
     const range = 100; // Define the range of movement
     const x = useSharedValue(startingPosition);
@@ -17,7 +17,7 @@ const Animatedcomponent = React.memo(
       onStart: (_, ctx) => {
         ctx.startX = x.value;
       },
-      onActive: (event: any, ctx: any) => {
+      onActive: (event, ctx) => {
         const nextX = ctx.startX + event.translationX;
         if (isLeft) {
           // If the movement is towards the left and within the range
@@ -50,21 +50,21 @@ const Animatedcomponent = React.memo(
         ) : (
           <PanGestureHandler
             activeOffsetX={[-20, 20]}
-            onFailed={(event) => {
+            onFailed={() => {
               x.value = withSpring(0);
               // Perform any actions when the gesture handling fails
             }}
-            onActivated={(event) => {
+            onActivated={() => {
               // Perform any actions when the gesture handling fails
             }}
-            onBegan={(event) => {
+            onBegan={() => {
               // Perform any actions when the gesture handling fails
             }}
-            onCancelled={(event) => {
+            onCancelled={() => {
               x.value = withSpring(0);
               // Perform any actions when the gesture handling fails
             }}
-            onEnded={(event) => {
+            onEnded={() => {
               x.value = withSpring(0);
               // Perform any actions when the gesture handling fails
             }}

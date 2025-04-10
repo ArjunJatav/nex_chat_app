@@ -19,39 +19,49 @@ import {
   searchBar,
 } from "../../Components/Colors/Colors";
 import { font } from "../../Components/Fonts/Font";
+import { ConfirmAlertModel } from "./ConfirmAlertModel";
 
   // eslint-disable-next-line
 export const SelectLanguageModel = (props: any) => {
   const { t, i18n } = useTranslation();
    // eslint-disable-next-line
   const [currentLanguage, setLanguage] = useState("en");
+  const [confirmAlertModel, setConfirmAlertModel] = useState(false);
+
    // eslint-disable-next-line
   const changeLanguage = async (value: any) => {
+    
     await AsyncStorage.setItem("selectLanguage", value);
     globalThis.selectLanguage = value;
     i18n
       .changeLanguage(value)
       .then(() => setLanguage(value))
       .catch((err) => console.log(err));
+      closeModel();
   };
 
 
   // eslint-disable-next-line
   const selectLanguageClick = (langinst: any) => {
-    Alert.alert(t("confirm"), t("updateAppLanguage"), [
-      {
-        text: t("cancel"),
-        onPress: () => {
-          closeModel();
-        },
-      },
-      {
-        text: t("yes"),
-        onPress: () => {
-          changeLanguage(langinst), closeModel();
-        },
-      },
-    ]);
+    globalThis.changeLanguageCode=langinst;
+    console.log("langinstlanginstlanginst",langinst);
+    console.log("langinstlanginstlanginst",currentLanguage);
+    
+    setConfirmAlertModel(true)
+    // Alert.alert(t("confirm"), t("updateAppLanguage"), [
+    //   {
+    //     text: t("cancel"),
+    //     onPress: () => {
+    //       closeModel();
+    //     },
+    //   },
+    //   {
+    //     text: t("yes"),
+    //     onPress: () => {
+    //       changeLanguage(langinst), closeModel();
+    //     },
+    //   },
+    // ]);
   };
 
   const closeModel = () => {
@@ -262,6 +272,13 @@ export const SelectLanguageModel = (props: any) => {
         props.onRequestClose;
       }}
     >
+       <ConfirmAlertModel
+        visible={confirmAlertModel}
+        onRequestClose={() => setConfirmAlertModel(false)}
+        confirmText={t("updateAppLanguage")}
+        cancel={() => setConfirmAlertModel(false)}
+        confirmButton={() =>{ setConfirmAlertModel(false),changeLanguage(globalThis.changeLanguageCode)}}
+      />
       <TouchableOpacity
         style={{ flex: 1, backgroundColor: "rgba(52, 52, 52, 0.4)" }}
         onPress={props.cancel}

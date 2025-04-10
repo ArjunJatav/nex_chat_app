@@ -5,6 +5,8 @@ import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-na
 import { appBarIconTheme, COLORS, iconTheme } from "../../Components/Colors/Colors";
 import { font } from "../../Components/Fonts/Font";
 import DeviceInfo from "react-native-device-info";
+import { Mixpanel } from "mixpanel-react-native";
+import { AppsFlyerTracker } from "../EventTracker/AppsFlyerTracker";
 
 
 // eslint-disable-next-line
@@ -18,6 +20,36 @@ export const AddFriendModal = (props: any) => {
       setPrivateSelected(!props.isPublicSelected);
     }, [])
   );
+
+    ////////////  MIXPANEL EVENT TRACKER    ///////// 
+
+    const trackAutomaticEvents = false;
+    const mixpanel = new Mixpanel(
+      `${globalThis.mixpanelToken}`,
+      trackAutomaticEvents
+    );
+  
+  
+  
+    const handleButtonPress = (eventName) => {
+      handleCallEvent("Add Friend by Contact Screen",eventName)
+      // Track button click event with Mixpanel
+      mixpanel.track("Add Friend by Contact Screen", {
+        type: eventName,
+      });
+    };
+
+    const handleCallEvent = (eventTrack,eventName1) => {
+      const eventName = eventTrack;
+      const eventValues = {
+        af_content_id: eventName1,
+        af_customer_user_id: globalThis.chatUserId,
+        af_quantity: 1,
+      };
+    
+      AppsFlyerTracker(eventName, eventValues, globalThis.chatUserId); // Pass user ID if you want to set it globally
+    };
+  
 
   function OnPublicSelecetd() {
     setPrivateSelected(false);
@@ -53,7 +85,7 @@ export const AddFriendModal = (props: any) => {
             fontFamily:font.bold()
           }}
         >
-          {t("Add Friend By")}
+          {t("add_friend_by")}
         </Text>
 
           <View style={{
@@ -68,152 +100,45 @@ export const AddFriendModal = (props: any) => {
 
             <TouchableOpacity onPress={() => props.clickQrScanner()} style={styles.oneButtonContainer}>
                 <Image
-                    source={require("../../Assets/Icons/scan.png")}
-                    style={styles.personIcon}
+                     source={require("../../Assets/Icons/Scanner_icon.png")}
+                     style={[styles.personIcon,{ height: DeviceInfo.isTablet() ? 30 : 25,
+                       width: DeviceInfo.isTablet() ? 30 : 25,tintColor: iconTheme().iconColorNew,}]} 
                     resizeMode="contain"
                 />
                 <Text style={{color: COLORS.black,
-            fontFamily:font.bold()}}>QR Code</Text>
+            fontFamily:font.bold()}}>{t("QR_code")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => props.clickPersonphone()} style={styles.oneButtonContainer}>
                 <Image
                     source={require("../../Assets/Icons/CallBottom.png")}
-                    style={styles.personIcon}
+                    style={[styles.personIcon,{tintColor: iconTheme().iconColorNew}]}
                     resizeMode="contain"
                 />
                 <Text style={{color: COLORS.black,
-            fontFamily:font.bold()}}>Phone Number</Text>
+            fontFamily:font.bold()}}>{t("phone_number")}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
                 onPress={() => {
                 props.onRequestClose();
                 props.navState.navigate("NewChatScreen", { data: "NewChat" });
+                handleButtonPress("Move To Contact Screen");
               }}
                style={styles.oneButtonContainer}>
                 <Image
-                    source={require("../../Assets/Icons/bxs_contact.png")}
-                    style={styles.personIcon}
+                    source={require("../../Assets/Icons/bxs_contact2.png")}
+                    style={[styles.personIcon,{ height: DeviceInfo.isTablet() ? 30 : 23,
+                      width: DeviceInfo.isTablet() ? 30 : 23,tintColor: iconTheme().iconColorNew}]}
                     resizeMode="contain"
                 />
                 <Text style={{color: COLORS.black,
-            fontFamily:font.bold()}}>Contact</Text>
+            fontFamily:font.bold()}}>{t("contact")}</Text>
             </TouchableOpacity>
 
           </View>
        
-        {/* <View
-          style={{
-            flexDirection: "row",
-            width: "100%",
-            marginTop: 20,
-          }}
-        >
-          <View
-            style={{ width: "15%", justifyContent: "center", paddingLeft: 20 }}
-          >
-            <TouchableOpacity
-              style={{
-                borderRadius: 25,
-                borderWidth: 2,
-                borderColor: publicSelected ? "green" : "gray",
-                padding: 2.5,
-                height: 25,
-                width: 25,
-                justifyContent: "center",
-              }}
-              onPress={() => OnPublicSelecetd()}
-            >
-              <View
-                style={{
-                  backgroundColor: publicSelected ? "green" : "transparent",
-                  borderColor: "green",
-                  borderRadius: 25,
-                  height: 15,
-                  width: 15,
-                }}
-              ></View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ width: "85%", justifyContent: "center" }}>
-            <Text style={{ color: "#000", fontSize: 15,fontFamily:font.semibold() }}>
-              {" "}
-              {t("public_group")}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={{
-            flexDirection: "row",
-            width: "100%",
-            marginTop: 20,
-          }}
-        >
-          <View
-            style={{
-              width: "15%",
-              justifyContent: "center",
-              paddingLeft: 20,
-            }}
-          >
-            <TouchableOpacity
-              style={{
-                borderRadius: 25,
-                borderWidth: 2,
-                borderColor: privateSelected ? "green" : "gray",
-                padding: 2.5,
-                height: 25,
-                width: 25,
-                justifyContent: "center",
-              }}
-              onPress={() => OnPrivateSelecetd()}
-            >
-              <View
-                style={{
-                  backgroundColor: privateSelected ? "green" : "transparent",
-                  borderColor: privateSelected ? "green" : "gray",
-                  borderRadius: 25,
-                  height: 15,
-                  width: 15,
-                }}
-              ></View>
-            </TouchableOpacity>
-          </View>
-
-          <View
-            style={{
-              width: "85%",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ color: "#000", fontSize: 15,fontFamily:font.semibold() }}>
-              {" "}
-              {t("private_group")}
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={{
-            marginTop: 20,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: iconTheme().textColorForNew,
-            marginHorizontal: 20,
-            padding: 10,
-            borderWidth: 1,
-            borderColor: "transparent",
-            borderRadius: 10,
-          }}
-          onPress={() =>
-            props.onNextClick(publicSelected ? "public" : "private")
-          }
-        >
-          <Text style={{ color: "#fff",fontFamily:font.bold() }}>{t("next")}</Text>
-        </TouchableOpacity> */}
+      
       </View>
     </Modal>
   );

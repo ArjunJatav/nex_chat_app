@@ -1,5 +1,5 @@
 import axios from "axios";
-import React from "react";
+import React, { useState } from "react";
 import {
   Alert,
   FlatList,
@@ -17,6 +17,7 @@ import {
 } from "../../Components/Colors/Colors";
 import { font } from "../../Components/Fonts/Font";
 import { translationKey } from "../../Constant/Key";
+import { ErrorAlertModel } from "./ErrorAlertModel";
 export default function LaguageTranslateModal({
   visible: visible,
   onRequestClose: onRequestClose,
@@ -24,6 +25,8 @@ export default function LaguageTranslateModal({
   cancel: cancel,
   TranslatedLangugae: TranslatedLangugae,
 }) {
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+
   const languageList = [
     { id: 1, flag: "🇺🇸", lang: "English", langinst: "en", language: "English" },
     {
@@ -103,10 +106,13 @@ export default function LaguageTranslateModal({
   async function LanguageSelect(language) {
 
     if (translateMessage.text.length > 1000) {
-      Alert.alert(
-        "Text translate Limit Exceeded",
-        "The text you want to translate is too long. Please shorten it and try again."
-      );
+      // Alert.alert(
+      //   "Text translate Limit Exceeded",
+      //   "The text you want to translate is too long. Please shorten it and try again."
+      // );
+
+      globalThis.errorMessage = "Text translate Limit Exceeded, " +"The text you want to translate is too long. Please shorten it and try again."; 
+      setErrorAlertModel(true);
       return;
     }
 
@@ -134,10 +140,16 @@ export default function LaguageTranslateModal({
           cancel();
         })
         .catch((error) => {
-          Alert.alert(error);
+          console.log("sdfdsfdsfdsf",error)
+          // Alert.alert(error);
+          globalThis.errorMessage =error; 
+          setErrorAlertModel(true);
         });
     } catch (error) {
-      Alert.alert(error);
+      console.log("sdfdsfdsfdsf",error)
+      // Alert.alert(error);
+      globalThis.errorMessage =error; 
+          setErrorAlertModel(true);
     }
   }
 
@@ -151,6 +163,12 @@ export default function LaguageTranslateModal({
         onRequestClose;
       }}
     >
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
       <TouchableOpacity
         style={{ flex: 1, backgroundColor: "rgba(52, 52, 52, 0.4)" }}
         onPress={cancel}

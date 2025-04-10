@@ -1,10 +1,18 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
-import Sound from 'react-native-sound';
-import Slider from 'react-native-slider';
-import { iconTheme } from '../../Components/Colors/Colors';
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Platform,
+  Vibration,
+} from "react-native";
+import Sound from "react-native-sound";
+import Slider from "react-native-slider";
+import { iconTheme, textTheme } from "../../Components/Colors/Colors";
 
-const AudioMessage = ({ currentMessage }) => {
+const AudioMessage = ({ currentMessage }:object) => {
   const [sound, setSound] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -13,20 +21,20 @@ const AudioMessage = ({ currentMessage }) => {
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    const audioPath = currentMessage.startsWith('http')
+    const audioPath = currentMessage.startsWith("http")
       ? currentMessage
-      : Platform.OS === 'android'
-        ? 'file://' + currentMessage
-        : currentMessage.replace('file://', '');
-//@ts-ignore
+      : Platform.OS === "android"
+      ? "file://" + currentMessage
+      : currentMessage.replace("file://", "");
+    //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     const audio = new Sound(audioPath, null, (error) => {
       if (error) {
-        console.log('Failed to load the sound', error);
+        console.log("Failed to load the sound", error);
         return;
       }
       setDuration(audio.getDuration());
     });
-    //@ts-ignore
+    //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     setSound(audio);
 
     return () => {
@@ -40,8 +48,9 @@ const AudioMessage = ({ currentMessage }) => {
   }, [currentMessage]);
 
   const playPauseAudio = () => {
+    Vibration.vibrate([100, 50, 100]);
     if (playing) {
-      //@ts-ignore
+      //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       sound.pause();
       setPlaying(false);
       if (intervalRef.current !== null) {
@@ -49,13 +58,13 @@ const AudioMessage = ({ currentMessage }) => {
         intervalRef.current = null;
       }
     } else {
-      //@ts-ignore
+      //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       sound.play((success) => {
         if (success) {
           setPlaying(false);
           setCurrentTime(0);
         } else {
-          console.log('Playback failed due to audio decoding errors');
+          console.log("Playback failed due to audio decoding errors");
         }
       });
       setPlaying(true);
@@ -64,19 +73,19 @@ const AudioMessage = ({ currentMessage }) => {
   };
 
   const seekAudio = (value) => {
-    //@ts-ignore
+    //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     sound.setCurrentTime(value);
     setCurrentTime(value);
   };
 
   const updateCurrentTime = () => {
-    //@ts-ignore
+    //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     sound.getCurrentTime((seconds) => {
       if (!isSeeking) {
         setCurrentTime(seconds);
       }
       if (playing) {
-        //@ts-ignore
+        //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
         intervalRef.current = requestAnimationFrame(updateCurrentTime);
       }
     });
@@ -84,10 +93,10 @@ const AudioMessage = ({ currentMessage }) => {
 
   useEffect(() => {
     if (playing) {
-      //@ts-ignore
+      //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       intervalRef.current = setInterval(() => {
         if (!isSeeking) {
-          //@ts-ignore
+          //@ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
           sound.getCurrentTime((seconds) => {
             setCurrentTime(seconds);
           });
@@ -107,16 +116,26 @@ const AudioMessage = ({ currentMessage }) => {
   const formatTime = (time) => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
   const formattedDuration = useMemo(() => formatTime(duration), [duration]);
 
   return (
     <View style={styles.audioMessageContainer}>
-      <TouchableOpacity onPress={playPauseAudio} style={styles.playPauseButton}>
+      <TouchableOpacity
+        onPress={playPauseAudio}
+        style={[
+          styles.playPauseButton,
+          { backgroundColor: textTheme().textColor },
+        ]}
+      >
         <Image
-          source={playing ? require("../../Assets/Icons/pause.png") : require("../../Assets/Icons/play.png")}
+          source={
+            playing
+              ? require("../../Assets/Icons/pause.png")
+              : require("../../Assets/Icons/play.png")
+          }
           style={{ width: 18, height: 18 }}
         />
       </TouchableOpacity>
@@ -133,9 +152,9 @@ const AudioMessage = ({ currentMessage }) => {
           setIsSeeking(false);
           seekAudio(value);
         }}
-        minimumTrackTintColor={iconTheme().iconColorNew}
+        minimumTrackTintColor={textTheme().textColor}
         maximumTrackTintColor="#d3d3d3"
-        thumbTintColor={iconTheme().iconColorNew}
+        thumbTintColor={textTheme().textColor}
       />
       <Text style={styles.durationText}>{formattedDuration}</Text>
     </View>
@@ -144,11 +163,11 @@ const AudioMessage = ({ currentMessage }) => {
 
 const styles = StyleSheet.create({
   audioMessageContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 0,
-    paddingLeft:10,
-    paddingRight:10,
+    paddingLeft: 10,
+    paddingRight: 10,
     borderRadius: 10,
     marginVertical: 5,
   },
@@ -159,15 +178,15 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   playPauseText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
   },
   slider: {
     flex: 1,
     marginHorizontal: 10,
   },
   durationText: {
-    color: '#555',
+    color: "#555",
   },
 });
 

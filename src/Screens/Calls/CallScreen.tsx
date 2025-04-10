@@ -9,13 +9,15 @@ import {
   Image,
   ImageBackground,
   Linking,
+  Modal,
+  PermissionsAndroid,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import RNCallKeep from "react-native-callkeep";
 import DeviceInfo from "react-native-device-info";
 import { useSelector } from "react-redux";
 import { GetApiCall } from "../../Components/ApiServices/GetApi";
@@ -39,15 +41,26 @@ import {
   delete_all_calllog,
   delete_calllog,
 } from "../../Constant/Api";
-import { callTop, noDataImage } from "../../Navigation/Icons";
+import { callTop, chatTop, noDataImage } from "../../Navigation/Icons";
 import { CheckIsRoomBlocked, CheckIsRoomsBlocked } from "../../sqliteStore";
-import { onCallPress } from "../../utils/callKitCustom";
+import { onCallPress, onGroupCallPress } from "../../utils/callKitCustom";
 import { LoaderModel } from "../Modals/LoaderModel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ConfirmAlertModel } from "../Modals/ConfirmAlertModel";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
 const isDarkMode = true;
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
+import { Mixpanel } from "mixpanel-react-native";
+import appsFlyer from "react-native-appsflyer";
+import { AppsFlyerTracker } from "../EventTracker/AppsFlyerTracker";
+import CheckBox from "@react-native-community/checkbox";
+import { decryptMessage, encryptMessage } from "../../utils/CryptoHelper";
 
 const data: any[] | (() => any[]) = [];
+let groupCallType = "";
 export default function CallScreen({ navigation }: any) {
   const { colorTheme } = useContext(ThemeContext);
   const [fistHide, setFistHide] = useState(true);
@@ -58,9 +71,62 @@ export default function CallScreen({ navigation }: any) {
   const { t, i18n } = useTranslation();
   const [loaderModel, setloaderMoedl] = useState(false);
   const [selectPressed, setSelectPressed] = useState(false);
-  const callState = useSelector(
-    (state: any) => state?.VoipReducer?.call_state
+  const [confirmAlertModel, setConfirmAlertModel] = useState(false);
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+  const [deleteAllCalls, setdeleteAllCalls] = useState(false);
+  const [participants, setParticipants] = useState([]);
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [callMemberModal, setCallMemberModal] = useState(false);
+  const callState = useSelector((state: any) => state?.VoipReducer?.call_state);
+  const maxSelection = 9;
+  const trackAutomaticEvents = false;
+  const mixpanel = new Mixpanel(
+    `${globalThis.mixpanelToken}`,
+    trackAutomaticEvents
   );
+
+
+
+
+
+
+
+
+  const handleCallEvent = () => {
+    const eventName = "Calling";
+    const eventValues = {
+      af_content_id: "outgoing call",
+      af_customer_user_id: globalThis.chatUserId,
+      af_quantity: 1,
+    };
+
+    AppsFlyerTracker(eventName, eventValues, globalThis.chatUserId); // Pass user ID if you want to set it globally
+  };
+
+  const handleButtonPress = () => {
+    /// Track button click event with Mixpanel
+    mixpanel.track("Calling", {
+      type: "outgoing call",
+    });
+    handleCallEvent();
+  };
+
+  useEffect(() => {
+    if (Platform.OS == "android") {
+      getPermission();
+    }
+  }, []);
+
+  const getPermission = async () => {
+    if (Platform.OS === "android") {
+      await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+      ]);
+    }
+  };
 
   function SelectedCall(index: any) {
     setProducts((prevProducts) => {
@@ -82,6 +148,20 @@ export default function CallScreen({ navigation }: any) {
     });
   }
 
+  const cancelSelection = () => {
+    setProducts((prevProducts) => {
+      const updatedProducts = prevProducts.map((product) => ({
+        ...product,
+        isselect: false,
+      }));
+
+      //@ts-ignore
+      setSelectedProducts([]); // Clear selected products
+      setSelectPressed(!selectPressed);
+      return updatedProducts;
+    });
+  };
+
   const buttonPress = () => {
     navigation.navigate("NewChatScreen", { data: "NewCall" });
   };
@@ -91,61 +171,12 @@ export default function CallScreen({ navigation }: any) {
     handler1();
   }, []);
 
-  const enableNotification = (resp: any) => {
-    setTimeout(() => {
-      if (Platform.OS === "android" && resp === true) {
-        Alert.alert(
-          `"Tokee" would like to send you Call and Video Notifications`,
-          "Notifications may include alerts and sounds. Please allow app to Display pop-up windows access. These can be configured in Settings.",
-          [
-            { text: "Cancel" },
-            {
-              text: "Set",
-              onPress: () => Linking.openSettings(),
-              style: "destructive",
-            },
-          ],
-          { cancelable: true }
-        );
-      }
-    }, 4000);
-  };
-
-  useEffect(() => {
-    const options = {
-      ios: {
-        appName: "Tokee",
-        maximumCallGroups: "1",
-        maximumCallsPerCallGroup: "1",
-        includesCallsInRecents: false,
-      },
-      android: {
-        alertTitle: "Permissions Required",
-        alertDescription:
-          "This application needs to access your phone calling accounts to make calls",
-        cancelButton: "Cancel",
-        okButton: "ok",
-      },
-    };
-    //@ts-ignore
-    if(Platform.OS == "android"){
-      //@ts-ignore
-      RNCallKeep.setup(options).then((resp) => {
-        enableNotification(resp);
-      });
-    }
-  
-  });
-
   useEffect(() => {
     const unsubscribe2 = navigation.addListener("focus", () => {
       // ********** InterNet Permission    ********** ///
       NetInfo.fetch().then((state) => {
         if (state.isConnected === false) {
-          Alert.alert(
-            "No Internet",
-            "No Internet, Please check your Internet Connection."
-          );
+          setNoInternetModel(true);
 
           return;
         } else {
@@ -158,7 +189,8 @@ export default function CallScreen({ navigation }: any) {
   }, []);
 
   //@ts-ignore
-  const getCallHistory = () => {
+  const getCallHistory = async () => {
+    globalThis.Authtoken = await AsyncStorage.getItem("authToken");
     let headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -174,11 +206,14 @@ export default function CallScreen({ navigation }: any) {
 
   // **********  Method for return the Delete Account api Response   ********** ///
   const getApiSuccessResponse = async (ResponseData: any, ErrorStr: any) => {
-   
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
       setloaderMoedl(false);
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
     } else {
+      //setloaderMoedl(false);
+
       setloaderMoedl(false);
       setProducts(ResponseData.data.data);
       setOldProducts(ResponseData.data.data);
@@ -294,6 +329,7 @@ export default function CallScreen({ navigation }: any) {
       borderBottomRightRadius: 10,
       borderTopRightRadius: 10,
       borderWidth: 0.5,
+      borderLeftWidth: 0,
       borderColor: COLORS.grey,
       justifyContent: "center",
       alignItems: "center",
@@ -375,8 +411,6 @@ export default function CallScreen({ navigation }: any) {
     },
     outGoingIcon: {
       marginTop: 5,
-      fontFamily: font.bold(),
-      color: COLORS.black,
       height: 11,
       width: 11,
       marginLeft: 10,
@@ -384,8 +418,6 @@ export default function CallScreen({ navigation }: any) {
     },
     missIcon: {
       marginTop: 5,
-      fontFamily: font.bold(),
-      color: COLORS.black,
       height: 11,
       marginLeft: 10,
       width: 11,
@@ -394,7 +426,6 @@ export default function CallScreen({ navigation }: any) {
     },
     incommingIcon: {
       marginTop: 5,
-      fontFamily: font.bold(),
       height: 11,
       marginLeft: 10,
       width: 11,
@@ -484,12 +515,11 @@ export default function CallScreen({ navigation }: any) {
       marginTop: 10,
     },
     profile1Container: {
-      marginTop: 10,
+      paddingVertical: Platform.OS == "ios" ? 10 : 5,
       flexDirection: "row",
-      height: 60,
-      width: "100%",
-      borderBottomWidth: 0.5,
-      borderBottomColor: "#F6EBF3",
+      // height: 60,
+      borderBottomWidth: 1,
+      borderBottomColor: "#EAEAEA",
     },
     nameContainer: {
       justifyContent: "center",
@@ -542,6 +572,87 @@ export default function CallScreen({ navigation }: any) {
     searchText: {
       width: "90%",
     },
+
+    groupImagesContainer: {
+      flexDirection: "row",
+      position: "relative",
+      width: 60, // Adjust based on your needs
+      height: 60, // Adjust based on your needs
+      // backgroundColor:'red',
+    },
+    smallCircleImage: {
+      width: 25,
+      height: 25,
+      borderRadius: 12.5,
+      position: "absolute",
+      borderWidth: 1,
+      borderColor: "#fff", // Border to create separation,
+      top: 20,
+    },
+    moreText: {
+      position: "absolute",
+      top: 30, // Adjust position
+      left: 10, // Adjust position
+      fontSize: 20,
+      color: "gray",
+      fontWeight: "bold",
+    },
+
+    modalContainer: {
+      flex: 1,
+      backgroundColor: "white",
+      padding: 20,
+      marginTop: 100,
+      borderRadius: 10,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    header: {
+      fontSize: 20,
+      fontWeight: "bold",
+      marginBottom: 20,
+    },
+    itemContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: "#ddd",
+    },
+    image: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "darkgray",
+      marginRight: 10,
+    },
+    userName: {
+      flex: 1,
+      fontSize: 16,
+    },
+    openButton: {
+      backgroundColor: "#007BFF",
+      padding: 10,
+      borderRadius: 5,
+    },
+    openButtonText: {
+      color: "white",
+      fontWeight: "bold",
+    },
+    closeButton: {
+      backgroundColor: "#28A745",
+      padding: 10,
+      borderRadius: 5,
+      alignItems: "center",
+      marginTop: 20,
+    },
+    closeButtonText: {
+      color: "white",
+      fontWeight: "bold",
+    },
   });
 
   function ToDeleteCallLog() {
@@ -570,46 +681,79 @@ export default function CallScreen({ navigation }: any) {
     }
   }
 
-  const apiSuccess =  (ResponseData: any, ErrorStr: any) => {
-    let headers = {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      //@ts-ignore
-      Authorization: "Bearer " + globalThis.token, //@ts-ignore
-      localization: globalThis.selectLanguage,
-    };
+  const apiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderMoedl(false);
+      setErrorAlertModel(true);
     } else {
+      globalThis.successMessage = ResponseData.message;
       setSelectedProducts([]);
       setSelectPressed(false);
       setloaderMoedl(false);
-      GetApiCall(
-        call_history,
-        headers,
-        navigation,
-        (ResponseData, ErrorStr) => {
-          getApiSuccessResponse(ResponseData, ErrorStr);
-          setloaderMoedl(false);
-        }
-      );
+      setSuccessAlertModel(true);
+      // console.log("ResponseData",ResponseData.message);
+
+      // GetApiCall(
+      //   call_history,
+      //   headers,
+      //   navigation,
+      //   (ResponseData, ErrorStr) => {
+      //     getApiSuccessResponse(ResponseData, ErrorStr);
+      //     setloaderMoedl(false);
+      //   }
+      // );
     }
   };
 
+  const handleModalClose = (selectedIds, participants) => {
+    const selectedParticipants = participants.filter((participant) =>
+      selectedIds.includes(participant._id)
+    );
+
+   
+
+    onGroupCallPress({
+      call_type: groupCallType,
+      contact_image: "",
+      contact_name: "",
+      contact_chat_id: selectedIds,
+      typeOfCall: "GroupCall",
+      from: "isNormalGroupCall",
+      members: selectedParticipants,
+    });
+    console.log("Selected User IDs:", selectedIds);
+    setCallMemberModal(false);
+  };
+
   function onClearAllClick() {
-    Alert.alert("Confirm", "Are you sure you want to clear all call logs?", [
-      {
-        text: "No",
-        onPress: () => console.log("Cancel Pressed"),
-        style: "cancel",
-      },
-      {
-        text: "Yes",
-        onPress: () => DeleteAllCallLog(),
-      },
-    ]);
+    setdeleteAllCalls(true);
+    setConfirmAlertModel(true);
+
+    // Alert.alert(t("confirm"), t("Areyou_sure_you_want_toclear_all_call_logs"), [
+    //   {
+    //     text: t("cancel"),
+    //     onPress: () => console.log("Cancel Pressed"),
+    //     style: "cancel",
+    //   },
+    //   {
+    //     text: t("yes"),
+    //     onPress: () => DeleteAllCallLog(),
+    //   },
+    // ]);
   }
+
+  const deleteCallLog = () => {
+    if (deleteAllCalls) {
+      console.log("AALLL");
+
+      DeleteAllCallLog();
+    } else {
+      console.log("SLELECTED");
+      ToDeleteCallLog();
+    }
+  };
 
   function DeleteAllCallLog() {
     setloaderMoedl(true);
@@ -629,6 +773,123 @@ export default function CallScreen({ navigation }: any) {
       }
     );
   }
+
+  const toggleSelection = (userId) => {
+    const maxSelection = 9; // Adjust limit based on groupCallType
+
+    if (selectedUserIds.includes(userId)) {
+      setSelectedUserIds(selectedUserIds.filter((id) => id !== userId));
+    } else {
+      if (selectedUserIds.length < maxSelection) {
+        setSelectedUserIds([...selectedUserIds, userId]);
+      } else {
+        Alert.alert(
+          "Selection Limit Reached",
+          `You can select up to ${maxSelection} users for a ${groupCallType} call.`
+        );
+      }
+    }
+  };
+
+  // const renderItem = ({ item }) => {
+  //   // Check if the user is the current logged-in user (i.e., globalThis.userChatId)
+  //   if (item._id == globalThis.userChatId) {
+  //     return null; // Don't render this item if it's the current user
+  //   }
+
+  //   return (
+  //     <TouchableOpacity
+  //       style={styles.itemContainer}
+  //       onPress={() => toggleSelection(item._id)}
+  //     >
+  //       <Image
+  //         source={
+  //           item.image
+  //             ? { uri: item.image }
+  //             : {
+  //                 uri: "https://tokeecorp.com/backend/public/images/user-avatar.png",
+  //               }
+  //         }
+  //         style={styles.image}
+  //         resizeMode="contain"
+  //       />
+  //       <Text style={styles.userName}>{item.name}</Text>
+  //       <CheckBox
+  //         value={selectedUserIds.includes(item._id)}
+  //         onValueChange={() => toggleSelection(item._id)}
+  //       />
+  //     </TouchableOpacity>
+  //   );
+  // };
+
+  const renderItem = ({ item }) => {
+    if (item._id == globalThis.userChatId) return null; // Don't render the current user
+
+    const isSelected = selectedUserIds.includes(item._id);
+    const isMaxReached = selectedUserIds.length >= maxSelection;
+
+    return (
+      <TouchableOpacity
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          marginHorizontal: 12,
+          borderRadius: 10,
+          backgroundColor: "#fff",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3, // Android shadow
+          marginBottom: 10,
+        }}
+        onPress={() => {
+          if (!isMaxReached || isSelected) {
+            toggleSelection(item._id);
+          }
+        }}
+      >
+        {/* Profile Image */}
+        <Image
+          source={
+            item.image
+              ? { uri: item.image }
+              : {
+                  uri: "https://tokeecorp.com/backend/public/images/user-avatar.png",
+                }
+          }
+          style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }}
+          resizeMode="contain"
+        />
+
+        {/* Name */}
+        <Text style={{ flex: 1, fontSize: 16, color: "#000" }}>
+          {item.name}
+        </Text>
+
+        {/* Custom Checkbox */}
+        <Pressable
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12, // Circular shape
+            borderWidth: 2,
+            borderColor: isMaxReached && !isSelected ? "#ccc" : "#25D366", // Gray when disabled
+            backgroundColor: isSelected ? "#25D366" : "transparent",
+            opacity: isMaxReached && !isSelected ? 0.5 : 1, // Reduce opacity for disabled checkboxes
+          }}
+          onPress={() => {
+            if (!isMaxReached || isSelected) {
+              toggleSelection(item._id);
+            }
+          }}
+        />
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <MainComponent
       statusBar="#000"
@@ -643,6 +904,36 @@ export default function CallScreen({ navigation }: any) {
         }}
       >
         <LoaderModel visible={loaderModel} />
+        <ConfirmAlertModel
+          visible={confirmAlertModel}
+          onRequestClose={() => setConfirmAlertModel(false)}
+          confirmText={t("Areyou_sure_you_want_toclear_all_call_logs")}
+          cancel={() => setConfirmAlertModel(false)}
+          confirmButton={() => {
+            setConfirmAlertModel(false), deleteCallLog();
+          }}
+        />
+        <SuccessModel
+          visible={successAlertModel}
+          onRequestClose={() => setSuccessAlertModel(false)}
+          succesText={globalThis.successMessage}
+          doneButton={() => {
+            setSuccessAlertModel(false), getCallHistory();
+          }}
+        />
+        <ErrorAlertModel
+          visible={errorAlertModel}
+          onRequestClose={() => setErrorAlertModel(false)}
+          errorText={globalThis.errorMessage}
+          cancelButton={() => setErrorAlertModel(false)}
+        />
+        <NoInternetModal
+          visible={noInternetModel}
+          onRequestClose={() => setNoInternetModel(false)}
+          headingTaxt={t("noInternet")}
+          NoInternetText={t("please_check_internet")}
+          cancelButton={() => setNoInternetModel(false)}
+        />
         {Platform.OS == "android" ? (
           <CustomStatusBar
             barStyle={isDarkMode ? "dark-content" : "dark-content"}
@@ -665,7 +956,9 @@ export default function CallScreen({ navigation }: any) {
           <View style={styles.groupContainer}>
             {selectPressed == true ? (
               <TouchableOpacity
-                onPress={() => setSelectPressed(!selectPressed)}
+                onPress={() => {
+                  cancelSelection();
+                }}
               >
                 <Text style={styles.callText}>{t("cancel")}</Text>
               </TouchableOpacity>
@@ -684,7 +977,13 @@ export default function CallScreen({ navigation }: any) {
                 )}
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={ToDeleteCallLog}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (selectedProducts.length > 0) {
+                    setConfirmAlertModel(true);
+                  }
+                }}
+              >
                 <Text style={styles.callText}>{t("delete")}</Text>
               </TouchableOpacity>
             )}
@@ -698,6 +997,9 @@ export default function CallScreen({ navigation }: any) {
           globalThis.selectTheme === "newYearTheme" || //@ts-ignore
           globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
           globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
               source={callTop().BackGroundImage}
@@ -709,6 +1011,7 @@ export default function CallScreen({ navigation }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top: chatTop().top,
               }}
             ></ImageBackground>
           ) : null
@@ -726,7 +1029,7 @@ export default function CallScreen({ navigation }: any) {
                   search={searchableData}
                   value={searchValue}
                   clickCross={clickCross}
-                  placeHolder= {t("search")}  
+                  placeHolder={t("search")}
                 />
 
                 {/* // **********    View For Show AllCall Container      ********** /// */}
@@ -763,7 +1066,11 @@ export default function CallScreen({ navigation }: any) {
                 {renderIf(
                   selectPressed == true,
                   <TouchableOpacity
-                    style={{ flexDirection: "row", marginTop: 10 }}
+                    style={{
+                      flexDirection: "row",
+                      marginTop: 10,
+                      alignItems: "center",
+                    }}
                     onPress={onClearAllClick}
                   >
                     <View
@@ -806,6 +1113,8 @@ export default function CallScreen({ navigation }: any) {
                     showsVerticalScrollIndicator={false}
                     data={products}
                     renderItem={({ item, index }) => {
+                      const isGroupCall = item?.is_group_call == 1;
+                      const isNormalGroupCall = item?.is_notmal_group_call == 1;
                       return (
                         <View style={styles.profile1Container}>
                           {renderIf(
@@ -843,17 +1152,71 @@ export default function CallScreen({ navigation }: any) {
                               </TouchableOpacity>
                             </View>
                           )}
+
                           <View style={styles.Container1} key={index}>
+                            {!isGroupCall &&
+                            isNormalGroupCall &&
+                            item?.call_members?.length > 1 ? (
+                            
+                              <View style={styles.groupImagesContainer}>
+                                {/* Prepend globalThis.userImage to the call_members array */}
+                                {[
+                                  { image: globalThis.userImage },
+                                  ...item.call_members,
+                                ]
+                                  .slice(0, 3) // Limit to the first 3 images
+                                  .map((member, idx) => (
+                                    <View
+                                      key={idx}
+                                      style={{ position: "relative" }}
+                                    >
+                                      <Image
+                                        source={{
+                                          uri:
+                                            member?.thumbnail || member?.image,
+                                        }}
+                                        style={[
+                                          styles.smallCircleImage,
+                                          { left: idx * 15 }, // Adjust overlapping position
+                                        ]}
+                                        resizeMode="cover"
+                                      />
+                                      {/* Show "..." if there are more than 3 call members */}
+                                      {idx === 2 &&
+                                        item.call_members.length > 2 && (
+                                          <Text style={styles.moreText}>
+                                            ...
+                                          </Text>
+                                        )}
+                                    </View>
+                                  ))}
+                              </View>
+                            ) : (
+                              <Image
+                                source={{
+                                  uri: isGroupCall
+                                    ? item.group_call_image
+                                    : item.call_members[0]?.thumbnail ||
+                                      item.call_members[0]?.image,
+                                }}
+                                style={styles.circleImageLayout}
+                                resizeMode={isGroupCall ? "contain" : "cover"}
+                              />
+                            )}
+                          </View>
+
+                          {/* <View style={styles.Container1} key={index}>
                             <Image
                               source={{
-                                uri: item.call_members[0]?.thumbnail
-                                  ? item.call_members[0]?.thumbnail
-                                  : item.call_members[0]?.image,
+                                uri: isGroupCall
+                                  ? item.group_call_image
+                                  : item.call_members[0]?.thumbnail ||
+                                    item.call_members[0]?.image,
                               }}
                               style={styles.circleImageLayout}
-                              resizeMode="cover"
+                              resizeMode={isGroupCall ? "contain" : "cover"}
                             />
-                          </View>
+                          </View> */}
 
                           <View
                             style={[
@@ -862,12 +1225,31 @@ export default function CallScreen({ navigation }: any) {
                             ]}
                           >
                             <Text style={styles.name2Text} numberOfLines={1}>
-                              {item.call_members[0]?.name}
+                              {/* {isGroupCall
+                                ? item.group_call_name
+                                : item.call_members[0]?.name} */}
+                              {!isGroupCall &&
+                              isNormalGroupCall &&
+                              item?.call_members?.length > 1
+                                ? `${item.call_members[0]?.name} & ${item.call_members[1]?.name}` +
+                                  (item.call_members?.length > 2
+                                    ? ` + ${
+                                        item.call_members.length - 2
+                                      } others`
+                                    : "") // Show "2 others" if more than 2 members
+                                : isGroupCall
+                                ? item.group_call_name // Show the group call name
+                                : item.call_members[0]?.name}
                             </Text>
 
                             <View style={styles.missContainer}>
                               {item.call_type === "missed" ? (
-                                <View style={{ flexDirection: "row" }}>
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                  }}
+                                >
                                   <Image
                                     source={require("../../Assets/Icons/Missed.png")}
                                     style={styles.missIcon}
@@ -879,7 +1261,12 @@ export default function CallScreen({ navigation }: any) {
                                   </Text>
                                 </View>
                               ) : item.call_type === "outgoing" ? (
-                                <View style={{ flexDirection: "row" }}>
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                  }}
+                                >
                                   <Image
                                     style={styles.outGoingIcon}
                                     source={require("../../Assets/Icons/OutGoing.png")}
@@ -892,7 +1279,12 @@ export default function CallScreen({ navigation }: any) {
                                   </Text>
                                 </View>
                               ) : item.call_type === "incoming" ? (
-                                <View style={{ flexDirection: "row" }}>
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                  }}
+                                >
                                   <Image
                                     source={require("../../Assets/Icons/Missed.png")}
                                     style={styles.incommingIcon}
@@ -910,41 +1302,146 @@ export default function CallScreen({ navigation }: any) {
                               </Text>
                             </View>
                           </View>
-                          {item.is_video === 1 && !item?.call_members[0]?.is_block ? (
+                          {item.is_video === 1 &&
+                          !item?.call_members[0]?.is_block ? (
                             <TouchableOpacity
                               style={styles.editProfile}
-                              onPress={() =>
-                                onCallPress({
-                                  call_type: "video",
-                                  contact_image: item?.call_members[0]?.image,
-                                  contact_name: item?.call_members[0]?.name,
-                                  contact_chat_id: item?.call_members[0]?._id,
-                                  contact_id: item?.call_members[0]?.id,
-                                })
-                              }
+                              onPress={() => {
+                                if (isGroupCall) {
+                                  const calluserIds = item.call_members.map(
+                                    (member) => member._id
+                                  );
+                                  console.log(
+                                    "calluserIds====================================",
+                                    calluserIds
+                                  );
+                                  // Handle individual call
+                                  onGroupCallPress({
+                                    call_type: "video",
+                                    contact_image: item.group_call_image,
+                                    contact_name: item.group_call_name,
+                                    contact_chat_id: calluserIds,
+                                    typeOfCall: "GroupCall",
+                                  });
+                                  handleButtonPress();
+                                } else if (
+                                  !isGroupCall &&
+                                  isNormalGroupCall &&
+                                  item?.call_members?.length > 1
+                                ) {
+                                  groupCallType = "video";
+                                  if (item?.call_members?.length > 9) {
+                                    setParticipants(item?.call_members);
+                                    setCallMemberModal(true);
+                                  } else {
+                                    const calluserIds = item.call_members.map(
+                                      (member) => member._id
+                                    );
+                                    onGroupCallPress({
+                                      call_type: "video",
+                                      contact_image: item.group_call_image,
+                                      contact_name: item.group_call_name,
+                                      contact_chat_id: calluserIds,
+                                      typeOfCall: "GroupCall",
+                                      from: "isNormalGroupCall",
+                                      members: item?.call_members,
+                                    });
+                                    handleButtonPress();
+                                  }
+                                } else {
+                                  onCallPress({
+                                    call_type: "video",
+                                    contact_image: item?.call_members[0]?.image,
+                                    contact_name: item?.call_members[0]?.name,
+                                    contact_chat_id: item?.call_members[0]?._id,
+                                    contact_id: item?.call_members[0]?.id,
+                                  });
+                                  handleButtonPress();
+                                }
+                              }}
                               disabled={
                                 callState?.state === "active" ? true : false
                               }
                             >
                               <View>
                                 <Image
-                                  source={require("../../Assets/Icons/Video.png")}
-                                  style={styles.videoIcon}
+                                  source={require("../../Assets/Icons/videonewicon.png")}
+                                  style={[
+                                    styles.videoIcon,
+                                    { resizeMode: "contain" },
+                                  ]}
                                 />
                               </View>
                             </TouchableOpacity>
                           ) : !item?.call_members[0]?.is_block ? (
                             <TouchableOpacity
                               style={styles.editProfile}
-                              onPress={() =>
-                                onCallPress({
-                                  call_type: "audio",
-                                  contact_image: item?.call_members[0]?.image,
-                                  contact_name: item.call_members[0].name,
-                                  contact_chat_id: item?.call_members[0]?._id,
-                                  contact_id: item?.call_members[0]?.id,
-                                })
-                              }
+                              // onPress={() => {
+                              //   onCallPress({
+                              //     call_type: "audio",
+                              //     contact_image: item?.call_members[0]?.image,
+                              //     contact_name: item.call_members[0].name,
+                              //     contact_chat_id: item?.call_members[0]?._id,
+                              //     contact_id: item?.call_members[0]?.id,
+                              //   }),
+                              //     handleButtonPress();
+                              // }}
+
+                              onPress={() => {
+                                if (isGroupCall) {
+                                  const calluserIds = item.call_members.map(
+                                    (member) => member._id
+                                  );
+                                  console.log(
+                                    "calluserIds====================================",
+                                    calluserIds
+                                  );
+                                  // Handle individual call
+                                  onGroupCallPress({
+                                    call_type: "audio",
+                                    contact_image: item.group_call_image,
+                                    contact_name: item.group_call_name,
+                                    contact_chat_id: calluserIds,
+                                    typeOfCall: "GroupCall",
+                                  });
+                                  handleButtonPress();
+                                } else if (
+                                  !isGroupCall &&
+                                  isNormalGroupCall &&
+                                  item?.call_members?.length > 1
+                                ) {
+                                  groupCallType = "audio";
+                                  if (item?.call_members?.length > 9) {
+                                    setParticipants(item?.call_members);
+                                    setCallMemberModal(true);
+                                  } else {
+                                    console.log("item==========", item);
+
+                                    const calluserIds = item.call_members.map(
+                                      (member) => member._id
+                                    );
+                                    onGroupCallPress({
+                                      call_type: "audio",
+                                      contact_image: item?.group_call_image,
+                                      contact_name: item?.group_call_name,
+                                      contact_chat_id: calluserIds,
+                                      typeOfCall: "GroupCall",
+                                      from: "isNormalGroupCall",
+                                      members: item?.call_members,
+                                    });
+                                    handleButtonPress();
+                                  }
+                                } else {
+                                  onCallPress({
+                                    call_type: "audio",
+                                    contact_image: item?.call_members[0]?.image,
+                                    contact_name: item?.call_members[0]?.name,
+                                    contact_chat_id: item?.call_members[0]?._id,
+                                    contact_id: item?.call_members[0]?.id,
+                                  });
+                                  handleButtonPress();
+                                }
+                              }}
                               disabled={
                                 callState?.state === "active" ? true : false
                               }
@@ -974,6 +1471,8 @@ export default function CallScreen({ navigation }: any) {
                     showsVerticalScrollIndicator={false}
                     data={products}
                     renderItem={({ item, index }) => {
+                      const isGroupCall = item?.is_group_call == 1;
+                      const isNormalGroupCall = item?.is_notmal_group_call == 1;
                       return (
                         <React.Fragment>
                           {item.call_type === "missed" && (
@@ -1015,27 +1514,130 @@ export default function CallScreen({ navigation }: any) {
                               )}
                               {item.call_type === "missed" ? (
                                 <View style={styles.Container1} key={index}>
-                                  <Image
-                                     source={{
-                                      uri: item.call_members[0]?.thumbnail
-                                        ? item.call_members[0]?.thumbnail
-                                        : item.call_members[0]?.image,
-                                    }}
-                                    style={styles.circleImageLayout}
-                                    resizeMode="cover"
-                                  />
+                                  {!isGroupCall &&
+                                  isNormalGroupCall &&
+                                  item?.call_members?.length > 1 ? (
+                                    // <View style={styles.groupImagesContainer}>
+                                    //   {/* Prepend globalThis.userImage to the call_members array */}
+                                    //   {[
+                                    //     { image: globalThis.userImage },
+                                    //     ...item.call_members,
+                                    //   ]
+                                    //     .slice(0, 4) // Limit the images shown to the first 4
+                                    //     .map((member, idx) => (
+                                    //       <View
+                                    //         key={idx}
+                                    //         style={{ position: "relative" }}
+                                    //       >
+                                    //         <Image
+                                    //           source={{
+                                    //             uri:
+                                    //               member?.thumbnail || member?.image,
+                                    //           }}
+                                    //           style={[
+                                    //             styles.smallCircleImage,
+                                    //             { left: idx * 15 }, // Adjust overlapping position
+                                    //           ]}
+                                    //           resizeMode="cover"
+                                    //         />
+                                    //         {/* Show "..." if there are more than 2 call members */}
+                                    //         {idx === 3 &&
+                                    //           item.call_members.length > 2 && (
+                                    //             <Text style={styles.moreText}>
+                                    //               ...
+                                    //             </Text>
+                                    //           )}
+                                    //       </View>
+                                    //     ))}
+                                    // </View>
+                                    <View style={styles.groupImagesContainer}>
+                                      {/* Prepend globalThis.userImage to the call_members array */}
+                                      {[
+                                        { image: globalThis.userImage },
+                                        ...item.call_members,
+                                      ]
+                                        .slice(0, 3) // Limit to the first 3 images
+                                        .map((member, idx) => (
+                                          <View
+                                            key={idx}
+                                            style={{ position: "relative" }}
+                                          >
+                                            <Image
+                                              source={{
+                                                uri:
+                                                  member?.thumbnail ||
+                                                  member?.image,
+                                              }}
+                                              style={[
+                                                styles.smallCircleImage,
+                                                { left: idx * 15 }, // Adjust overlapping position
+                                              ]}
+                                              resizeMode="cover"
+                                            />
+                                            {/* Show "..." if there are more than 3 call members */}
+                                            {idx === 2 &&
+                                              item.call_members.length > 2 && (
+                                                <Text style={styles.moreText}>
+                                                  ...
+                                                </Text>
+                                              )}
+                                          </View>
+                                        ))}
+                                    </View>
+                                  ) : (
+                                    <Image
+                                      source={{
+                                        uri: isGroupCall
+                                          ? item.group_call_image
+                                          : item.call_members[0]?.thumbnail ||
+                                            item.call_members[0]?.image,
+                                      }}
+                                      style={styles.circleImageLayout}
+                                      resizeMode={
+                                        isGroupCall ? "contain" : "cover"
+                                      }
+                                    />
+                                  )}
                                 </View>
                               ) : null}
 
                               {item.call_type === "missed" ? (
                                 <View style={styles.nameContainer}>
-                                  <Text style={styles.name2Text}>
-                                    {item.call_members[0]?.name}
+                                  <Text
+                                    style={styles.name2Text}
+                                    numberOfLines={1}
+                                  >
+                                    {/* {isGroupCall
+                                ? item.group_call_name
+                                : item.call_members[0]?.name} */}
+                                    {!isGroupCall &&
+                                    isNormalGroupCall &&
+                                    item?.call_members?.length > 1
+                                      ? `${item.call_members[0]?.name} & ${item.call_members[1]?.name}` +
+                                        (item.call_members?.length > 2
+                                          ? ` + ${
+                                              item.call_members.length - 2
+                                            } others`
+                                          : "") // Show "2 others" if more than 2 members
+                                      : isGroupCall
+                                      ? item.group_call_name // Show the group call name
+                                      : item.call_members[0]?.name}
                                   </Text>
+
+                                  {/* <Text style={styles.name2Text}>
+                                    {isGroupCall
+                                      ? item.group_call_name
+                                      : item.call_members[0]?.name}
+                                  </Text> */}
 
                                   <View style={styles.missContainer}>
                                     {item.call_type === "missed" ? (
-                                      <View style={{ flexDirection: "row" }}>
+                                      <View
+                                        style={{
+                                          flexDirection: "row",
+                                          alignItems: "center",
+                                        }}
+                                      >
                                         <Image
                                           source={require("../../Assets/Icons/Missed.png")}
                                           style={styles.missIcon}
@@ -1056,49 +1658,184 @@ export default function CallScreen({ navigation }: any) {
                               ) : null}
                               {item.call_type === "missed" ? (
                                 <View style={styles.editProfile}>
-                                  {item.is_video === 1 && !item?.call_members[0]?.is_block ? (
+                                  {item.is_video === 1 &&
+                                  !item?.call_members[0]?.is_block ? (
                                     <TouchableOpacity
                                       style={styles.editProfile}
-                                      onPress={() =>
-                                        onCallPress({
-                                          call_type: "video",
-                                          contact_image:
-                                            item?.call_members[0]?.image,
-                                          contact_name:
-                                            item?.call_members[0]?.name,
-                                          contact_chat_id:
-                                            item?.call_members[0]?._id,
-                                          contact_id: item?.call_members[0]?.id,
-                                        })
-                                      }
+                                      // onPress={() => {
+                                      //   onCallPress({
+                                      //     call_type: "video",
+                                      //     contact_image:
+                                      //       item?.call_members[0]?.image,
+                                      //     contact_name:
+                                      //       item?.call_members[0]?.name,
+                                      //     contact_chat_id:
+                                      //       item?.call_members[0]?._id,
+                                      //     contact_id: item?.call_members[0]?.id,
+                                      //   }),
+                                      //     handleButtonPress();
+                                      // }}
+                                      onPress={() => {
+                                        if (isGroupCall) {
+                                          const calluserIds =
+                                            item.call_members.map(
+                                              (member) => member._id
+                                            );
+                                          console.log(
+                                            "calluserIds====================================",
+                                            calluserIds
+                                          );
+                                          // Handle individual call
+                                          onGroupCallPress({
+                                            call_type: "video",
+                                            contact_image:
+                                              item.group_call_image,
+                                            contact_name: item.group_call_name,
+                                            contact_chat_id: calluserIds,
+                                            typeOfCall: "GroupCall",
+                                          });
+                                          handleButtonPress();
+                                        } else if (
+                                          !isGroupCall &&
+                                          isNormalGroupCall &&
+                                          item?.call_members?.length > 1
+                                        ) {
+                                          groupCallType = "video";
+                                          if (item?.call_members?.length > 9) {
+                                            setParticipants(item?.call_members);
+                                            setCallMemberModal(true);
+                                          } else {
+                                            const calluserIds =
+                                              item.call_members.map(
+                                                (member) => member._id
+                                              );
+                                            onGroupCallPress({
+                                              call_type: "video",
+                                              contact_image:
+                                                item.group_call_image,
+                                              contact_name:
+                                                item.group_call_name,
+                                              contact_chat_id: calluserIds,
+                                              typeOfCall: "GroupCall",
+                                              from: "isNormalGroupCall",
+                                              members: item?.call_members,
+                                            });
+                                            handleButtonPress();
+                                          }
+                                        } else {
+                                          onCallPress({
+                                            call_type: "video",
+                                            contact_image:
+                                              item?.call_members[0]?.image,
+                                            contact_name:
+                                              item?.call_members[0]?.name,
+                                            contact_chat_id:
+                                              item?.call_members[0]?._id,
+                                            contact_id:
+                                              item?.call_members[0]?.id,
+                                          });
+                                          handleButtonPress();
+                                        }
+                                      }}
                                       disabled={
-                                        callState?.state === "active" ? true : false
+                                        callState?.state === "active"
+                                          ? true
+                                          : false
                                       }
                                     >
                                       <View>
                                         <Image
-                                          source={require("../../Assets/Icons/Video.png")}
-                                          style={styles.videoIcon}
+                                          source={require("../../Assets/Icons/videonewicon.png")}
+                                          style={[
+                                            styles.videoIcon,
+                                            { resizeMode: "contain" },
+                                          ]}
                                         />
                                       </View>
                                     </TouchableOpacity>
                                   ) : !item?.call_members[0]?.is_block ? (
                                     <TouchableOpacity
                                       style={styles.editProfile}
-                                      onPress={() =>
-                                        onCallPress({
-                                          call_type: "audio",
-                                          contact_image:
-                                            item?.call_members[0]?.image,
-                                          contact_name:
-                                            item?.call_members[0]?.name,
-                                          contact_chat_id:
-                                            item?.call_members[0]?._id,
-                                          contact_id: item?.call_members[0]?.id,
-                                        })
-                                      }
+                                      // onPress={() => {
+                                      //   onCallPress({
+                                      //     call_type: "audio",
+                                      //     contact_image:
+                                      //       item?.call_members[0]?.image,
+                                      //     contact_name:
+                                      //       item?.call_members[0]?.name,
+                                      //     contact_chat_id:
+                                      //       item?.call_members[0]?._id,
+                                      //     contact_id: item?.call_members[0]?.id,
+                                      //   }),
+                                      //     handleButtonPress();
+                                      // }}
+                                      onPress={() => {
+                                        if (isGroupCall) {
+                                          const calluserIds =
+                                            item.call_members.map(
+                                              (member) => member._id
+                                            );
+                                          console.log(
+                                            "calluserIds====================================",
+                                            calluserIds
+                                          );
+                                          // Handle individual call
+                                          onGroupCallPress({
+                                            call_type: "audio",
+                                            contact_image:
+                                              item.group_call_image,
+                                            contact_name: item.group_call_name,
+                                            contact_chat_id: calluserIds,
+                                            typeOfCall: "GroupCall",
+                                          });
+                                          handleButtonPress();
+                                        } else if (
+                                          !isGroupCall &&
+                                          isNormalGroupCall &&
+                                          item?.call_members?.length > 1
+                                        ) {
+                                          groupCallType = "audio";
+                                          if (item?.call_members?.length > 9) {
+                                            setParticipants(item?.call_members);
+                                            setCallMemberModal(true);
+                                          } else {
+                                            const calluserIds =
+                                              item.call_members.map(
+                                                (member) => member._id
+                                              );
+                                            onGroupCallPress({
+                                              call_type: "audio",
+                                              contact_image:
+                                                item.group_call_image,
+                                              contact_name:
+                                                item.group_call_name,
+                                              contact_chat_id: calluserIds,
+                                              typeOfCall: "GroupCall",
+                                              from: "isNormalGroupCall",
+                                              members: item?.call_members,
+                                            });
+
+                                            handleButtonPress();
+                                          }
+                                        } else {
+                                          onCallPress({
+                                            call_type: "audio",
+                                            contact_image:
+                                              item?.call_members[0]?.image,
+                                            contact_name:
+                                              item?.call_members[0]?.name,
+                                            contact_chat_id:
+                                              item?.call_members[0]?._id,
+                                            contact_id:
+                                              item?.call_members[0]?.id,
+                                          });
+                                          handleButtonPress();
+                                        }
+                                      }}
                                       disabled={
-                                        callState?.state === "active" ? true : false
+                                        callState?.state === "active"
+                                          ? true
+                                          : false
                                       }
                                     >
                                       <Image
@@ -1153,6 +1890,30 @@ export default function CallScreen({ navigation }: any) {
             )}
           </>
         )}
+
+        <Modal
+          visible={callMemberModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setCallMemberModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <Text style={styles.header}>Select Member</Text>
+            <FlatList
+              data={participants}
+              renderItem={renderItem}
+              keyExtractor={(item) => item.userId}
+            />
+            {selectedUserIds.length > 0 && (
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => handleModalClose(selectedUserIds, participants)}
+              >
+                <Text style={styles.closeButtonText}>Add to call</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Modal>
       </View>
     </MainComponent>
   );

@@ -9,7 +9,7 @@ import {
 } from "react-native";
 
 import DeviceInfo from "react-native-device-info";
-import { Base_Url2, insertFriend, scanQrCodeApi } from "../../Constant/Api";
+import { Base_Url2, blockApi, chatBaseUrl, insertFriend, scanQrCodeApi } from "../../Constant/Api";
 import { t } from "i18next";
 import ThemeContext from "../../Components/ThemeContext/ThemeContext";
 import { COLORS, themeModule } from "../../Components/Colors/Colors";
@@ -34,6 +34,11 @@ import {
 import { showToast } from "../../Components/CustomToast/Action";
 import { LoaderModel } from "../Modals/LoaderModel";
 import axios from "axios";
+import { blockRoom, getRoomIdFromRes, getRoomIdFromResforbarcode, updateblockuser } from "../../sqliteStore";
+import { socket } from "../../socket";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { Mixpanel } from "mixpanel-react-native";
+import { AppsFlyerTracker } from "../EventTracker/AppsFlyerTracker";
 
 const isDarkMode = true;
 
@@ -42,9 +47,37 @@ export default function QrScannerScreen({ navigation }: any) {
   const { colorTheme } = useContext(ThemeContext);
   const windowHeight = Dimensions.get("window").height;
   const [loaderModel, setloaderModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
 
   const dispatch = useDispatch();
-  useEffect(() => {}, []);
+
+
+  const trackAutomaticEvents = false;
+  const mixpanel = new Mixpanel(
+    `${globalThis.mixpanelToken}`,
+    trackAutomaticEvents
+  );
+
+
+
+  const handleButtonPress = (eventName) => {
+    handleCallEvent("Add Friend by QR Screen",eventName)
+    // Track button click event with Mixpanel
+    mixpanel.track("Add Friend by QR Screen", {
+      type: eventName,
+    });
+  };
+
+  const handleCallEvent = (eventTrack,eventName1) => {
+    const eventName = eventTrack;
+    const eventValues = {
+      af_content_id: eventName1,
+      af_customer_user_id: globalThis.chatUserId,
+      af_quantity: 1,
+    };
+  
+    AppsFlyerTracker(eventName, eventValues, globalThis.chatUserId); // Pass user ID if you want to set it globally
+  };
   const styles = StyleSheet.create({
     groupContainer: {
       flexDirection: "row",
@@ -87,6 +120,83 @@ export default function QrScannerScreen({ navigation }: any) {
     },
   });
 
+
+  const BlockChatApiCallingfromFriendlist = async (chat_user_id,phone_number,roomId,opt,action) => {
+    // setloaderMoedl(true);
+    const urlStr = chatBaseUrl + blockApi;
+    try {
+      await axios({
+        method: "post",
+        url: urlStr,
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${globalThis.token}`,
+        },
+        data: {
+          from: globalThis.chatUserId,
+          to: chat_user_id,
+          opt: opt,
+          roomId: roomId,
+        },
+      })
+        .then((response) => {
+          if (response.data.status == true) {
+            updateblockuser(
+              {
+                fromuser: globalThis.chatUserId,
+                touser: chat_user_id,
+              },
+              action,
+              ({ status, res }) => {
+                if (status) {
+                  // Room Blocked
+                } else {
+                  console.log(
+                    "while adding entry to block user status is false"
+                  );
+                }
+              }
+            );
+
+            if(action == "remove"){
+              socket.emit("joinRoom", {
+                roomId: roomId,
+                userId: globalThis.userChatId,
+              })
+            }
+            else{
+              //@ts-ignore
+              socket.emit("leaveRoom", {
+                roomId: roomId, //@ts-ignore
+                userId: globalThis.userChatId,
+              });
+            }
+            
+
+            socket.emit("blockusers", {
+              touser: chat_user_id,
+              fromuser: globalThis.chatUserId,
+              isBlock: opt == "block",
+            });
+            blockRoom(roomId,opt == "block" ? false : true);
+          } else {
+            // Alert.alert(response.data.message);
+            globalThis.errorMessage = response.data.message;
+            setErrorAlertModel(true);
+          }
+        })
+        .catch((error) => {
+          // setloaderMoedl(false);
+        });
+    } catch (error: any) {
+      // setloaderMoedl(false);
+    }
+  };
+
+
+
+
+
   // **********   Headers for api ********** ///
   const headers = {
     Accept: "application/json",
@@ -120,11 +230,16 @@ export default function QrScannerScreen({ navigation }: any) {
           }
         );
       } else {
-        Alert.alert(t("error"), t("invalid_qr_code"), [{ text: t("cancel") }]);
+        
+        // Alert.alert(t("error"), t("invalid_qr_code"), [{ text: t("cancel") }]);
         setloaderModel(false);
+        globalThis.errorMessage = t("invalid_qr_code");
+        setErrorAlertModel(true);
       }
     } catch (error) {
-      Alert.alert(t("error"), t("invalid_qr_code"), [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), t("invalid_qr_code"), [{ text: t("cancel") }]);
+      globalThis.errorMessage = t("invalid_qr_code");
+      setErrorAlertModel(true);
       setloaderModel(false);
     }
   };
@@ -139,7 +254,7 @@ export default function QrScannerScreen({ navigation }: any) {
       ]);
       setloaderModel(false);
     } else {
-     
+      handleButtonPress("QrCode Scaned");
       const user = ResponseData.data.user;
       const userImage = user.profile_image;
       const userName = user.first_name;
@@ -161,12 +276,33 @@ export default function QrScannerScreen({ navigation }: any) {
         globalThis.userChatId
           ? showToast(t("you_cant_scan_yourself"))
           : addFriendfunction(data_usernew);
-            newChattingPress({
-              profileImage: user.profile_image,
-              contactName: user.first_name,
-              chatId: user.chat_user_id,
-              FriendNumber: user.phone_number,
-            });
+          getRoomIdFromResforbarcode(
+            String(user.phone_number), //@ts-ignore
+            String(globalThis.phone_number),
+            async (res: any,status:any) => {
+              if (status) {
+                console.log("res.roomId",res.roomId)
+              await BlockChatApiCallingfromFriendlist(user.chat_user_id,user.phone_number,res.roomId,"unblock","remove")
+              blockRoom(res.roomId,true,()=> {
+                newChattingPress({
+                  profileImage: user.profile_image,
+                  contactName: user.first_name,
+                  chatId: user.chat_user_id,
+                  FriendNumber: user.phone_number,
+                });
+              })
+              }
+              else{
+                newChattingPress({
+                  profileImage: user.profile_image,
+                  contactName: user.first_name,
+                  chatId: user.chat_user_id,
+                  FriendNumber: user.phone_number,
+                });
+              }
+            }
+          );
+           
         setloaderModel(false);
       }
     }
@@ -247,6 +383,7 @@ export default function QrScannerScreen({ navigation }: any) {
 
   const Inviteuser = () => {
     Share.share(shareOptions);
+    handleButtonPress("Invite User");
   };
 
   return (
@@ -259,6 +396,12 @@ export default function QrScannerScreen({ navigation }: any) {
         visible={loaderModel}
         onRequestClose={() => setloaderModel(false)}
         cancel={() => setloaderModel(false)}
+      />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
       />
       <View
         style={{

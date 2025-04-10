@@ -32,7 +32,7 @@ import ThemeContext from "../../Components/ThemeContext/ThemeContext";
 import TopBar from "../../Components/TopBar/TopBar";
 import renderIf from "../../Components/renderIf";
 import { theme_purchase, theme_purchase_list } from "../../Constant/Api";
-import { settingTop } from "../../Navigation/Icons";
+import { chatTop, settingTop } from "../../Navigation/Icons";
 import { LoaderModel } from "../Modals/LoaderModel";
 
 const isDarkMode = true;
@@ -1077,6 +1077,9 @@ export default function OrderSummary({ navigation }: any) {
             globalThis.selectTheme === "newYear" || 
             globalThis.selectTheme === "newYearTheme" || 
             globalThis.selectTheme === "mongoliaTheme" || 
+            globalThis.selectTheme === "indiaTheme" ||
+            globalThis.selectTheme === "englandTheme" ||
+            globalThis.selectTheme === "americaTheme" ||
             globalThis.selectTheme === "mexicoTheme" || 
             globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -1091,6 +1094,7 @@ export default function OrderSummary({ navigation }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null

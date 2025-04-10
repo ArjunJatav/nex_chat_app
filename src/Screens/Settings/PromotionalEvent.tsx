@@ -22,8 +22,10 @@ import { font } from "../../Components/Fonts/Font";
 import MainComponent from "../../Components/MainComponent/MainComponent";
 import TopBar from "../../Components/TopBar/TopBar";
 import { notifications_list } from "../../Constant/Api";
-import { noDataImage, settingTop } from "../../Navigation/Icons";
+import { chatTop, noDataImage, settingTop } from "../../Navigation/Icons";
 import { LoaderModel } from "../Modals/LoaderModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
 
 const isDarkMode = true;
 
@@ -32,6 +34,8 @@ export default function NotificationScreen({ navigation }: any) {
   const windowWidth = Dimensions.get("window").width;
   const windowHeight = Dimensions.get("window").height;
   const [loaderModel, setloaderMoedl] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
   const [content, setContent] = useState("");
   const { t } = useTranslation();
 
@@ -40,10 +44,10 @@ export default function NotificationScreen({ navigation }: any) {
       // ********** InterNet Permission    ********** ///
       NetInfo.fetch().then((state) => {
         if (state.isConnected === false) {
-          Alert.alert(t("noInternet"), t("please_check_internet"), [
-            { text: t("ok") },
-          ]);
-
+          // Alert.alert(t("noInternet"), t("please_check_internet"), [
+          //   { text: t("ok") },
+          // ]);
+setNoInternetModel(true);
           return;
         } else {
           getNotificationApi();
@@ -76,8 +80,10 @@ export default function NotificationScreen({ navigation }: any) {
   // eslint-disable-next-line
   const notidicationApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);  
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);  
       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
     } else {
       setContent(ResponseData.data);
       setloaderMoedl(false);
@@ -199,7 +205,19 @@ export default function NotificationScreen({ navigation }: any) {
       {/* // **********  Status Bar    ********** // */}
 
       <LoaderModel visible={loaderModel} />
-
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
       <View
         style={{
           position: "relative",
@@ -229,6 +247,9 @@ export default function NotificationScreen({ navigation }: any) {
             globalThis.selectTheme === "newYearTheme" ||
             globalThis.selectTheme === "mongoliaTheme" || 
             globalThis.selectTheme === "mexicoTheme" || 
+            globalThis.selectTheme === "indiaTheme" ||
+            globalThis.selectTheme === "englandTheme" ||
+            globalThis.selectTheme === "americaTheme" ||
             globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
               source={settingTop().BackGroundImage}
@@ -240,6 +261,7 @@ export default function NotificationScreen({ navigation }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null
@@ -270,6 +292,9 @@ export default function NotificationScreen({ navigation }: any) {
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={false}
               bounces={false}
+              contentContainerStyle={{
+                paddingBottom:150
+              }}
               // eslint-disable-next-line
               renderItem={({ item, index }: any) => {
                 return (

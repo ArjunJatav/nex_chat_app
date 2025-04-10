@@ -8,7 +8,10 @@ const initialState = {
     id: "",
     callerUUID: "",
     fromPush: false,
-    fullView: false,
+    fullView: true,
+    call_id: "",
+    groupCall: false,
+    memberGroupCall: false
   },
 };
 
@@ -17,19 +20,14 @@ const callerIdSlice = createSlice({
   name: "callerId", // Slice name
   initialState,
   reducers: {
-    // Reducer for updating callerId
+    // Reducer for updating callerId with partial updates
     updateCallerId: (
       state,
-      action: PayloadAction<{
-        id: string;
-        callerUUID: string;
-        fromPush: boolean;
-        fullView: boolean;
-      }>
+      action: PayloadAction<Partial<typeof initialState[typeof appConstants.caller]>>
     ) => {
-      const { id, callerUUID, fromPush, fullView } = action.payload;
-      state[appConstants.caller] = { id, callerUUID, fromPush, fullView };
+      Object.assign(state[appConstants.caller], action.payload); // Ensures only updated keys change
     },
+    // Reducer for resetting the state to initial
     resetCallerIdReducer: () => initialState,
   },
 });

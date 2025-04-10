@@ -1,42 +1,36 @@
 /**
  * @format
  */
+import React from "react";
 import notifee, {
-  AndroidCategory,
   AndroidImportance,
-  AndroidStyle,
   AuthorizationStatus,
-  TimestampTrigger,
-  TriggerType,
 } from "@notifee/react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import messaging from "@react-native-firebase/messaging";
 import { AppRegistry, Platform } from "react-native";
 import _BackgroundTimer from "react-native-background-timer";
 import RNCallKeep from "react-native-callkeep";
 import "react-native-image-keyboard";
-import PushNotification from "react-native-push-notification";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import App from "./App";
 import { name as appName } from "./app.json";
-import { Base_Url, update_call_status } from "./src/Constant/Api";
-import { PlaySound } from "./src/Screens/agora/agoraHandler";
+// import { Base_Url, update_call_status } from "./src/Constant/Api";
+import { PlaySound, StopIncomingSound } from "./src/Screens/agora/agoraHandler";
 import {
-  resetVoipReducer,
   updateAgoraData,
   updateCallData,
   updateCallState,
 } from "./src/reducers/VoipReducer";
-import { updateCallerId } from "./src/reducers/callerIDReducers";
-import { resetDataReducer, updateDataAgora } from "./src/reducers/dataReducer";
-import { socket } from "./src/socket";
+import {updateDataAgora } from "./src/reducers/dataReducer";
 import { persistor, store } from "./src/store";
+import { NativeModules } from 'react-native';
+import { stopSound } from "./src/utils/callKitCustom";
 
-let agoraData = {};
-let uuid = 0;
-global.appOpned = true;
+// let agoraData = {};
+globalThis.appOpned = true;
 RNCallKeep.setAvailable(true);
+globalThis.appStateReader = false;
 
 const ReduxApp = () => (
   <Provider store={store}>
@@ -46,16 +40,21 @@ const ReduxApp = () => (
   </Provider>
 );
 
-const onDisplayNotification = async () => {
-  PushNotification.localNotificationSchedule({
-    message: "Your notification message",
-    date: new Date(Date.now() + 600 * 1000), // 60 seconds, change as needed
-  });
+// function HeadlessCheck() {
+//   return <ReduxApp />;
+// }
+
+const onDisplayNotification = async (data) => {
+  // PushNotification.localNotificationSchedule({
+  //   message: "Your notification message",
+  //   date: new Date(Date.now() + 600 * 1000), // 60 seconds, change as needed
+  // });
   // Request permissions (required for iOS)
   const settings = await notifee.requestPermission();
-
   if (settings.authorizationStatus >= AuthorizationStatus.AUTHORIZED) {
+      console.log("yes")
   } else {
+    console.log("no")
   }
 
   const channelId = await notifee.createChannel({
@@ -104,6 +103,7 @@ const onDisplayNotification = async () => {
         list: true,
       },
     },
+    data
   });
 };
 
@@ -238,83 +238,103 @@ const callKeeper = (dataAgora) => {
   }, 1500);
 };
 
-const endCall = () => {
-  globalThis.statusCheck = undefined;
-  // @ts-ignore
-  RNCallKeep.endCall("b8236c1b-9f68-4b6e-a8ce-803aec634c98");
+// const endCall = () => {
+//   globalThis.statusCheck = undefined;
+//   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//   RNCallKeep.endCall("b8236c1b-9f68-4b6e-a8ce-803aec634c98");
 
-  _BackgroundTimer.setTimeout(() => {
-    // @ts-ignore
-    globalThis.isCallIntiate = false;
-    // @ts-ignore
-    globalThis.callStateUpdate = true;
-    // @ts-ignore
-    const agora_Data = {
-      uid: "88",
-      app_id: agoraData?.app_id,
-      channel_name: agoraData?.channel_name,
-      is_video: agoraData?.is_video,
-      jwt: "",
-      token: "",
-      receiver: agoraData?.receiver,
-      sender: agoraData?.sender,
-      userStatus: "",
-      receiver_image: agoraData?.receiver_image,
-      receiver_name: agoraData?.receiver_name,
-      sender_image: agoraData?.sender_image,
-      sender_name: agoraData?.sender_name,
-      token_2: "",
-      isVideo: agoraData?.isVideo,
-      image: agoraData?.image,
-      caller: agoraData?.sender_name,
-      uid_2: "48",
-      roomId: "8daedecf-a5b6-4040-baf1-c5f17c3e27f1",
-      uuid: agoraData?.uuid,
-      id: "b8236c1b-9f68-4b6e-a8ce-803aec634c98",
-      status: "ended",
-    };
+//   _BackgroundTimer.setTimeout(() => {
+//     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//     globalThis.isCallIntiate = false;
+//     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//     globalThis.callStateUpdate = true;
+//     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//     const agora_Data = {
+//       uid: "88",
+//       app_id: agoraData?.app_id,
+//       channel_name: agoraData?.channel_name,
+//       is_video: agoraData?.is_video,
+//       jwt: "",
+//       token: "",
+//       receiver: agoraData?.receiver,
+//       sender: agoraData?.sender,
+//       userStatus: "",
+//       receiver_image: agoraData?.receiver_image,
+//       receiver_name: agoraData?.receiver_name,
+//       sender_image: agoraData?.sender_image,
+//       sender_name: agoraData?.sender_name,
+//       token_2: "",
+//       isVideo: agoraData?.isVideo,
+//       image: agoraData?.image,
+//       caller: agoraData?.sender_name,
+//       uid_2: "48",
+//       roomId: "8daedecf-a5b6-4040-baf1-c5f17c3e27f1",
+//       uuid: agoraData?.uuid,
+//       id: "b8236c1b-9f68-4b6e-a8ce-803aec634c98",
+//       status: "ended",
+//     };
 
-    socket.emit("callEvents", {
-      toUserId: agoraData.chatId,
-      data: agora_Data,
-    });
-    // check if timer is running then stop it
+//     socket.emit("callEvents", {
+//       toUserId: agoraData.chatId,
+//       data: agora_Data,
+//     });
+//     // check if timer is running then stop it
 
-    startCall("ended", agoraData?.channel_name);
+//     startCall("ended", agoraData?.channel_name);
 
-    // leaveCall();
-    store.dispatch(updateCallState({ state: "ended" }));
-    store.dispatch(resetDataReducer());
-    store.dispatch(resetVoipReducer());
-  }, 1000);
-};
+//     // leaveCall();
+//     store.dispatch(updateCallState({ state: "ended" }));
+//     store.dispatch(resetDataReducer());
+//     store.dispatch(resetVoipReducer());
+//   }, 1000);
+// };
 
-const startCall = async (type, channel) => {
-  const url = Base_Url + update_call_status;
-  try {
-    axios({
-      method: "post",
-      url: url,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        // @ts-ignore
-        Authorization: "Bearer " + globalThis.token,
-      },
-      data: {
-        channel_name: channel,
-        status: type,
-      },
-    })
-      .then((response) => {})
-      .catch((error) => {});
-  } catch (error) {}
-};
+// const startCall = async (type, channel) => {
+//   const url = Base_Url + update_call_status;
+//   try {
+//     axios({
+//       method: "post",
+//       url: url,
+//       headers: {
+//         "Content-Type": "application/json",
+//         Accept: "application/json",
+//         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//         Authorization: "Bearer " + globalThis.token,
+//       },
+//       data: {
+//         channel_name: channel,
+//         status: type,
+//       },
+//     })
+//       .then((response) => {})
+//       .catch((error) => {});
+//   } catch (error) {}
+// };
 
 // Register background handler
+const { IncomingCall } = NativeModules;
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-  let data = JSON.parse(remoteMessage?.data?.data);
-  agoraData = data;
+  if( Platform.OS === "ios"){
+    onDisplayNotification(remoteMessage.data)
+  }else{
+
+    let data = remoteMessage?.data
+    console.log("Notification received in killed state in index.js >>>>>>>", remoteMessage);
+
+    if(data.status == "missed" && data.channel_name === globalThis.activeChannel){
+            StopIncomingSound();
+            IncomingCall.removeIncomingCallNotification();
+            console.log("Notification missed kill index.js >>>>>>>", remoteMessage);
+            globalThis.statusCheck = undefined;
+            store.dispatch(
+              updateCallState({
+                state: "ended",
+                isBackground: false,
+              })
+            );
+
+    }
+  // const  agoraData = data;
 
   if (
     data?.status !== "ended" &&
@@ -322,69 +342,25 @@ messaging().setBackgroundMessageHandler(async (remoteMessage) => {
     data.notification_type == "calls" &&
     Platform.OS === "android"
   ) {
-    for (var i = 0; i < 50; i++) {
-      RNCallKeep.backToForeground();
-    }
-    _BackgroundTimer.setTimeout(() => {
-      callKeeper(data);
-    }, 5000);
 
-    // if (global.pushCondication == undefined) {
-    // for (var i = 0; i < 10; i++) {
-    //   RNCallKeep.backToForeground();
-    // }
+    globalThis.statusCheck = "active";
+    globalThis.activeChannel = data?.channel_name;
+    globalThis.wayOfCall = undefined;
+    globalThis.callStatus = data?.channel_name;
 
-    // const agora = {
-    //   uid: "88",
-    //   app_id: agoraData?.app_id,
-    //   channel_name: agoraData?.channel_name,
-    //   is_video: agoraData?.is_video === 1 ? true : false,
-    //   jwt: "",
-    //   token: "",
-    //   receiver: agoraData?.receiver,
-    //   sender: agoraData?.sender,
-    //   userStatus: " ",
-    //   receiver_image: agoraData?.receiver_image,
-    //   receiver_name: agoraData?.receiver_name,
-    //   sender_image: agoraData?.sender_image,
-    //   sender_name: agoraData?.sender_name,
-    //   token_2: "",
-    //   isVideo: agoraData?.is_video === 1 ? true : false,
-    //   image:
-    //     "https://rockt.s3.amazonaws.com/user/profile_image/media__1696395460355-1696395496182.jpeg",
-    //   caller: agoraData?.sender_name,
-    //   uid_2: "48",
-    //   roomId: "8daedecf-a5b6-4040-baf1-c5f17c3e27f1",
-    //   uuid: "b8236c1b-9f68-4b6e-a8ce-803aec634c98",
-    //   id: "b8236c1b-9f68-4b6e-a8ce-803aec634c98",
-    //   status: "answer",
-    //   chatId: agoraData.chatId,
-    //   callkeep: "push",
-    // };
-
-    // store.dispatch(updateDataAgora(agora));
-    // _BackgroundTimer.setTimeout(() => {
-    //   store.dispatch(updateAgoraData(agora));
-    //   store.dispatch(
-    //     updateCallData({
-    //       isVideo: agoraData?.is_video === 1 ? true : false,
-    //       session: "agora_session.video",
-    //       guestVideoUid: 155,
-    //       // isCallInitalized: true,
-    //     })
-    //   );
-    //   store.dispatch(
-    //     updateCallState({
-    //       state: "incoming",
-    //       isBackground: false,
-    //       isVideo: agoraData?.is_video === 1 ? true : false,
-    //     })
-    //   );
-    // }, 1000);
-
-    // RNCallKeep.endCall("b8236c1b-9f68-4b6e-a8ce-803aec634c98");
-    // }
+    let type = data.is_video == "1" ? "video call" : " audio call"
+    const notificationData = {
+      title: "Tokee " + type,  // You can set this dynamically
+      message: 'Incoming Call from ' + remoteMessage?.data?.sender_name,  // Custom message
+      extraData: JSON.stringify(remoteMessage?.data) // Any extra data you want to pass to the intent
+    };
+    console.log("Sending Notification Data >>>>>>>",notificationData)
+    PlaySound(
+      "https://wokii.io/backend/public/uploads/ringtone/ringtone.mp3"
+    );
+    IncomingCall.showIncomingCallNotification(notificationData);
+   
   }
+}
 });
-
 AppRegistry.registerComponent(appName, () => ReduxApp);

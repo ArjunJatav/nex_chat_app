@@ -29,7 +29,7 @@ import { font } from "../../Components/Fonts/Font";
 import MainComponent from "../../Components/MainComponent/MainComponent";
 import TopBar from "../../Components/TopBar/TopBar";
 import { Base_Url } from "../../Constant/Api";
-import { settingTop } from "../../Navigation/Icons";
+import { chatTop, settingTop } from "../../Navigation/Icons";
 import { useDispatch, useSelector } from "react-redux";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SQLite from "react-native-sqlite-storage";
@@ -76,7 +76,7 @@ export default function ChatBackup({ navigation }: any) {
    // eslint-disable-next-line
   const [localmediasize, setlocalmediasize] = useState<any>(0);
    // eslint-disable-next-line
-  const [locallastbackuptime, setlocallastbackuptime] = useState<any>("Never");
+  const [locallastbackuptime, setlocallastbackuptime] = useState<any>(t("Never"));
 
   useEffect(() => {
     getbackuplocalinfo();
@@ -89,7 +89,7 @@ export default function ChatBackup({ navigation }: any) {
       (await AsyncStorage.getItem("chat_media_backup_size")) || 0
     );
     setlocallastbackuptime(
-      (await AsyncStorage.getItem("chat_backup_date_time")) || "Never"
+      (await AsyncStorage.getItem("chat_backup_date_time")) || t("Never")
     );
   };
 
@@ -175,7 +175,7 @@ export default function ChatBackup({ navigation }: any) {
                   setlocalloading(false);
                   // await AsyncStorage.setItem('backupDateTime', formattedDateTime);
                   setlocalchatsize(fileStats.size);
-                  // await AsyncStorage.setItem('isBackupInProgress', 'false');
+                
                   dispatch(
                     backupSuccess({
                       dateTime: formattedDateTime,
@@ -284,8 +284,8 @@ export default function ChatBackup({ navigation }: any) {
       const bucket = new AWS.S3({
         bucketName: "tokee-chat-staging",
         region: "us-east-2",
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey,
+        accessKeyId: globalThis.accessKey,
+        secretAccessKey: globalThis.awsSecretAccessKey,
         s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/",
       });
 
@@ -560,6 +560,9 @@ export default function ChatBackup({ navigation }: any) {
           globalThis.selectTheme === "newYear" || 
           globalThis.selectTheme === "newYearTheme" || 
           globalThis.selectTheme === "mongoliaTheme" || 
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "mexicoTheme" || 
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -572,6 +575,7 @@ export default function ChatBackup({ navigation }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null
@@ -624,12 +628,12 @@ export default function ChatBackup({ navigation }: any) {
                   </Text>
                   {parseInt(localmediasize) > 0 ? (
                     <Text style={{ fontFamily: font.semibold() }}>
-                      Media Backup Size: {formatBytes(parseInt(localmediasize))}
+                      {t("media_backup_size")} {formatBytes(parseInt(localmediasize))}
                     </Text>
                   ) : (
                     isEnabled && (
                       <Text style={{ fontFamily: font.semibold() }}>
-                        Media Backup Size:{" "}
+                     {t("media_backup_size")}{" "}
                         {formatBytes(parseInt(localmediasize))}
                       </Text>
                     )
@@ -802,9 +806,7 @@ export default function ChatBackup({ navigation }: any) {
                   }}
                 >
                   <Text style={{ fontSize: 15, fontFamily: font.semibold() }}>
-                    {
-                      "Your backup has been completed, but it hasn't been uploaded yet. Please click the \"Upload Backup\" button to send your chat backup to the Tokee server."
-                    }
+                    {t("afetr_chat_back_up")}
                   </Text>
                   {/* <ActivityIndicator animating size="small" color={"#7FD25A"} /> */}
                 </View>

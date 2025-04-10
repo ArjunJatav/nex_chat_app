@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     height: 112,
     width: 112,
     borderRadius: 56,
-    backgroundColor: colors.gray,
+    //backgroundColor: colors.gray,
     position: 'absolute',
     overflow: 'hidden',
   },

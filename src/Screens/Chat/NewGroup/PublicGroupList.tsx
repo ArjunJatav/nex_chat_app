@@ -61,6 +61,7 @@ import {
 } from "../../../sqliteStore";
 import { CameraModal } from "../../Modals/CameraModel";
 import { LoaderModel } from "../../Modals/LoaderModel";
+import { ErrorAlertModel } from "../../Modals/ErrorAlertModel";
 
 const isDarkMode = true;
 const data = [
@@ -78,6 +79,8 @@ export default function CreateGroupScreen({ navigation, route }: any) {
   const [checked, setChecked] = useState("first");
   const [isPublic, setIsPublic] = useState("public");
   const [cameraModal, setCameraModal] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+
   const [filePath, setFilePath] = useState("");
   const { t, i18n } = useTranslation();
 
@@ -95,7 +98,9 @@ export default function CreateGroupScreen({ navigation, route }: any) {
   };
   const buttonPress2 = () => {
     if (groupName == "") {
-      Alert.alert("", t("please_provide_group_name"), [{ text: t("ok") }]);
+      // Alert.alert("", t("please_provide_group_name"), [{ text: t("ok") }]);
+      globalThis.errorMessage = t("please_provide_group_name");
+      setErrorAlertModel(true);
     } else {
       if (filePath == "") {
         const imageSend = "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Document/1717401343823_36FA5C33-D2AD-40F0-AC1B-E35C078FCFFE.jpg";
@@ -540,8 +545,8 @@ export default function CreateGroupScreen({ navigation, route }: any) {
     setLoading(true);
 
     const s3 = new AWS.S3({
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
+      accessKeyId: globalThis.accessKey,
+      secretAccessKey: globalThis.awsSecretAccessKey,
       region: "us-east-2",
       //@ts-ignore
       s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com",
@@ -584,6 +589,12 @@ export default function CreateGroupScreen({ navigation, route }: any) {
         Camera={() => captureImage()}
         select={() => selectImage()}
         cancel={() => setCameraModal(false)}
+      />
+         <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
       />
 
       <View
@@ -629,6 +640,9 @@ export default function CreateGroupScreen({ navigation, route }: any) {
             globalThis.selectTheme === "newYear" || //@ts-ignore
             globalThis.selectTheme === "newYearTheme" || //@ts-ignore
             globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
+            globalThis.selectTheme === "indiaTheme" ||
+            globalThis.selectTheme === "englandTheme" ||
+            globalThis.selectTheme === "americaTheme" ||
             globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
             globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -641,6 +655,7 @@ export default function CreateGroupScreen({ navigation, route }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null

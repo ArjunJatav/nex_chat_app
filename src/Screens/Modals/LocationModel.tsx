@@ -15,6 +15,7 @@ import Geolocation from "@react-native-community/geolocation";
 import React, { useEffect, useState } from "react";
 import { COLORS, iconTheme, searchBar } from "../../Components/Colors/Colors";
 import { font } from "../../Components/Fonts/Font";
+import { t } from "i18next";
 
 
  // eslint-disable-next-line
@@ -34,8 +35,8 @@ export const LocationModel = (props: any) => {
             PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
              // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
             {
-              title: "Location Access Required",
-              message: "This App needs to Access your location",
+              title: t("Location_Access_Required"),
+              message:t("This_App_needs_to_ccess_your_location"),
             }
           );
           if (granted === PermissionsAndroid.RESULTS.GRANTED) {
@@ -218,7 +219,7 @@ export const LocationModel = (props: any) => {
                 color: iconTheme().iconColor,
               }}
             >
-              Fetching location...
+             {t("Fetching_location")}
             </Text>
           </View>
         )}
@@ -254,7 +255,7 @@ export const LocationModel = (props: any) => {
             }}
           >
             <Text style={styles.buttonText}>
-              {"Send your current location"}
+              {t("Send_your_urrent_location")}
             </Text>
           </TouchableOpacity>
         </View>

@@ -3,6 +3,7 @@ import { t } from "i18next";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -13,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-//@ts-ignore
+
 import CryptoJS from "react-native-crypto-js";
 import DeviceInfo from "react-native-device-info";
 import {
@@ -31,16 +32,24 @@ import TopBar from "../../Components/TopBar/TopBar";
 import {
   addMemberApi,
   chatBaseUrl,
-  getGlobalGroup,
-  getGlobalGroupV2,
-  getRoomMembersApi,
+  getChannelData,
+  getGlobalGroupV3,
+  joinChannel,
 } from "../../Constant/Api";
 import { EncryptionKey } from "../../Constant/Key";
 import { chatTop } from "../../Navigation/Icons";
 import { socket } from "../../socket";
-import { getPublicRoomCount, newMessageInsertList } from "../../sqliteStore";
+import {
+  getChannelInfo,
+  getChannelInfoById,
+  getPublicRoomCount,
+  increaseSubscribers,
+  insertChannelInfo,
+  insertChannelMessagesAll,
+  newMessageInsertList,
+} from "../../sqliteStore";
 import { LoaderModel } from "../Modals/LoaderModel";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   setMainprovider,
   setisLock,
@@ -55,11 +64,16 @@ import {
 import renderIf from "../../Components/renderIf";
 import SearchBarSubmit from "../../Components/SearchBar/SearchBarSubmit";
 import PremiumAlert from "../../Components/CustomAlert/PremiumAlert";
+import { setChannelObj } from "../../Redux/MessageSlice";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { Mixpanel } from "mixpanel-react-native";
+import { AppsFlyerTracker } from "../EventTracker/AppsFlyerTracker";
+import { encryptMessage } from "../../utils/CryptoHelper";
 
-var skip = 0;
-var limit = 10;
+let skip = 0;
+const limit = 10;
 
-export default function AllPublicGroup({ navigation }: any) {
+export default function AllPublicGroup({ navigation, route }: any) {
   const dispatch = useDispatch();
   const [loaderModel, setloaderModel] = useState(false);
   const [isLoading, setLoading] = useState(false);
@@ -68,21 +82,76 @@ export default function AllPublicGroup({ navigation }: any) {
   const windowWidth = Dimensions.get("window").width;
   const [searchValue, setSearchValue] = useState("");
   const [apiData, setApiData] = useState([]);
-
   const [loader, setLoader] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const userPremium = useSelector(
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    (state) => state?.friendListSlice.userPremium
+  );
+
   const [showPremiumAlert, setShowPremiumAlert] = useState(false);
+  const [groupJoinAlert, setgroupJoinAlert] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+
+  const joinChannelLimitFree = useSelector(
+    (state) => state?.premiumLimitSlice?.joinChannelLimitFree
+  );
+  const joinChannelLimitPremium = useSelector(
+    (state) => state?.premiumLimitSlice?.joinChannelLimitPremium
+  );
+  const joinGroupLimitFree = useSelector(
+    (state) => state?.premiumLimitSlice?.joinGroupLimitFree
+  );
+  const joinGroupLimitPremium = useSelector(
+    (state) => state?.premiumLimitSlice?.joinGroupLimitPremium
+  );
+
+
+  console.log("tabIndextabIndextabIndex",globalThis.mixpanelToken);
+const trackAutomaticEvents = false;
+const mixpanel = new Mixpanel(
+  `${globalThis.mixpanelToken}`,
+  trackAutomaticEvents
+);
+
+const handleButtonPress = (string) => {
+  console.log("string",string);
+  handleCallEvent(string);
+  // Track button click event
+  mixpanel.track("Group Searching", {
+    GroupName: string,
+  });
+};
+
+const handleCallEvent = (groupName) => {
+  const eventName = 'Group Searching';
+  const eventValues = {
+    af_content_id: groupName,
+    af_customer_user_id: globalThis.chatUserId,
+    af_quantity: 1,
+  };
+
+  AppsFlyerTracker(eventName, eventValues, globalThis.chatUserId); // Pass user ID if you want to set it globally
+};
 
   useEffect(() => {
     skip = 0;
     setloaderModel(true);
-    getGroup(searchValue);
+    if (route?.params?.dataFor == "group") {
+      getGroup(searchValue, "group");
+    } else {
+      getGroup(searchValue, "channel");
+    }
   }, []);
 
   let cancelTokenSource;
-  const getGroup = async (str: any) => {
+  const getGroup = async (str: string, type: string) => {
     if (str == "") {
       //   setloaderModel(true);
+    }
+    if (type == "group" && str != "" ) {
+      handleButtonPress(str);
+      
     }
     setLoader(true);
 
@@ -94,19 +163,21 @@ export default function AllPublicGroup({ navigation }: any) {
     cancelTokenSource = axios.CancelToken.source();
     //
     const urlStr =
-      //@ts-ignore
       chatBaseUrl +
-      getGlobalGroupV2 +
+      getGlobalGroupV3 +
       str +
-      "&userId=" + //@ts-ignore
+      "&userId=" +
       globalThis.chatUserId +
       "&all=" +
       true +
+      "&type=" +
+      type +
       "&limit=" +
       limit +
       "&skip=" +
       skip;
 
+    console.log("url str===", urlStr);
     try {
       await axios({
         method: "get",
@@ -122,16 +193,23 @@ export default function AllPublicGroup({ navigation }: any) {
             if (response.data.data.length > 0) {
               if (skip == 0) {
                 setApiData([]);
-                let updatedArray = response.data.data.map((obj: any) => ({
+                const updatedArray = response.data.data.map((obj) => ({
                   ...obj,
                   roomType: "multiple",
+                  shouldJoinPublicGroup:
+                    obj.owner == globalThis.chatUserId ? false : true,
+                  fromApi: true,
                 }));
+                console.log("updatedArrayyupdatedArrayy", updatedArray);
                 setApiData(updatedArray);
               } else {
-                let updatedArray = response.data.data.map((obj: any) => ({
+                const updatedArray = response.data.data.map((obj) => ({
                   ...obj,
                   roomType: "multiple",
-                })); //@ts-ignore
+                  shouldJoinPublicGroup:
+                    obj.owner == globalThis.chatUserId ? false : true,
+                  fromApi: true,
+                }));
                 setApiData((prevData) => [...prevData, ...updatedArray]);
               }
             } else {
@@ -156,7 +234,7 @@ export default function AllPublicGroup({ navigation }: any) {
           setloaderModel(false);
           if (error.response.status == 401) {
             showToast("Session Expired.");
-            //@ts-ignore
+
             globalThis.token = "";
             navigation.navigate("LoginScreen");
           }
@@ -172,21 +250,33 @@ export default function AllPublicGroup({ navigation }: any) {
     setSearchValue("");
     skip = 0;
     setHasMore(true);
-    getGroup("");
+    if (route?.params?.dataFor == "group") {
+      getGroup("", "group");
+    } else {
+      getGroup("", "channel");
+    }
   }
 
   const searchDataSubmit = (text: string) => {
     if (text == "") {
       skip = 0;
       setHasMore(true);
-      getGroup("");
+      if (route?.params?.dataFor == "group") {
+        getGroup("", "group");
+      } else {
+        getGroup("", "channel");
+      }
     } else {
-      if (text.length > 0) {
+      if (text?.length > 0) {
         skip = 0;
         setApiData([]);
         setHasMore(true);
         setloaderModel(true);
-        getGroup(text);
+        if (route?.params?.dataFor == "group") {
+          getGroup(text, "group");
+        } else {
+          getGroup(text, "channel");
+        }
       }
     }
   };
@@ -195,8 +285,9 @@ export default function AllPublicGroup({ navigation }: any) {
     setSearchValue(text);
   };
 
-  const MessageHistory = (item: any) => {
+  const MessageHistory = (item) => {
     if (item.isLock == 1) {
+      console.log("lock");
     } else {
       dispatch(
         setMainprovider({
@@ -250,14 +341,14 @@ export default function AllPublicGroup({ navigation }: any) {
     }
   };
 
-  const JoinPublicGroup = async (item: any, index: number) => {
-    getPublicRoomCount(async (publicRoomCount)=> {
-      if(publicRoomCount>50)
-        {
-         setShowPremiumAlert(true);
-          console.log("countttttttt",publicRoomCount)
-        }else{
-
+  const JoinPublicGroup = async (item) => {
+    setgroupJoinAlert(true);
+    getPublicRoomCount(async (publicRoomCount) => {
+      if (publicRoomCount > joinGroupLimitFree && !userPremium) {
+        setShowPremiumAlert(true);
+        console.log("countttttttt", publicRoomCount);
+      } else {
+        if (publicRoomCount < joinGroupLimitPremium) {
           setLoadingStates((prevLoadingStates) => ({
             ...prevLoadingStates,
             [item._id]: true, // assuming item has an id, replace with the unique identifier of your item
@@ -266,9 +357,8 @@ export default function AllPublicGroup({ navigation }: any) {
           const myHeaders = new Headers();
           myHeaders.append("Content-Type", "application/json");
           const bodydata = JSON.stringify({
-            //@ts-ignore
             userId: globalThis.userChatId,
-            roomId: item.roomId._id, //@ts-ignore
+            roomId: item.roomId._id,
             members: [globalThis.userChatId],
             operation: "ADD",
           });
@@ -277,104 +367,113 @@ export default function AllPublicGroup({ navigation }: any) {
             headers: myHeaders,
             body: bodydata,
           };
-          const response = await fetch(chatBaseUrl + addMemberApi, requestOptions);
+          const response = await fetch(
+            chatBaseUrl + addMemberApi,
+            requestOptions
+          );
           const data = await response.json();
-      
+
           if (data.status === true) {
             try {
               const mId = Math.floor(Math.random() * 9000) + 1000;
-              const messageSend = CryptoJS.AES.encrypt(
-                //@ts-ignore
-                `${globalThis.displayName} joined the group.`,
-                EncryptionKey
-              ).toString();
-      
+              const messageSend = encryptMessage(item.roomId._id,`${globalThis.displayName} joined the group.` )
+              
+              // CryptoJS.AES.encrypt(
+              //   `${globalThis.displayName} joined the group.`,
+              //   EncryptionKey
+              // ).toString();
+
               dispatch(setisnewBlock(false));
-      
+
               const paramsOfSendforlive = {
                 mId: mId,
-                //@ts-ignore
-                userName: globalThis.displayName, //@ts-ignore
-                phoneNumber: globalThis.phone_number, //@ts-ignore
+
+                userName: globalThis.displayName,
+                phoneNumber: globalThis.phone_number,
                 currentUserPhoneNumber: globalThis.phone_number,
-                //@ts-ignore
+
                 userImage: globalThis.image,
                 roomId: item.roomId._id,
                 roomName: item.name,
                 roomImage: item.image,
                 roomType: "multiple",
-                //@ts-ignore
+
                 roomOwnerId: globalThis.userChatId,
                 message: messageSend,
                 message_type: "notify",
                 roomMembers: [],
                 parent_message_id: "",
                 attachment: [],
-                //@ts-ignore
+
                 from: globalThis.userChatId,
                 resId: Date.now(),
                 createdAt: new Date(),
               };
-              console.log("join public",{
-                roomId: item.roomId._id, //@ts-ignore
-                chat_user_id: globalThis.chatUserId, //@ts-ignore
-                contact_name: globalThis.displayName, //@ts-ignore
+              console.log("join public", {
+                roomId: item.roomId._id,
+                chat_user_id: globalThis.chatUserId,
+                contact_name: globalThis.displayName,
                 profile_image: globalThis.image,
                 isAdmin: 0,
-                // membersIds: data.data.members.map((m: any) => m.user), //@ts-ignore
-                membersIds: item.membersId.members.map((m: any) => m.user._id),
-                phone_number: globalThis.phone_number,
-              })
-      
-              socket.emit("joinGroup", {
-                roomId: item.roomId._id, //@ts-ignore
-                chat_user_id: globalThis.chatUserId, //@ts-ignore
-                contact_name: globalThis.displayName, //@ts-ignore
-                profile_image: globalThis.image,
-                isAdmin: 0,
-                // membersIds: data.data.members.map((m: any) => m.user), //@ts-ignore
-                membersIds: item.membersId.members.map((m: any) => m.user._id),
+                // membersIds: data.data.members.map((m: any) => m.user),
+                membersIds: item.membersId.members.map((m) => m.user._id),
                 phone_number: globalThis.phone_number,
               });
-      
-              //@ts-ignore
+
+              socket.emit("joinGroup", {
+                roomId: item.roomId._id,
+                chat_user_id: globalThis.chatUserId,
+                contact_name: globalThis.displayName,
+                profile_image: globalThis.image,
+                isAdmin: 0,
+                // membersIds: data.data.members.map((m: any) => m.user),
+                membersIds: item.membersId.members.map((m) => m.user._id),
+                phone_number: globalThis.phone_number,
+              });
+
               socket.emit("joinRoom", {
-                roomId: item.roomId._id, //@ts-ignore
+                roomId: item.roomId._id,
                 userId: globalThis.userChatId,
               });
-      
-              let createGroup = {
+
+              const createGroup = {
                 roomId: item.roomId._id,
                 roomName: item.name,
                 roomImage: item.image,
                 roomType: "multiple",
-                friendId: "", //@ts-ignore
+                friendId: "",
                 fromUser: globalThis.userChatId,
                 isPublic: 1,
                 owner: item.owner,
                 allow: item.allow,
               };
-      
+
               newMessageInsertList(createGroup, false, "0");
               socket.emit("sendmessage", paramsOfSendforlive);
-      
-              const getRoomMembersUrl =
-                chatBaseUrl + getRoomMembersApi + "?roomId=" + item.roomId._id;
-      
+
+              // const getRoomMembersUrl =
+              //   chatBaseUrl + getRoomMembersApi + "?roomId=" + item.roomId._id;
+
               MessageHistory(item);
               setLoading(false);
-            } catch (err) {}
+            } catch (err) {
+              console.log("errr", err);
+            }
           } else {
             setLoading(false);
             // throw new Error("Failed to Delete Chat");
           }
-
+        } else {
+          // Alert.alert(
+          //   t("error"), // The title of the alert
+          //   t("The_group_join_limit"), // The message body
+          //   [{ text: t("OK") }] // Button options
+          // );
+          globalThis.errorMessage = t("The_group_join_limit");
+          setErrorAlertModel(true);
         }
-
-      
+      }
     });
-
-
   };
 
   const styles = StyleSheet.create({
@@ -411,8 +510,8 @@ export default function AllPublicGroup({ navigation }: any) {
     },
   });
 
-  const OverlappingImages = ({ members, members_length }: any) => {
-    const displayedMembers = members.slice(0, 4);
+  const OverlappingImages = ({ members, members_length }: object) => {
+    const displayedMembers = members?.slice(0, 4);
     const remainingCount = members_length - 4;
     return (
       <View
@@ -422,16 +521,16 @@ export default function AllPublicGroup({ navigation }: any) {
           justifyContent: "center",
           alignItems: "center",
           marginLeft:
-            members.length === 1
+            members?.length === 1
               ? 5
-              : members.length === 2
+              : members?.length === 2
               ? 10
-              : members.length === 3
+              : members?.length === 3
               ? 30
               : 40,
         }}
       >
-        {displayedMembers.map((member: any, index: any) => (
+        {displayedMembers?.map((member, index) => (
           <Image
             key={index}
             source={{
@@ -477,20 +576,184 @@ export default function AllPublicGroup({ navigation }: any) {
     );
   };
 
+
+
+  const AllChaneelDataApi = async (channelId, item) => {
+    const urlStr = chatBaseUrl + getChannelData + channelId;
+    try {
+      await axios({
+        method: "get",
+        url: urlStr,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((response) => {
+          if (response.data.status == true) {
+            console.log("response?.data?.data", response?.data?.data);
+            // setLinkChannelData(response.data.data.channel);
+            // setLinkChannelChat(response?.data?.data?.chats);
+            if (response?.data?.data?.chats?.length > 0) {
+              const processMessages = async () => {
+                try {
+                  const success = await new Promise((resolve) =>
+                    insertChannelMessagesAll(
+                      response?.data?.data?.chats,
+                      response.data.data.channel?.owner,
+                      (success) => {
+                        resolve(success);
+                      }
+                    )
+                  );
+
+                  if (success) {
+                    const channelLinkToSend =
+                      "https://tokeecorp.com/backend/public/deepLink-forward?type=channel&id=" +
+                      item?._id;
+                    const obj = {
+                      ownerId: item?.owner,
+                      channelName: item?.name,
+                      channelDescription: item.description,
+                      image: item?.image,
+                      type: "public",
+                      link: channelLinkToSend,
+                      subs: item?.membersCount + 1,
+                      notifiAllow: true,
+                      channelId: item?._id,
+                      lastMessage: "",
+                      lastMessageId: item._id + 1,
+                      lastMessageType: "notify",
+                      lastMessageTime: Date.now(),
+                      isExclusive: item?.isExclusive ? 1 : 0,
+                      isPaid: item?.isPaid ? 1 : 0,
+                      isHide:0
+                    };
+                    insertChannelInfo(obj, (res) => {
+                      if (res === true) {
+                        increaseSubscribers(item._id, (result) => {
+                          if (result === true) {
+                            getChannelInfoById(item?._id, (result) => {
+                              dispatch(setChannelObj(result));
+                              navigation.navigate("ChannelChatting", {
+                                channelData: result,
+                                deepLinking: false,
+                                channelId: item._id,
+                              });
+                            });
+                          }
+                        });
+                      }
+                    });
+                  } else {
+                    console.error("Failed to insert messages");
+                  }
+                } catch (error) {
+                  console.error("Processing error:", error);
+                }
+              };
+              processMessages();
+            }
+          } else {
+            alert(response.data.message);
+          }
+        })
+        .catch((error) => {
+          alert(error);
+        });
+      // eslint-disable-next-line
+    } catch (error: any) {
+      alert(error);
+    }
+  };
+
+  async function JoinPublicChannel(item) {
+    setLoadingStates((prevLoadingStates) => ({
+      ...prevLoadingStates,
+      [item._id]: true, // assuming item has an id, replace with the unique identifier of your item
+    }));
+    setLoading(true);
+    setgroupJoinAlert(false);
+
+    getChannelInfo(async (channels, count) => {
+      const joinedChannelLength = channels.length - count;
+      // console.log("joinedChannelLength", joinedChannelLength);
+      if (joinedChannelLength > joinChannelLimitFree && !userPremium) {
+        setShowPremiumAlert(true);
+        console.log("NON PREMIUM ", joinedChannelLength);
+      } else {
+        if (joinedChannelLength < joinChannelLimitPremium) {
+          console.log(" PREMIUM ", joinedChannelLength);
+          setLoadingStates((prevLoadingStates) => ({
+            ...prevLoadingStates,
+            [item._id]: true, // assuming item has an id, replace with the unique identifier of your item
+          }));
+          const myHeaders = new Headers();
+          myHeaders.append("Content-Type", "application/json");
+          const bodydata = JSON.stringify({
+            userId: globalThis.userChatId,
+            channelId: item._id,
+          });
+          const requestOptions = {
+            method: "PUT",
+            headers: myHeaders,
+            body: bodydata,
+          };
+          const response = await fetch(
+            chatBaseUrl + joinChannel,
+            requestOptions
+          );
+
+          const data = await response.json();
+          if (data.status === true) {
+            try {
+              console.log("join api response:", data);
+              // const mId = Math.floor(Math.random() * 9000) + 1000;
+
+              // const dateinsert = new Date(
+              //   data.result.createdAt || data.result.messageTime
+              // );
+              socket.emit("joinChannel", {
+                roomId: item._id,
+                userId: globalThis.chatUserId,
+              });
+              AllChaneelDataApi(item._id, item);
+            } catch (error) {
+              console.log("errrr", error);
+            }
+          }
+        } else {
+          // Alert.alert(
+          //   t("error"), // The title of the alert
+          //   t("The_group_join_limit"), // The message body
+          //   [{ text: t("OK") }] // Button options
+          // );
+          globalThis.errorMessage = t("The_group_join_limit");
+          setErrorAlertModel(true);
+        }
+      }
+      /// setChannelData(channels);
+    });
+  }
+
   const loadData = async () => {
     if (!hasMore && loader) return;
     if (apiData.length > 6) {
       skip = skip + limit;
       setLoader(true);
-      getGroup(searchValue);
+      if (route?.params?.dataFor == "group") {
+        getGroup(searchValue, "group");
+      } else {
+        getGroup(searchValue, "channel");
+      }
     }
   };
 
+  const premiumAlertHeading = t("You_have_exceed_the_Limit");
+  const premiumAlertSubHeading = groupJoinAlert
+    ? t("You_can_Join_Maximum_of_50_Public_Groups_only")
+    : t("The_group_join_limit_50");
+  const premiumAlertSecondButtonText = "Go To Premium";
 
-  let premiumAlertHeading = "You can join maximum of 50 Public Groups.";
-  let  premiumAlertSubHeading = "You cannot join any more at this time.";
-   let premiumAlertFirstButtonText = "Ok";
-  let  premiumAlertSecondButtonText = "Go To Premium";
   return (
     <MainComponent
       statusBar="#000"
@@ -498,17 +761,30 @@ export default function AllPublicGroup({ navigation }: any) {
       safeAreaColr={themeModule().theme_background}
     >
       <LoaderModel visible={loaderModel} />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
       <PremiumAlert
-          visible={showPremiumAlert}
-          onRequestClose={() => setShowPremiumAlert(false)}
-          cancel={() => setShowPremiumAlert(false)}
-          Heading={premiumAlertHeading}
-          SubHeading={premiumAlertSubHeading}
-          FirstButton={premiumAlertFirstButtonText}
-          SecondButton={premiumAlertSecondButtonText}
-          firstButtonClick={()=>setShowPremiumAlert(false)}
-          secondButtonClick={()=>navigation.navigate("TokeePremium")}
-        />
+        visible={showPremiumAlert}
+        onRequestClose={() => setShowPremiumAlert(false)}
+        cancel={() => setShowPremiumAlert(false)}
+        Heading={premiumAlertHeading}
+        SubHeading={premiumAlertSubHeading}
+        FirstButton={""}
+        SecondButton={premiumAlertSecondButtonText}
+        firstButtonClick={() => setShowPremiumAlert(false)}
+        secondButtonClick={() => {
+          if (premiumAlertSecondButtonText == "Cancel") {
+            setShowPremiumAlert(false);
+          } else {
+            setShowPremiumAlert(false);
+            navigation.navigate("PremiumFeaturesScreen");
+          }
+        }}
+      />
       <View
         style={{
           position: "relative",
@@ -523,12 +799,13 @@ export default function AllPublicGroup({ navigation }: any) {
         ) : null}
         <TopBar
           showTitle={true}
-          title={t("public_groups")}
-          navState={navigation}
-          checked={
-            //@ts-ignore
-            globalThis.selectTheme
+          title={
+            route?.params?.dataFor == "group"
+              ? t("public_groups")
+              : t("Public_Channels")
           }
+          navState={navigation}
+          checked={globalThis.selectTheme}
         />
 
         <View style={styles.chatTopContainer}>
@@ -542,43 +819,52 @@ export default function AllPublicGroup({ navigation }: any) {
           </View>
         </View>
 
-        {
-          //@ts-ignore
-          globalThis.selectTheme === "christmas" || //@ts-ignore
-          globalThis.selectTheme === "newYear" || //@ts-ignore
-          globalThis.selectTheme === "newYearTheme" || //@ts-ignore
-          globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
-          globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
-          globalThis.selectTheme === "usindepTheme" ? (
-            <ImageBackground
-              source={chatTop().BackGroundImage}
-              resizeMode="cover" // Update the path or use a URL
-              style={{
-                height: "100%",
-                width: windowWidth,
-                marginTop: 0,
-                position: "absolute",
-                bottom: 0,
-                zIndex: 0,
-              }}
-            ></ImageBackground>
-          ) : null
-        }
+        {globalThis.selectTheme === "christmas" ||
+        globalThis.selectTheme === "newYear" ||
+        globalThis.selectTheme === "newYearTheme" ||
+        globalThis.selectTheme === "mongoliaTheme" ||
+        globalThis.selectTheme === "indiaTheme" ||
+        globalThis.selectTheme === "englandTheme" ||
+        globalThis.selectTheme === "americaTheme" ||
+        globalThis.selectTheme === "mexicoTheme" ||
+        globalThis.selectTheme === "usindepTheme" ? (
+          <ImageBackground
+            source={chatTop().BackGroundImage}
+            resizeMode="cover" // Update the path or use a URL
+            style={{
+              height: "100%",
+              width: windowWidth,
+              marginTop: 0,
+              position: "absolute",
+              bottom: 0,
+              zIndex: 0,
+              top: chatTop().top,
+            }}
+          ></ImageBackground>
+        ) : null}
 
         <View style={styles.chatContainer}>
-          <View style={{paddingBottom:15}}>
-          <SearchBarSubmit
-            search={searchableData}
-            value={searchValue}
-            clickCross={clearInput}
-            placeHolder={t("search_group")}
-            searchsubmit={searchDataSubmit}
-          />
+          <View style={{ paddingBottom: 15 }}>
+            <SearchBarSubmit
+              search={searchableData}
+              value={searchValue}
+              clickCross={clearInput}
+              placeHolder={
+                route?.params?.dataFor === "group"
+                  ? t("search_group")
+                  : t("search_channel")
+              }
+              searchsubmit={searchDataSubmit}
+              // focus={searchBarFocus}
+              // blur={!searchBarFocus}
+            />
           </View>
           {apiData.length == 0 && !loaderModel && (
             <View>
               <Text style={{ textAlign: "center", marginTop: 100 }}>
-                No Groups Found
+                {route?.params?.dataFor == "group"
+                  ? t("No_Groups_Found")
+                  : t("No_Channel_Found")}
               </Text>
             </View>
           )}
@@ -589,20 +875,41 @@ export default function AllPublicGroup({ navigation }: any) {
               onEndReached={loadData}
               onEndReachedThreshold={0.5}
               numColumns={2}
-              renderItem={({ item, index }: any) => (
-                <View
+              renderItem={({ item, index }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    console.log("jdjhdghj")
+                    // if (!item?.membersId) {
+                      console.log("in if")
+                      if (route?.params?.dataFor == "group") {
+
+                        item.shouldJoinPublicGroup == true
+                    ? null
+                    : MessageHistory(item);
+                      }
+                      else if (item._id || item.channelId) {
+                        navigation.navigate("ChannelChatting", {
+                          channelId: item._id || item.channelId,
+                          deepLinking: true,
+                        });
+                      }
+                    // }
+                  }}
                   style={{
                     width: "48%",
                     justifyContent: "center",
                     alignItems: "center",
-                    height: 225,
+                    // height: route?.params?.dataFor == "group" ? 225 : 200,
                     borderRadius: 8,
+                    paddingBottom: 10,
                     marginRight: 10,
                     marginTop: 50,
                     borderWidth: 0.8,
                     borderColor: iconTheme().iconColor,
+                    //    backgroundColor:"green"
                   }}
                 >
+                  {console.log("itemitem", item)}
                   <View
                     style={{
                       backgroundColor: iconTheme().iconColor,
@@ -629,83 +936,175 @@ export default function AllPublicGroup({ navigation }: any) {
                     />
                   </View>
                   {/* Render the properties of the item object */}
-                  <Text
-                    numberOfLines={1}
+                  <View
                     style={{
-                      marginTop: 28,
-                      height: 20,
-                      textAlign: "center",
-                      marginHorizontal: 10,
-                      fontFamily: font.semibold(),
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 12,
                     }}
                   >
-                    {item.name}
-                  </Text>
-
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        marginTop: route?.params?.dataFor == "group" ? 35 : 40,
+                        // height: 20,
+                        color: COLORS.black,
+                        lineHeight: DeviceInfo.isTablet() ? 20 : 20,
+                        textAlign: "center",
+                        fontFamily: font.bold(),
+                        fontSize: DeviceInfo.isTablet() ? 18 : 16,
+                        marginHorizontal:
+                          item?.isExclusive === 1 || item?.isExclusive == true
+                            ? 2
+                            : 10,
+                        // marginLeft:50,
+                        // backgroundColor:"red"
+                      }}
+                    >
+                      {item.name}
+                    </Text>
+                    {(item?.isExclusive === 1 || item?.isExclusive == true) && (
+                      <ImageBackground
+                        source={require("../../Assets/Icons/verified_icon.png")}
+                        style={{
+                          marginTop:
+                            route?.params?.dataFor == "group" ? 28 : 40,
+                          height: 15,
+                          width: 15,
+                          alignSelf: "center",
+                          justifyContent: "center",
+                          // marginLeft:5
+                        }}
+                        resizeMode="contain"
+                      >
+                        <Image
+                          source={require("../../Assets/Icons/correct_sign.png")}
+                          style={{
+                            height: 10,
+                            width: 10,
+                            alignSelf: "center",
+                            tintColor: COLORS.white,
+                          }}
+                          resizeMode="contain"
+                        />
+                      </ImageBackground>
+                    )}
+                  </View>
                   <Text
                     style={{
                       height: 40,
+                      paddingHorizontal: 5,
                       textAlign: "center",
                       marginHorizontal: 5,
                       fontFamily: font.regular(),
                       color: COLORS.black,
+                      // backgroundColor:"red"
                     }}
                     numberOfLines={2}
                   >
-                    {item.roomId.bio === null
-                      ? t("this_is_a_public_group ")
-                      : item.roomId.bio}
+                    {route?.params?.dataFor == "group"
+                      ? item?.roomId?.bio === null
+                        ? t("this_is_a_public_group")
+                        : item?.roomId?.bio
+                      : item?.description
+                      ? item?.description
+                      : t("This_is_Public_Channel")}
                   </Text>
-                  <OverlappingImages
-                    members={item?.membersId?.members}
-                    members_length={item?.membersId?.membersCount}
-                  />
+                  {renderIf(
+                    route?.params?.dataFor == "group",
+                    <OverlappingImages
+                      members={item?.membersId?.members}
+                      members_length={item?.membersId?.membersCount}
+                    />
+                  )}
 
-                  <Text style={{ marginTop: 8, fontFamily: font.regular() }}>
-                    {item?.membersId?.membersCount == 0
-                      ? "1 " + t("member")
-                      : item?.membersId?.membersCount == 1
-                      ? item?.membersId?.membersCount + " " + t("member")
-                      : item?.membersId?.membersCount + " " + t("members")}
-                  </Text>
+                  {route?.params?.dataFor == "group" ? (
+                    <Text style={{ marginTop: 8, fontFamily: font.regular() }}>
+                      {item?.membersId?.membersCount == 0
+                        ? "1 " + t("member")
+                        : item?.membersId?.membersCount == 1
+                        ? item?.membersId?.membersCount + " " + t("member")
+                        : item?.membersId?.membersCount + " " + t("members")}
+                    </Text>
+                  ) : (
+                    <Text style={{ marginTop: 0, fontFamily: font.regular() }}>
+                      {item?.membersCount == 0
+                        ? "1 " + t("Subscriber")
+                        : item?.membersCount == 1
+                        ? item?.membersCount + 1 + " " + t("Subscriber")
+                        : item?.membersCount + 1 + " " + t("subscribers")}
+                    </Text>
+                  )}
+
                   {/* Render other properties as needed */}
-
-                  {
-                    //@ts-ignore
-                    loadingStates[item._id] && isLoading == true ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={iconTheme().iconColor}
-                      />
-                    ) : (
-                      <TouchableOpacity
-                        style={{
-                          height: 35,
-                          marginTop: 5,
-                          width: 100,
-                          borderRadius: 5,
-                          justifyContent: "center",
-                          alignItems: "center",
-                          backgroundColor: iconTheme().iconColor,
-                        }}
-                        onPress={() => JoinPublicGroup(item, index)}
-                      >
-                        <Text
+                  {renderIf(
+                    item.shouldJoinPublicGroup == true,
+                    <>
+                      {loadingStates[item._id] && isLoading == true ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={iconTheme().iconColor}
+                        />
+                      ) : (
+                        <TouchableOpacity
                           style={{
-                            fontSize: 15,
-                            alignItems: "center",
+                            height: 35,
+                            marginTop: 5,
+                            width: 100,
+                            borderRadius: 5,
                             justifyContent: "center",
-                            color: COLORS.white,
-                            fontFamily: font.bold(),
+                            alignItems: "center",
+                            backgroundColor: iconTheme().iconColor,
                           }}
+                          onPress={() =>
+                            route?.params?.dataFor == "group"
+                              ? JoinPublicGroup(item, index)
+                              : JoinPublicChannel(item, index)
+                          }
                         >
-                          {" "}
-                          {t("join")}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  }
-                </View>
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: COLORS.white,
+                              fontFamily: font.bold(),
+                            }}
+                          >
+                            {" "}
+                            {t("join")}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+
+                  {renderIf(
+                    item.shouldJoinPublicGroup == false && item.fromApi == true,
+
+                    <View
+                      style={{
+                        height: 35,
+                        marginTop: 5,
+                        width: 100,
+                        borderRadius: 5,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: iconTheme().iconColor,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#fff",
+                          fontFamily: font.bold(),
+                        }}
+                      >
+                        {t("Open")}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               )}
               ListFooterComponent={() => {
                 return (

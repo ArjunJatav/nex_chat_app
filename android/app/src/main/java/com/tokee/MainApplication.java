@@ -10,6 +10,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactNativeHost;
 import com.facebook.soloader.SoLoader;
 import com.facebook.react.config.ReactFeatureFlags;
+import com.tokee.IncomingCallPackage;
 import com.tokee.StipopPackage;
 // import com.jamesisaac.rnbackgroundtask.BackgroundTaskPackage;
 
@@ -32,6 +33,8 @@ public class MainApplication extends Application implements ReactApplication {
           // Packages that cannot be autolinked yet can be added manually here, for example:
           // packages.add(new MyReactNativePackage());
             packages.add(new StipopPackage());
+            packages.add( new IncomingCallPackage());
+
           return packages;
         }
 

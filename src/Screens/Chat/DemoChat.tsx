@@ -472,16 +472,34 @@ const DemoChat = React.memo(({ props, navigation, route }: any) => {
     }, [navigation]);
   
   
+    // const closeDrawer = () => {
+    //   //@ts-ignore
+    //   drawerRef.current.close();
+    //   setDrawerGauster(false)
+    // };
+  
+    // const openDrawer = () => {
+    //   //@ts-ignore
+    //   drawerRef.current.open();
+    //   setDrawerGauster(true)
+    // };
+
     const closeDrawer = () => {
-      //@ts-ignore
-      drawerRef.current.close();
-      setDrawerGauster(false)
+      if (drawerRef.current) {
+        drawerRef.current.close();
+        setDrawerGauster(false);
+      } else {
+        console.warn("Cannot close drawer: drawerRef is null");
+      }
     };
   
     const openDrawer = () => {
-      //@ts-ignore
-      drawerRef.current.open();
-      setDrawerGauster(true)
+      if (drawerRef.current) {
+        drawerRef.current.open();
+        setDrawerGauster(true);
+      } else {
+        console.warn("Cannot open drawer: drawerRef is null");
+      }
     };
   
     const onCloseDrawer =()=>{
@@ -3038,8 +3056,8 @@ const DemoChat = React.memo(({ props, navigation, route }: any) => {
       const bucket = new AWS.S3({
         bucketName: "tokee-chat-staging",
         region: "us-east-2",
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey,
+        accessKeyId: globalThis.accessKey,
+        secretAccessKey: globalThis.awsSecretAccessKey,
         s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/",
       });
   
@@ -3204,8 +3222,8 @@ const DemoChat = React.memo(({ props, navigation, route }: any) => {
       const bucket = new AWS.S3({
         bucketName: "tokee-chat-staging",
         region: "us-east-2",
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey,
+        accessKeyId: globalThis.accessKey,
+        secretAccessKey: globalThis.awsSecretAccessKey,
         s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/",
       });
   
@@ -3657,9 +3675,16 @@ const DemoChat = React.memo(({ props, navigation, route }: any) => {
   
         // Split the input sentence into words
         const inputWords = userInput.split(" ");
-  
+        const checkBadWord = await AsyncStorage.getItem("BadWords");
+        console.log("in fourth",checkBadWord)
+        let badWordsInArr = [];
+        if (checkBadWord) {
+          badWordsInArr = JSON.parse(checkBadWord)
+        } else {
+          badWordsInArr = badword[0].words
+        }
         // Check if any of the input words match any word in the array
-        const match = inputWords.some((word) => badword[0].words.includes(word));
+        const match = inputWords.some((word) => badWordsInArr.includes(word));
   
         if (match) {
           Alert.alert(

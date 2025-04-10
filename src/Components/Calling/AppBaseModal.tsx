@@ -22,6 +22,7 @@ export class AppBaseModal extends Component<Readonly<AppBaseModalProps>, {}> {
         animationType={this.props.animationType || 'fade'}
         visible={this.props.visible}
         transparent
+      
         onRequestClose={() => this.props?.onDismiss()}>
 
         <TouchableOpacity
@@ -38,7 +39,8 @@ export class AppBaseModal extends Component<Readonly<AppBaseModalProps>, {}> {
             {this.props?.showStrip && (
               <View style={[styles.stripStyle, this.props?.stripStyle]} />
             )}
-           {this.props.children}
+           {    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+           this.props.children}
           </Pressable>
         </TouchableOpacity>
       </Modal>

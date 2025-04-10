@@ -20,7 +20,7 @@ import SearchBar from "../../Components/SearchBar/SearchBar";
 import ThemeContext from "../../Components/ThemeContext/ThemeContext";
 import TopBar from "../../Components/TopBar/TopBar";
 import { useTranslation } from "react-i18next";
-import Contacts from "react-native-contacts"; 
+import Contacts from "react-native-contacts";
 import CryptoJS from "react-native-crypto-js";
 import DeviceInfo from "react-native-device-info";
 import { GetApiCall } from "../../Components/ApiServices/GetApi";
@@ -44,16 +44,20 @@ import {
 } from "../../sqliteStore";
 import { ContactLoaderModel } from "../Modals/ContactLoaderModel";
 import ToShowContactName from "../calling/components/ContactShow";
+import { useSelector } from "react-redux";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { decryptMessage, encryptMessage } from "../../utils/CryptoHelper";
+import { createRoomRequest } from "../agora/agoraHandler";
 
 const isDarkMode = true;
 const windowWidth = Dimensions.get("window").width;
- // eslint-disable-next-line
+// eslint-disable-next-line
 const data: any[] | (() => any[]) = [];
 
- // eslint-disable-next-line
+// eslint-disable-next-line
 export default function ForwardMessageScreen({ navigation, route }: any) {
   React.useEffect(() => {
-     // eslint-disable-next-line
+    // eslint-disable-next-line
     socket.on("connect_error", (error: any) => {
       socket.connect;
       // Handle the error (e.g., display an error message)
@@ -64,9 +68,17 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
   const [products, setProducts] = React.useState(data);
   const [searchValue, setSearchValue] = useState("");
   const windowHeight = Dimensions.get("window").height;
+  const newroomType = useSelector(
+    (state: any) => state.chatHistory.newroomType
+  );
 
+  const channelInfo = useSelector(
+    // eslint-disable-next-line
+    (state: any) => state?.message?.channelObj
+  );
   const { t } = useTranslation();
   const [conatctLoaderModel, setContactLoaderModel] = useState(true);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
 
   // **********   Method for Navigation ********** ///
   const buttonPress = () => {
@@ -77,9 +89,9 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
   const headers = {
     Accept: "application/json",
     "Content-Type": "application/x-www-form-urlencoded",
-   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     "Content-Type": "multipart/form-data",
-    Authorization: "Bearer " + globalThis.Authtoken, 
+    Authorization: "Bearer " + globalThis.Authtoken,
     localization: globalThis.selectLanguage,
   };
 
@@ -104,18 +116,16 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
       "tokeeContactListTemp"
     );
 
-
     // Convert JSON string back to array
     const storedTokeeContactListTemp = JSON.parse(
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       storedTokeeContactListTempString
     );
     // Update the state with retrieved values
     if (storedTokeeContactListTemp !== null) {
-      
-       // eslint-disable-next-line
+      // eslint-disable-next-line
       const modifiedProducts: any = (storedTokeeContactListTemp || []).map(
-         // eslint-disable-next-line
+        // eslint-disable-next-line
         (item: any) => ({
           ...item,
           type: "user",
@@ -123,7 +133,7 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
       );
 
       // Use setProducts to update the state with the modified array
-       // eslint-disable-next-line
+      // eslint-disable-next-line
       CheckIsRoomsBlockedforfriendlist(modifiedProducts, (data: any) => {
         setProducts(data);
       });
@@ -131,10 +141,10 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
 
     await AsyncStorage.setItem(
       "tokeeContactListTemp",
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       JSON.stringify(tokeeContactListTemp)
     );
-    
+
     await AsyncStorage.setItem(
       "contactListTemp",
       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
@@ -148,9 +158,9 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
         {
-          title: "Contacts",
-          message: "This app would like to view your contacts.",
-          buttonPositive: "Please accept bare mortal",
+          title: t("tokee_would_like_to_access_your_contact"),
+          message: t("this_permission_is_requried_for_app_to_funcation_well "),
+          buttonPositive: "Ok",
         }
       );
       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
@@ -158,7 +168,7 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
         Contacts.getAll()
           .then((contacts) => {
             setContactLoaderModel(true);
-           
+
             const contactArr = [];
             contacts.forEach((item) => {
               item.phoneNumbers.forEach((contactPhone) => {
@@ -180,7 +190,6 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
             });
 
             const data = {
-              
               user_contacts: JSON.stringify(contactArr),
             };
 
@@ -201,7 +210,6 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
         setContactLoaderModel(true);
         const uniquePhoneNumbers = new Set();
         Contacts.getAll().then((contacts) => {
-         
           const contactArr = [];
           contacts.forEach((item) => {
             item.phoneNumbers.forEach((contactPhone) => {
@@ -223,7 +231,6 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
             });
           });
           const data = {
-           
             user_contacts: JSON.stringify(contactArr),
           };
 
@@ -244,11 +251,13 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
   };
 
   // **********  Method for return the api Response   ********** ///
-   // eslint-disable-next-line
+  // eslint-disable-next-line
   const apiSuccess = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setContactLoaderModel(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
       GetApiCall(
         get_all_contact,
@@ -261,19 +270,20 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
     }
   };
 
-   // eslint-disable-next-line
+  // eslint-disable-next-line
   const GetContactApiSuccess = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setContactLoaderModel(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
       await AsyncStorage.setItem("isContactUploaded", "true");
-     
+
       const tokeeContactListTemp = [];
-     
+
       const contactListTemp = [];
 
-      
       ResponseData.data.forEach((element) => {
         if (element.is_register == true) {
           // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
@@ -283,8 +293,8 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
           contactListTemp.push(element);
         }
       });
-      
-       // eslint-disable-next-line
+
+      // eslint-disable-next-line
       const modifiedProducts: any = (tokeeContactListTemp || []).map(
         (item) => ({
           // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
@@ -292,14 +302,14 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
           type: "user",
         })
       );
-     
+
       CheckIsRoomsBlockedforfriendlist(modifiedProducts, (data) => {
         setProducts(data);
       });
       setContactLoaderModel(false);
-     
+
       const tokeeContactListTempString = JSON.stringify(tokeeContactListTemp);
-      
+
       const contactListTempString = JSON.stringify(contactListTemp);
       await AsyncStorage.setItem(
         "tokeeContactListTemp",
@@ -315,21 +325,22 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
     if (selected.length > 0) {
       handleButtonPress();
     } else {
-      Alert.alert("Member is  Requried !", "Please Select atleast 1 member.");
+      // Alert.alert("Member is  Requried !", "Please Select atleast 1 member.");
+      globalThis.errorMessage ="Member is  Requried !", "Please Select atleast 1 member.";
+      setErrorAlertModel(true);
     }
   };
 
   // **********    Method for Select the Data from the list   ********** ///
-   // eslint-disable-next-line
+  // eslint-disable-next-line
   const handleChange = (contact_name: any) => {
     const temp = products.map((product) => {
-     
       if (contact_name === product.contact_name) {
         return { ...product, isChecked: !product.isChecked };
       }
       return product;
     });
-     // eslint-disable-next-line
+    // eslint-disable-next-line
     CheckIsRoomsBlockedforfriendlist(temp, (data: any) => {
       setProducts(data);
     });
@@ -338,114 +349,263 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
   // **********    Method for Selected List   ********** ///
   const selected = products.filter((product) => product.isChecked);
   const chatMessageTime = Date.now();
-  const handleButtonPress = async () => {
-    const myMessage = CryptoJS.AES.encrypt(
-      route.params.rcvmsg.text,
-      EncryptionKey
-    ).toString();
-    const paramsOfSend = {
-      
-      fromUser: globalThis.userChatId, 
-      userName: globalThis.displayName, 
-      currentUserPhoneNumber: globalThis.phone_number,
-      message: myMessage,
-      message_type: route.params.rcvmsg?.messageType,
-      localPath:route.params.rcvmsg?.localPaths,
-      attachment: route.params.rcvmsg.attachment,
-      isBroadcastMessage: false,
-      isDeletedForAll: false,
-      parent_message: {}, 
-      
-      isForwarded:
-       
-        route.params.rcvmsg.user?._id == globalThis.userChatId ? false : true,
-      storyId: "",
-      isStoryRemoved: false,
-      resId: chatMessageTime,
-      broadcastMessageId: "",
-      seenCount: 0,
-      deliveredCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+  let roomIdGenrate = null;
+  // const handleButtonPress = async () => {
+   
+  //   selected.map(async (d,index) => {
+  //       await  getRoomIdFromRes(
+  //       String(d.phone_number),
+  //       String(globalThis.phone_number),
+  //       async (res) => {
+  //         if (!res) {
+  //           // Room Not Found!
+  //           //  null;
+  //           try {
+  //               const response = await createRoomRequest(globalThis.userChatId, [
+  //                 d.chat_user_id,
+  //               ]);
+        
+  //               const roomId = response?.data?.members?.roomId;
+  //               console.log("New room created with ID:", roomId);
+        
+  //               if (roomId) {
+  //                 roomIdGenrate = roomId
+  //               } else {
+  //                   console.warn("Room creation response missing roomId", response);
+  //               }
+  //           } catch (error) {
+  //               console.error("Failed to create room:", error);
+  //           }
 
+  //         } else {
+  //           roomIdGenrate = res.roomId
+  //           // Room Found!
+  //           // 
+  //         }
+  //       }
+  //     );
+  //     // console.log("decccccc",decryptMessage(d.roomId,route.params.rcvmsg.text))
+  //     console.log("decccccc22222",roomIdGenrate)
+
+  //     const myMessage =  encryptMessage(
+  //       roomIdGenrate,
+  //       route.params.rcvmsg.text,
+  //     );
+  //     console.log("myMessage",myMessage)
+  //     const paramsOfSend = {
+  //       fromUser: globalThis.userChatId,
+  //       userName: globalThis.displayName,
+  //       currentUserPhoneNumber: globalThis.phone_number,
+  //       message: myMessage,
+  //       message_type: route.params.rcvmsg?.messageType,
+  //       localPath: route.params.rcvmsg?.localPaths,
+  //       attachment: route.params.rcvmsg.attachment,
+  //       isBroadcastMessage: false,
+  //       isDeletedForAll: false,
+  //       parent_message: {},
+  //       isForwarded:
+  //       route.params.rcvmsg.user?._id == globalThis.userChatId ? false : true,
+  //       storyId: "",
+  //       isStoryRemoved: false,
+  //       resId: chatMessageTime,
+  //       broadcastMessageId: "",
+  //       seenCount: 0,
+  //       deliveredCount: 0,
+  //       createdAt: new Date(),
+  //       updatedAt: new Date(),
+  //     };
+  
+  //     console.log("paramsOfSendparamsOfSend", paramsOfSend);
+  
+  //     // Get details of checked users
+  //     // Log or use the details as needed
+  //     const newArray = selected[index]((d) => ({
+  //       id: d._id || d.chat_user_id,
+  //       type: d.type,
+  //       mId: 0,
+  //       roomId: d.roomId || "",
+  //       phoneNumber: d.phone_number,
+  //     }));
+  
+  //     const outArr = await Promise.all(
+  //       newArray.map(async (member) => {
+  //         const obj = {};
+  //         const mId = Math.floor(Math.random() * 9000) + 1000;
+  //         obj["mId"] = mId;
+  //         obj["id"] = member.id;
+  //         obj["type"] = member.type;
+  //         obj["phoneNumber"] = member.phoneNumber;
+  
+  //         if (!member.roomId) {
+  //           getRoomIdFromRes(
+  //             String(member.phoneNumber),
+  //             String(globalThis.phone_number),
+  //             (res) => {
+  //               if (!res) {
+  //                 // Room Not Found!
+  //                 //  null;
+  //               } else {
+  //                 // Room Found!
+  //                 obj["roomId"] = res.roomId;
+  //                 insertChatList({
+  //                   paramsOfSend: {
+  //                     ...paramsOfSend,
+  //                     mId: mId,
+  //                     roomId: res.roomId,
+  //                   },
+  //                   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+  //                   chatRoom: false,
+  //                 });
+  //               }
+  //             }
+  //           );
+  //         } else {
+  //           // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+  //           obj["roomId"] = res.roomId;
+  //           insertChatList({
+  //             paramsOfSend: { ...paramsOfSend, mId: mId, roomId: member.roomId },
+  //             // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+  //             chatRoom: false,
+  //           });
+  //         }
+  //         return obj;
+  //       })
+  //     );
+  //     console.log("sending in emit of forward msg", {
+  //       sender_id: globalThis.userChatId,
+  //       message_ids: [route.params.messageId],
+  //       forward_details: outArr,
+  //       resId: chatMessageTime,
+  //       userName: globalThis.displayName,
+  //       room_type: route.params?.room_type,
+  //     });
+  //     const params = {
+  //       sender_id: globalThis.userChatId,
+  //       message_ids: [route.params.messageId],
+  //       forward_details: outArr,
+  //       resId: chatMessageTime,
+  //       userName: globalThis.displayName,
+  //       room_type: route.params?.room_type,
+  //     };
+  //     socket.emit("forwardMessage", params);
+  //     console.log("paramsparamsparams",params)
+  //     // navigation.pop(1);
+  //   })
 
    
-    // Get details of checked users
-    // Log or use the details as needed
-    const newArray = selected.map((d) => ({
-      id: d._id || d.chat_user_id,
-      type: d.type,
-      mId: 0,
-      roomId: d.roomId || "",
-      phoneNumber: d.phone_number,
-    }));
+  // };
 
-    const outArr = await Promise.all(
-      newArray.map(async (member) => {
-        const obj = {};
-
-        const mId = Math.floor(Math.random() * 9000) + 1000;
-       
-        obj["mId"] = mId; 
-        obj["id"] = member.id; 
-        obj["type"] = member.type; 
-        obj["phoneNumber"] = member.phoneNumber;
-
-        if (!member.roomId) {
-          
-          getRoomIdFromRes(
-            String(member.phoneNumber), 
-            String(globalThis.phone_number), 
-            (res) => {
-              if (!res) {
-                // Room Not Found!
-               null;
-              } else {
-                // Room Found!
-                obj["roomId"] = res.roomId;
-                insertChatList({
-                  paramsOfSend: {
-                    ...paramsOfSend,
-                    mId: mId,
-                    roomId: res.roomId,
-                  },
-                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-                  chatRoom: false,
-                });
+  const handleButtonPress = async () => {
+    const chatMessageTime = Date.now();
+  
+    // Helper function to get or create room
+    const getOrCreateRoomId = async (phoneNumber, chatUserId) => {
+      return new Promise((resolve, reject) => {
+        getRoomIdFromRes(
+          String(phoneNumber),
+          String(globalThis.phone_number),
+          async (res) => {
+            if (res) {
+              resolve(res.roomId); // Room exists, return roomId
+            } else {
+              // Room does not exist, create a new room
+              try {
+                const response = await createRoomRequest(globalThis.userChatId, [
+                  chatUserId,
+                ]);
+                const roomId = response?.data?.members?.roomId;
+                if (roomId) {
+                  resolve(roomId);
+                } else {
+                  console.warn("Room creation failed, response:", response);
+                  reject(new Error("Room creation failed"));
+                }
+              } catch (error) {
+                console.error("Error creating room:", error);
+                reject(error);
               }
             }
-          );
-        } else {
-          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-          obj["roomId"] = res.roomId;
-          insertChatList({
-            paramsOfSend: { ...paramsOfSend, mId: mId, roomId: member.roomId },
-            // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-            chatRoom: false,
-          });
-        }
-        return obj;
-      })
-    );
-    console.log("sending in emit of forward msg",{
-      sender_id: globalThis.userChatId,
-      message_ids: [route.params.messageId],
-      forward_details: outArr,
-      resId: chatMessageTime, 
-      userName: globalThis.displayName,
-    })
+          }
+        );
+      });
+    };
+  
+    const forwardDetails = [];
+  
+    for (const d of selected) {
+      try {
+        const roomId = await getOrCreateRoomId(d.phone_number, d.chat_user_id);
+        console.log("roomIdroomId",roomId)
+        const encryptedMessage = encryptMessage(roomId, route.params.rcvmsg.text);
+        console.log("encryptedMessage",encryptedMessage)
+        const mId = Math.floor(Math.random() * 9000) + 1000;
+        
+        const paramsOfSend = {
+          mId: mId,
+          fromUser: globalThis.userChatId,
+          userName: globalThis.displayName,
+          currentUserPhoneNumber: globalThis.phone_number,
+          roomOwnerId: globalThis.userChatId,
+          message: encryptedMessage,
+          message_type: route.params.rcvmsg?.messageType,
+          localPath: route.params.rcvmsg?.localPaths,
+          attachment: route.params.rcvmsg.attachment,
+          isBroadcastMessage: false,
+          isDeletedForAll: false,
+          roomId: roomId,
+          parent_message: {},
+          isForwarded: route.params.rcvmsg.user?._id !== globalThis.userChatId,
+          storyId: "",
+          isStoryRemoved: false,
+          resId: chatMessageTime,
+          broadcastMessageId: "",
+          seenCount: 0,
+          deliveredCount: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        console.log("paramsOfSend",paramsOfSend)
+        socket.emit("sendmessage", paramsOfSend);
+       
+  
+        const member = {
+          id: d._id || d.chat_user_id,
+          type: d.type,
+          mId: mId,
+          roomId: roomId,
+          phoneNumber: d.phone_number,
+        };
+  
+        // Save to local chat list (like cache/local db)
+        insertChatList({
+          paramsOfSend: { ...paramsOfSend, mId, roomId },
+          chatRoom: false, // or true if applicable
+        });
+  
+        forwardDetails.push(member);
+      } catch (error) {
+        console.error("Failed processing for user:", d, error);
+      }
+    }
+  
+    // Now emit final socket event after processing all users
     const params = {
       sender_id: globalThis.userChatId,
       message_ids: [route.params.messageId],
-      forward_details: outArr,
-      resId: chatMessageTime, 
+      forward_details: forwardDetails,
+      resId: chatMessageTime,
       userName: globalThis.displayName,
+      room_type: route.params?.room_type,
     };
-    socket.emit("forwardMessage", params);
+  
+    // socket.emit("forwardMessage", params);
+  
+    console.log("Emitted forwardMessage with params:", params);
+  
     navigation.pop(1);
   };
 
+  
   const styles = StyleSheet.create({
     groupContainer: {
       flexDirection: "row",
@@ -538,11 +698,11 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
       marginBottom: 5,
     },
     profile1Container: {
-      marginTop: 10,
+      paddingVertical: Platform.OS == "ios" ? 10 : 5,
       flexDirection: "row",
-      height: 60,
-      borderBottomWidth: 0.5,
-      borderBottomColor: "#F6EBF3",
+      // height: 60,
+      borderBottomWidth: 1,
+      borderBottomColor: "#EAEAEA",
     },
     profile1Container2: {
       marginTop: 10,
@@ -620,7 +780,7 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
       const filter = products.filter((x) =>
         x.contact_name.toLowerCase().includes(text.toLowerCase())
       );
-       // eslint-disable-next-line
+      // eslint-disable-next-line
       CheckIsRoomsBlockedforfriendlist(filter, (data: any) => {
         setProducts(data);
       });
@@ -646,6 +806,12 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
         }}
       >
         <ContactLoaderModel visible={conatctLoaderModel} />
+        <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
         {/* // **********    View For Show the StatusBar    ********** /// */}
         {Platform.OS == "android" ? (
           <CustomStatusBar
@@ -655,13 +821,7 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
         ) : null}
 
         {/* // **********    View For Show the TopBar    ********** /// */}
-        <TopBar
-          showTitle={true}
-          title={""}
-          checked={
-            globalThis.selectTheme
-          }
-        />
+        <TopBar showTitle={true} title={""} checked={globalThis.selectTheme} />
 
         {/* // **********    View For Show the Screen Container     ********** /// */}
         <View style={styles.chatTopContainer}>
@@ -682,27 +842,29 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
         </View>
         {/* // **********    TopBar   ********** /// */}
 
-        {
-          globalThis.selectTheme === "christmas" || 
-          globalThis.selectTheme === "newYear" || 
-          globalThis.selectTheme === "newYearTheme" || 
-          globalThis.selectTheme === "mongoliaTheme" || 
-          globalThis.selectTheme === "mexicoTheme" || 
-          globalThis.selectTheme === "usindepTheme" ? (
-            <ImageBackground
-              source={chatTop().BackGroundImage}
-              resizeMode="cover" // Update the path or use a URL
-              style={{
-                height: "100%",
-                width: windowWidth,
-                marginTop: 0,
-                position: "absolute",
-                bottom: 0,
-                zIndex: 0,
-              }}
-            ></ImageBackground>
-          ) : null
-        }
+        {globalThis.selectTheme === "christmas" ||
+        globalThis.selectTheme === "newYear" ||
+        globalThis.selectTheme === "newYearTheme" ||
+        globalThis.selectTheme === "mongoliaTheme" ||
+        globalThis.selectTheme === "indiaTheme" ||
+        globalThis.selectTheme === "englandTheme" ||
+        globalThis.selectTheme === "americaTheme" ||
+        globalThis.selectTheme === "mexicoTheme" ||
+        globalThis.selectTheme === "usindepTheme" ? (
+          <ImageBackground
+            source={chatTop().BackGroundImage}
+            resizeMode="cover" // Update the path or use a URL
+            style={{
+              height: "100%",
+              width: windowWidth,
+              marginTop: 0,
+              position: "absolute",
+              bottom: 0,
+              zIndex: 0,
+              top:  chatTop().top
+            }}
+          ></ImageBackground>
+        ) : null}
       </View>
 
       <View style={styles.chatContainer}>
@@ -711,7 +873,7 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
           search={searchableData}
           value={searchValue}
           clickCross={clearInput}
-          placeHolder= {t("search")}  
+          placeHolder={t("search")}
         />
 
         <View style={{ marginBottom: 10 }}>
@@ -748,19 +910,14 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
                   <Image
                     source={
                       item.profile_image
-                        ? 
-                          { uri: item.profile_image }
+                        ? { uri: item.profile_image }
                         : require("../../Assets/Image/girl_profile.png")
                     }
                     style={styles.circleImageLayout}
                     resizeMode="cover"
                   />
 
-                  <Text numberOfLines={1}>
-                    {
-                      item.contact_name
-                    }
-                  </Text>
+                  <Text numberOfLines={1}>{item.contact_name}</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -833,8 +990,6 @@ export default function ForwardMessageScreen({ navigation, route }: any) {
           </ScrollView>
         </View>
       </View>
-
-    
     </MainComponent>
   );
 }

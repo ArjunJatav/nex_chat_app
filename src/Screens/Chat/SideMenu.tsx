@@ -5,7 +5,9 @@ import {
   FlatList,
   Image,
   Platform,
+  Pressable,
   ScrollView,
+  TextInput,
 } from "react-native";
 import { TouchableOpacity } from "react-native";
 import { View, Text, StyleSheet, Dimensions, Modal } from "react-native";
@@ -24,9 +26,9 @@ import { LoaderModel } from "../Modals/LoaderModel";
 import renderIf from "../../Components/renderIf";
 import DeviceInfo from "react-native-device-info";
 import { COLORS, iconTheme, themeModule } from "../../Components/Colors/Colors";
-import { onCallPress } from "../../utils/callKitCustom";
+import { onCallPress, onGroupCallPress } from "../../utils/callKitCustom";
 import moment from "moment";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { t } from "i18next";
 import { font } from "../../Components/Fonts/Font";
 import NetInfo from "@react-native-community/netinfo";
@@ -37,6 +39,14 @@ import WebView from "react-native-webview";
 import ImageViewer from "react-native-image-zoom-viewer";
 import { blurImage, blurVideo } from "../../Constant/Key";
 import { showToast } from "../../Components/CustomToast/Action";
+import { pin, unpin } from "../../reducers/pinSlice";
+import { ConfirmAlertModel } from "../Modals/ConfirmAlertModel";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
+import CheckBox from "@react-native-community/checkbox";
+
+let groupCallType = "";
 export default function SideMenu(
   // eslint-disable-next-line
   props: any,
@@ -58,6 +68,17 @@ export default function SideMenu(
     (state) => state?.friendListSlice.userPremium
   );
 
+  const maxSelection = groupCallType === "audio" ? 9 : 9; // Adjust limit based on call type
+  const [searchQuery, setSearchQuery] = useState("");
+
+  console.log(
+    "participants====================================",
+    globalThis.userChatId
+  );
+  const calluserIds = participants
+    .map((participant) => participant.userId) // Extract userIds
+    .filter((userId) => userId !== globalThis.userChatId); // Exclude globalThis.userChatId
+
   const PinChat = useSelector(
     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     (state) => state?.pinSlice?.pinCount
@@ -77,7 +98,12 @@ export default function SideMenu(
   const [reportUser, setReportUser] = useState(false);
   const [reportUserID, setReportUserID] = useState("");
   const [membercount, setmemberCount] = useState();
-
+  const [confirmAlertModel, setConfirmAlertModel] = useState(false);
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+  const [callMemberModal, setCallMemberModal] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
   const connectstate = useSelector(
     // eslint-disable-next-line
     (state: any) => state?.getAppStateReducers?.app_state
@@ -91,6 +117,16 @@ export default function SideMenu(
   const mainprovider = useSelector(
     // eslint-disable-next-line
     (state: any) => state.chatHistory.mainprovider
+  );
+
+  const pinChatLimitFree = useSelector(
+    (state: any) => state?.premiumLimitSlice?.pinChatLimitFree
+  );
+  const pinChatLimitPremium = useSelector(
+    (state: any) => state?.premiumLimitSlice?.pinChatLimitPremium
+  );
+  const nonPremiumStoryLimit = useSelector(
+    (state: any) => state?.premiumLimitSlice?.nonPremiumStoryLimit
   );
 
   // eslint-disable-next-line
@@ -145,6 +181,105 @@ export default function SideMenu(
       }
     });
   }
+
+  const filteredParticipants = participants.filter((user) =>
+    user.userName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const toggleSelection = (userId) => {
+    if (selectedUserIds.includes(userId)) {
+      setSelectedUserIds(selectedUserIds.filter((id) => id !== userId));
+    } else {
+      if (selectedUserIds.length < maxSelection) {
+        setSelectedUserIds([...selectedUserIds, userId]);
+      } else {
+        Alert.alert(
+          "Selection Limit Reached",
+          `You can select up to ${maxSelection} users for a ${groupCallType} call.`
+        );
+      }
+    }
+  };
+
+  const handleModalClose = (selectedIds) => {
+    onGroupCallPress({
+      call_type: groupCallType,
+      contact_image: props.roomImage,
+      contact_name: props.roomName,
+      contact_chat_id: selectedIds,
+      typeOfCall: "GroupCall",
+    });
+    console.log("Selected User IDs:", selectedIds);
+    setCallMemberModal(false);
+  };
+
+  const renderItem = ({ item }) => {
+    if (item.userId == globalThis.userChatId) return null; // Don't render the current user
+
+    const isSelected = selectedUserIds.includes(item.userId);
+    const isMaxReached = selectedUserIds.length >= maxSelection;
+
+    return (
+      <TouchableOpacity
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          marginHorizontal: 12,
+          borderRadius: 10,
+          backgroundColor: "#fff",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3, // Android shadow
+          marginBottom: 10,
+        }}
+        onPress={() => {
+          if (!isMaxReached || isSelected) {
+            toggleSelection(item.userId);
+          }
+        }}
+      >
+        {/* Profile Image */}
+        <Image
+          source={
+            item.image
+              ? { uri: item.image }
+              : {
+                  uri: "https://tokeecorp.com/backend/public/images/user-avatar.png",
+                }
+          }
+          style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }}
+          resizeMode="contain"
+        />
+
+        {/* Name */}
+        <Text style={{ flex: 1, fontSize: 16, color: "#000" }}>
+          {item.userName}
+        </Text>
+
+        {/* Custom Checkbox */}
+        <Pressable
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12, // Circular shape
+            borderWidth: 2,
+            borderColor: isMaxReached && !isSelected ? "#ccc" : "#25D366", // Gray when disabled
+            backgroundColor: isSelected ? "#25D366" : "transparent",
+            opacity: isMaxReached && !isSelected ? 0.5 : 1, // Reduce opacity for disabled checkboxes
+          }}
+          onPress={() => {
+            if (!isMaxReached || isSelected) {
+              toggleSelection(item.userId);
+            }
+          }}
+        />
+      </TouchableOpacity>
+    );
+  };
 
   const checkUrl = async (url, type) => {
     const mediaName = url.split("/").pop();
@@ -305,6 +440,11 @@ export default function SideMenu(
   }
 
   function toGetParticipants() {
+    console.log(
+      "props.roomId====================================",
+      props.roomId
+    );
+
     if (props.roomId) {
       getMembersFromRoomMembersSqlforSidebar(
         props.roomId,
@@ -312,6 +452,7 @@ export default function SideMenu(
         0,
         (res, totalCount) => {
           console.log("Members fetched:", totalCount);
+
           setmemberCount(totalCount);
           const currentUser = res.find(
             (member) => member.userId === globalThis.userChatId
@@ -362,10 +503,10 @@ export default function SideMenu(
 
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
-
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
+        setNoInternetModel(true);
         return;
       } else {
         const data = {
@@ -390,11 +531,15 @@ export default function SideMenu(
   // eslint-disable-next-line
   const apiSuccessVerify = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("ok") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("ok") }]);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
+      globalThis.successMessage = ResponseData.message;
       setReportUser(false);
       setReportUserID("");
-      Alert.alert(t("success"), ResponseData.message, [{ text: t("done") }]);
+      setSuccessAlertModel(true);
+      // Alert.alert(t("success"), ResponseData.message, [{ text: t("done") }]);
     }
   };
 
@@ -469,38 +614,55 @@ export default function SideMenu(
       // setloaderMoedl(false); // Hide loader after operations complete
     }
   };
+  const dispatch = useDispatch();
 
   //to-pin-chat-by-dinki
-  function ToPinChat() {
+  async function ToPinChat() {
     if (!isroompin) {
       if (userPremium) {
-        if (PinChat == 20 || PinChat > 20) {
-          alert("You cannot pin more chats");
+        if (PinChat == pinChatLimitPremium || PinChat > pinChatLimitPremium) {
+          props.premiumAlertHeading("You can pin a maximum of 20 chats.");
+          props.premiumAlertSubHeading("You cannot pin any more at this time.");
+          props.premiumAlertFirstButtonText("Ok");
+          props.premiumAlertSecondButtonText("Cancel");
+          props.setShowPremiumAlert(true);
+          // alert("You cannot pin more chats");
         } else {
-          pinchatroom(newroomID, !isroompin);
-          setisroompin(!isroompin); /// Chat pinned & Chat unpinned
+          // eslint-disable-next-line
 
-          showToast(isroompin ? "Chat unpinned" : "Chat pinned");
+          await pinchatroom(newroomID, !isroompin);
+          setisroompin(!isroompin); /// Chat pinned & Chat unpinned
+          dispatch(pin());
+
+          showToast(isroompin ? t("chat_unpinned") : t("chat_pinned"));
         }
       } else {
-        if (PinChat == 5 || PinChat > 5) {
-          alert("You cannot pin more chats");
+        if (PinChat == pinChatLimitFree || PinChat > pinChatLimitFree) {
+          props.premiumAlertHeading(t("You_can_only_pin_upto_chats"));
+          props.premiumAlertSubHeading(
+            t("Upgrade_to_Premiumto_increase_the_limit")
+          );
+          props.premiumAlertFirstButtonText("Ok");
+          props.premiumAlertSecondButtonText("Go To Premium");
+          props.setShowPremiumAlert(true);
+          // alert("You cannot pin more chats");
         } else {
           pinchatroom(newroomID, !isroompin);
           setisroompin(!isroompin); /// Chat pinned & Chat unpinned
-
-          showToast(isroompin ? "Chat unpinned" : "Chat pinned");
+          dispatch(pin());
+          showToast(isroompin ? t("chat_unpinned") : t("chat_pinned"));
         }
       }
     } else {
       pinchatroom(newroomID, !isroompin);
       setisroompin(!isroompin); /// Chat pinned & Chat unpinned
-
-      showToast(isroompin ? "Chat unpinned" : "Chat pinned");
+      dispatch(unpin());
+      showToast(isroompin ? t("chat_unpinned") : t("chat_pinned"));
     }
   }
 
   function ToOpenPreview(item) {
+    props.onRequestClose();
     console.log("item in open preview ====", item);
     setClickedItem(item);
     setShowPreview(true);
@@ -544,6 +706,37 @@ export default function SideMenu(
         report_user={ReportuserChat}
       />
 
+      <ConfirmAlertModel
+        visible={confirmAlertModel}
+        onRequestClose={() => setConfirmAlertModel(false)}
+        confirmText={globalThis.confirmAlertText}
+        cancel={() => setConfirmAlertModel(false)}
+        confirmButton={() => {
+          setConfirmAlertModel(false), props.deleteChat();
+        }}
+      />
+      <SuccessModel
+        visible={successAlertModel}
+        onRequestClose={() => setSuccessAlertModel(false)}
+        succesText={globalThis.successMessage}
+        doneButton={() => {
+          setSuccessAlertModel(false);
+        }}
+      />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
+
       <Modal
         visible={myimages}
         supportedOrientations={["portrait", "landscape"]}
@@ -554,6 +747,8 @@ export default function SideMenu(
             backgroundColor: "#000",
             justifyContent: "center",
             //  alignItems: "center",
+            position: "relative",
+            zIndex: 900000,
           }}
         >
           <TouchableOpacity
@@ -561,25 +756,11 @@ export default function SideMenu(
               left: 10,
               position: "absolute",
               borderRadius: 5,
-              zIndex: 1001,
+              zIndex: 900000,
               top: Platform.OS === "ios" ? 60 : 20,
-
-              backgroundColor:
-                globalThis.selectTheme === "mongoliaTheme"
-                  ? "#8D3E2D"
-                  : globalThis.selectTheme === "newYearTheme"
-                  ? "#CE9D59"
-                  : globalThis.selectTheme === "newYear"
-                  ? COLORS.black
-                  : globalThis.selectTheme === "christmas"
-                  ? COLORS.primary_light_green
-                  : globalThis.selectTheme == "third"
-                  ? COLORS.light_green
-                  : globalThis.selectTheme == "second"
-                  ? COLORS.primary_blue
-                  : COLORS.purple,
-              width: 30,
-              height: 30,
+              width: 25,
+              height: 25,
+              flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -588,14 +769,13 @@ export default function SideMenu(
             }}
           >
             <Image
-              source={require("../../Assets/Icons/Back.png")}
+              source={require("../../Assets/Icons/Back_Arrow.png")}
               style={{
+                resizeMode: "contain",
                 height: 25,
                 width: 25,
-                tintColor:
-                  globalThis.selectTheme == "third"
-                    ? COLORS.dark_pink
-                    : COLORS.white,
+                marginLeft: 10,
+                tintColor: iconTheme().iconColorNew,
               }}
               resizeMode="contain"
             />
@@ -726,14 +906,18 @@ export default function SideMenu(
                   <Text
                     style={[
                       styles.chatRoomText,
-                      { color: iconTheme().iconColorNew },
+                      {
+                        color: iconTheme().text_color,
+                        fontFamily: font.semibold(),
+                      },
                     ]}
                   >
                     {t("Chatroom_Archives")}
                   </Text>
                 </View>
                 {renderIf(
-                  props.roomType == "single",
+                  props.roomType == "single" || props.allowGroupCall == 0,
+
                   <View style={styles.callIconsContainer}>
                     <TouchableOpacity
                       disabled={
@@ -746,28 +930,48 @@ export default function SideMenu(
                       //    disabled={isnewblock == true}
                       style={[
                         styles.audioCallContainer,
-                        { marginRight: 10, marginLeft: 5 },
+                        { marginRight: 5, marginLeft: 5 },
                       ]}
-                      onPress={() =>
-                        onCallPress({
-                          call_type: "audio",
-                          contact_image: props.roomImage,
-                          contact_name: props.roomName,
-                          contact_chat_id: props.chatId,
-                          contact_id: props.contactId,
-                        })
-                      }
+                      onPress={() => {
+                        if (props.roomType == "single") {
+                          onCallPress({
+                            call_type: "audio",
+                            contact_image: props.roomImage,
+                            contact_name: props.roomName,
+                            contact_chat_id: props.chatId,
+                            contact_id: props.contactId,
+                          });
+                        } else if (
+                          membercount <= 9 &&
+                          props.allowGroupCall == 0
+                        ) {
+                          (groupCallType = "audio"),
+                            onGroupCallPress({
+                              call_type: "audio",
+                              contact_image: props.roomImage,
+                              contact_name: props.roomName,
+                              contact_chat_id: calluserIds,
+                              typeOfCall: "GroupCall",
+                            });
+                        } else if (
+                          membercount > 9 &&
+                          props.allowGroupCall == 0
+                        ) {
+                          (groupCallType = "audio"), setCallMemberModal(true);
+                        }
+                      }}
                     >
                       <Image
                         source={require("../../Assets/Icons/CallBottom.png")}
                         style={{
-                          height: DeviceInfo.isTablet() ? 32 : 20,
-                          width: DeviceInfo.isTablet() ? 32 : 20,
+                          height: DeviceInfo.isTablet() ? 32 : 21,
+                          width: "100%",
                           tintColor:
                             callblock == true
                               ? COLORS.grey
-                              : iconTheme().iconColorNew,
+                              : iconTheme().text_color,
                         }}
+                        resizeMode="contain"
                       />
                     </TouchableOpacity>
 
@@ -781,26 +985,56 @@ export default function SideMenu(
                       }
                       //   disabled={isnewblock == true}
                       style={styles.audioCallContainer}
-                      onPress={() =>
-                        onCallPress({
-                          call_type: "video",
-                          contact_image: props.roomImage,
-                          contact_name: props.roomName,
-                          contact_chat_id: props.chatId,
-                          contact_id: props.contactId,
-                        })
-                      }
+                      // onPress={() =>
+                      //   onCallPress({
+                      //     call_type: "video",
+                      //     contact_image: props.roomImage,
+                      //     contact_name: props.roomName,
+                      //     contact_chat_id: props.chatId,
+                      //     contact_id: props.contactId,
+                      //   })
+                      // }
+
+                      onPress={() => {
+                        if (props.roomType == "single") {
+                          onCallPress({
+                            call_type: "video",
+                            contact_image: props.roomImage,
+                            contact_name: props.roomName,
+                            contact_chat_id: props.chatId,
+                            contact_id: props.contactId,
+                          });
+                        } else if (
+                          membercount <= 9 &&
+                          props.allowGroupCall == 0
+                        ) {
+                          (groupCallType = "video"),
+                            onGroupCallPress({
+                              call_type: "video",
+                              contact_image: props.roomImage,
+                              contact_name: props.roomName,
+                              contact_chat_id: calluserIds,
+                              typeOfCall: "GroupCall",
+                            });
+                        } else if (
+                          membercount > 9 &&
+                          props.allowGroupCall == 0
+                        ) {
+                          (groupCallType = "video"), setCallMemberModal(true);
+                        }
+                      }}
                     >
                       <Image
-                        source={require("../../Assets/Icons/Video.png")}
+                        source={require("../../Assets/Icons/videonewicon.png")}
                         style={{
-                          height: DeviceInfo.isTablet() ? 32 : 20,
-                          width: DeviceInfo.isTablet() ? 32 : 20,
+                          height: DeviceInfo.isTablet() ? 32 : 15,
+                          width: "100%",
                           tintColor:
                             callblock == true
                               ? COLORS.grey
-                              : iconTheme().iconColorNew,
+                              : iconTheme().text_color,
                         }}
+                        resizeMode="contain"
                       />
                     </TouchableOpacity>
                   </View>
@@ -819,9 +1053,9 @@ export default function SideMenu(
                 <Image
                   source={require("../../Assets/Icons/Cross.png")}
                   style={{
-                    height: 20,
-                    width: 20,
-                    tintColor: iconTheme().iconColorNew,
+                    height: 19,
+                    width: 19,
+                    tintColor: iconTheme().text_color,
                   }}
                   resizeMode="contain"
                 />
@@ -849,18 +1083,21 @@ export default function SideMenu(
               >
                 <View style={styles.imageTextContainer}>
                   <Image
-                    source={require("../../Assets/Icons/gallary_icon.png")}
+                    source={require("../../Assets/Icons/Set_Profile.png")}
                     style={{
                       height: 20,
                       width: 20,
-                      tintColor: iconTheme().iconColorNew,
+                      tintColor: iconTheme().text_color,
                     }}
                     resizeMode="contain"
                   />
                   <Text
                     style={[
                       styles.photoVideoText,
-                      { color: iconTheme().iconColorNew },
+                      {
+                        color: iconTheme().text_color,
+                        fontFamily: font.semibold(),
+                      },
                     ]}
                   >
                     {" "}
@@ -870,13 +1107,13 @@ export default function SideMenu(
 
                 <View style={[styles.nextContainer, { width: 40 }]}>
                   <Image
-                    source={require("../../Assets/Icons/Back.png")}
+                    source={require("../../Assets/Icons/back2.png")}
                     style={{
-                      height: 20,
-                      width: 20,
+                      height: 12,
+                      width: 12,
                       alignSelf: "center",
                       transform: [{ rotateY: "180deg" }],
-                      tintColor: iconTheme().iconColorNew,
+                      tintColor: iconTheme().text_color,
                     }}
                     resizeMode="contain"
                   />
@@ -916,6 +1153,7 @@ export default function SideMenu(
                             if (item.url == blurVideo) {
                               null;
                             } else {
+                              props.onRequestClose();
                               props.onVideoClick(item.url);
                             }
                           }}
@@ -957,6 +1195,7 @@ export default function SideMenu(
                                 type: "image",
                               });
                               setTimeout(() => {
+                                props.onRequestClose();
                                 setmyimages(true);
                               }, 500);
                             }
@@ -1009,18 +1248,21 @@ export default function SideMenu(
               >
                 <View style={styles.imageTextContainer}>
                   <Image
-                    source={require("../../Assets/Icons/File_Share.png")}
+                    source={require("../../Assets/Icons/audiofile.png")}
                     style={{
                       height: 20,
                       width: 20,
-                      tintColor: iconTheme().iconColorNew,
+                      tintColor: iconTheme().text_color,
                     }}
                     resizeMode="contain"
                   />
                   <Text
                     style={[
                       styles.photoVideoText,
-                      { color: iconTheme().iconColorNew },
+                      {
+                        color: iconTheme().text_color,
+                        fontFamily: font.semibold(),
+                      },
                     ]}
                   >
                     {" "}
@@ -1030,13 +1272,13 @@ export default function SideMenu(
 
                 <View style={[styles.nextContainer, { width: 40 }]}>
                   <Image
-                    source={require("../../Assets/Icons/Back.png")}
+                    source={require("../../Assets/Icons/back2.png")}
                     style={{
-                      height: 20,
-                      width: 20,
+                      height: 12,
+                      width: 12,
                       alignSelf: "center",
                       transform: [{ rotateY: "180deg" }],
-                      tintColor: iconTheme().iconColorNew,
+                      tintColor: iconTheme().text_color,
                     }}
                     resizeMode="contain"
                   />
@@ -1073,7 +1315,7 @@ export default function SideMenu(
                       <View
                         style={{
                           flexDirection: "column",
-                          height: 130,
+                          // height: 135,
                           width: windowWidth / 4.1,
                           alignItems: "center",
                         }}
@@ -1145,7 +1387,9 @@ export default function SideMenu(
 
             {renderIf(
               (!issettingopen && props.roomType == "multiple") ||
-                (props.roomType == "broadcast" && !props.isUserBlock),
+                (props.roomType == "broadcast" &&
+                  !props.isUserBlock &&
+                  !issettingopen),
               <View
                 style={{
                   width: "100%",
@@ -1162,14 +1406,14 @@ export default function SideMenu(
                       style={{
                         height: 20,
                         width: 20,
-                        tintColor: iconTheme().iconColorNew,
+                        tintColor: iconTheme().text_color,
                       }}
                       resizeMode="contain"
                     />
                     <Text
                       style={[
                         styles.photoVideoText,
-                        { color: iconTheme().iconColorNew },
+                        { color: iconTheme().text_color },
                       ]}
                     >
                       {" "}
@@ -1206,20 +1450,20 @@ export default function SideMenu(
                       <Text
                         style={{
                           fontWeight: "bold",
-                          color: iconTheme().iconColorNew,
+                          color: iconTheme().text_color,
                         }}
                       >
                         {t("viewAll")}
                       </Text>
 
                       <Image
-                        source={require("../../Assets/Icons/Back.png")}
+                        source={require("../../Assets/Icons/back2.png")}
                         style={{
-                          height: 20,
-                          width: 20,
+                          height: 12,
+                          width: 12,
                           alignSelf: "center",
                           transform: [{ rotateY: "180deg" }],
-                          tintColor: iconTheme().iconColorNew,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
@@ -1243,22 +1487,26 @@ export default function SideMenu(
                 <View style={styles.fileViewContainer}>
                   <View style={styles.imageTextContainer}>
                     <Image
-                      source={require("../../Assets/Icons/settingFill.png")}
+                      source={require("../../Assets/Icons/SettingBottom.png")}
                       style={{
                         height: 20,
                         width: 20,
-                        tintColor: iconTheme().iconColorNew,
+                        tintColor: iconTheme().text_color,
                       }}
                       resizeMode="contain"
                     />
                     <Text
                       style={[
                         styles.photoVideoText,
-                        { color: iconTheme().iconColorNew, fontSize: 17 },
+                        {
+                          color: iconTheme().text_color,
+                          fontSize: 17,
+                          fontWeight: "700",
+                        },
                       ]}
                     >
                       {" "}
-                      {t("Settings ")}
+                      {t("settings")}
                     </Text>
                   </View>
                 </View>
@@ -1284,25 +1532,35 @@ export default function SideMenu(
                   {newroomID && (
                     <TouchableOpacity
                       onPress={() => {
-                        Alert.alert(
-                          t("confirm"),
-                          `${
-                            props.roomType == "single"
-                              ? t("do_you_want_to_delete_this_chat")
-                              : props.roomType == "multiple"
-                              ? t("do_you_want_to_delete_this_group_all_chats")
-                              : t(
-                                  "do_you_want_to_delete_this_broadcast_all_chats"
-                                )
-                          }.`,
-                          [
-                            { text: t("cancel") },
-                            {
-                              text: t("yes"),
-                              onPress: () => props.deleteChat(),
-                            },
-                          ]
-                        );
+                        globalThis.confirmAlertText =
+                          props.roomType == "single"
+                            ? t("do_you_want_to_delete_this_chat")
+                            : props.roomType == "multiple"
+                            ? t("do_you_want_to_delete_this_group_all_chats")
+                            : t(
+                                "do_you_want_to_delete_this_broadcast_all_chats"
+                              );
+
+                        setConfirmAlertModel(true);
+                        // Alert.alert(
+                        //   t("confirm"),
+                        //   `${
+                        //     props.roomType == "single"
+                        //       ? t("do_you_want_to_delete_this_chat")
+                        //       : props.roomType == "multiple"
+                        //       ? t("do_you_want_to_delete_this_group_all_chats")
+                        //       : t(
+                        //           "do_you_want_to_delete_this_broadcast_all_chats"
+                        //         )
+                        //   }.`,
+                        //   [
+                        //     { text: t("cancel") },
+                        //     {
+                        //       text: t("yes"),
+                        //       onPress: () => props.deleteChat(),
+                        //     },
+                        //   ]
+                        // );
                       }}
                       style={{
                         height: 40,
@@ -1319,14 +1577,16 @@ export default function SideMenu(
                           height: 18,
                           width: 18,
                           marginRight: 5,
-                          tintColor: iconTheme().iconColorNew,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
                       <Text
                         style={{
                           fontFamily: font.semibold(),
-                          color: iconTheme().iconColorNew,
+                          color: iconTheme().text_color,
+                          fontSize: 15,
+                          fontWeight: "600",
                         }}
                       >
                         {t("deleteChat")}
@@ -1350,14 +1610,16 @@ export default function SideMenu(
                           height: 20,
                           width: 20,
                           marginRight: 5,
-                          tintColor: iconTheme().iconColorNew,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
                       <Text
                         style={{
                           fontFamily: font.semibold(),
-                          color: iconTheme().iconColorNew,
+                          color: iconTheme().text_color,
+                          fontSize: 15,
+                          fontWeight: "600",
                         }}
                       >
                         {t("Report_User")}
@@ -1385,17 +1647,21 @@ export default function SideMenu(
                           height: 20,
                           width: 20,
                           marginRight: 5,
-                          tintColor: iconTheme().iconColorNew,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
                       <Text
                         style={{
                           fontFamily: font.semibold(),
-                          color: iconTheme().iconColorNew,
+                          color: iconTheme().text_color,
+                          fontSize: 15,
+                          fontWeight: "600",
                         }}
                       >
-                        {isnewblock == true ? t("unblockUser") : t("blockUser")}
+                        {isnewblock == true
+                          ? t("User_Unblocked")
+                          : t("blockChat")}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -1415,10 +1681,10 @@ export default function SideMenu(
               >
                 <ActivityIndicator
                   size="large"
-                  color={iconTheme().iconColorNew}
+                  color={iconTheme().text_color}
                 />
                 <Text style={{ marginTop: 10 }}>
-                  Fetching members. Please wait...
+                  {t("Fetching_members_Pleasewait")}{" "}
                 </Text>
               </View>
             )}
@@ -1450,15 +1716,16 @@ export default function SideMenu(
                           index == participants.length - 1 ? 100 : 0,
                       }}
                       onPress={() => {
-                        if (item.userId === globalThis.userChatId) {
-                          props?.navigation.navigate("EditProfileScreen");
-                        } else {
-                          props?.getProfileApi(
-                            item.userId,
-                            item.userName,
-                            item.image
-                          );
-                        }
+                        console.log("tppptptptptppt", item.userId);
+                        // if (item.userId === globalThis.userChatId) {
+                        //   props?.navigation.navigate("EditProfileScreen");
+                        // } else {
+                        props?.getProfileApi(
+                          item.userId,
+                          item.userName,
+                          item.image
+                        );
+                        // }
                       }}
                     >
                       <View style={{ width: "18%" }}>
@@ -1481,7 +1748,7 @@ export default function SideMenu(
                       </View>
                       <Text
                         style={{
-                          color: iconTheme().iconColorNew,
+                          color: iconTheme().text_color,
                           // marginTop: 10,
                           marginHorizontal: 2,
                         }}
@@ -1489,17 +1756,16 @@ export default function SideMenu(
                       >
                         {item.userName || item.name || item.roomName}
                       </Text>
-                      {
-                        item?.premium == "1" && (
-                          <Image
-                            source={require("../../Assets/Icons/bx_star_dark.png")}
-                            style={{
-                              height: 15,
-                              width: 15,
-                              tintColor: iconTheme().iconColorNew,
-                            }}
-                          />
-                        )}
+                      {item?.premium == "1" && (
+                        <Image
+                          source={require("../../Assets/Image/PremiumBadge.png")}
+                          style={{
+                            height: 15,
+                            width: 15,
+                            tintColor: iconTheme().text_color,
+                          }}
+                        />
+                      )}
                     </TouchableOpacity>
                   )}
                 />
@@ -1536,7 +1802,7 @@ export default function SideMenu(
                       tintColor:
                         props?.isUserBlock == true
                           ? COLORS.grey
-                          : iconTheme().iconColorNew,
+                          : iconTheme().text_color,
                     }}
                     resizeMode="contain"
                   />
@@ -1549,27 +1815,19 @@ export default function SideMenu(
                   style={styles.exitGroupButton}
                   onPress={() => ToPinChat()}
                 >
-                  {isroompin ? (
-                    <Image
-                      source={require("../../Assets/Icons/bx_star_dark.png")}
-                      style={{
-                        height: 25,
-                        width: 25,
-                        tintColor: iconTheme().iconColorNew,
-                      }}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Image
-                      source={require("../../Assets/Icons/bx_star_border.png")}
-                      style={{
-                        height: 25,
-                        width: 25,
-                        tintColor: iconTheme().iconColorNew,
-                      }}
-                      resizeMode="contain"
-                    />
-                  )}
+                  <Image
+                    source={
+                      isroompin
+                        ? require("../../Assets/Image/Filled_Pin_icon.png")
+                        : require("../../Assets/Icons/Pinned_Chat.png")
+                    }
+                    style={{
+                      height: 28,
+                      width: 28,
+                      tintColor: iconTheme().text_color,
+                    }}
+                    resizeMode="contain"
+                  />
                 </TouchableOpacity>
                 {props?.isUserBlock != true && (
                   <TouchableOpacity
@@ -1578,22 +1836,22 @@ export default function SideMenu(
                   >
                     {muteFilled ? (
                       <Image
-                        source={require("../../Assets/Icons/notification.png")}
+                        source={require("../../Assets/Icons/sidemute1.png")}
                         style={{
-                          height: 22,
-                          width: 22,
-                          tintColor: iconTheme().iconColorNew,
+                          height: "100%",
+                          width: 20,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
                     ) : (
                       <Image
                         // source={require("../../Assets/Icons/notification.png")}
-                        source={require("../../Assets/Icons/mute_notificatio.png")}
+                        source={require("../../Assets/Icons/sidemute2.png")}
                         style={{
-                          height: 22,
-                          width: 22,
-                          tintColor: iconTheme().iconColorNew,
+                          height: "100%",
+                          width: 20,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
@@ -1615,17 +1873,17 @@ export default function SideMenu(
                         style={{
                           height: 25,
                           width: 25,
-                          tintColor: iconTheme().iconColorNew,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
                     ) : (
                       <Image
-                        source={require("../../Assets/Icons/settingFill.png")}
+                        source={require("../../Assets/Icons/SettingBottom.png")}
                         style={{
                           height: 25,
                           width: 25,
-                          tintColor: iconTheme().iconColorNew,
+                          tintColor: iconTheme().text_color,
                         }}
                         resizeMode="contain"
                       />
@@ -1637,6 +1895,149 @@ export default function SideMenu(
           </View>
         </View>
       </View>
+      <Modal
+        visible={callMemberModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCallMemberModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              //height:'100%',
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              padding: 16,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 5, // Android shadow
+              minHeight: 300,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginBottom: 15,
+              }}
+            >
+              <TouchableOpacity
+                disabled={true}
+                style={{ justifyContent: "center", alignItems: "center" }}
+              >
+                <Text style={{ fontSize: 18, fontWeight: "bold" }}>
+                  Select Members
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ justifyContent: "center", alignItems: "center" }}
+                onPress={() => {
+                  setCallMemberModal(false);
+                  setSelectedUserIds([]);
+                }}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={require("../../Assets/Icons/Cross.png")}
+                  style={{
+                    height: 19,
+                    width: 19,
+                    tintColor: iconTheme().text_color,
+                  }}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search Box */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#fff",
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: "#ddd",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3, // Android shadow
+              }}
+            >
+              <TextInput
+                placeholder="Search members..."
+                placeholderTextColor="#777"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                style={{
+                  flex: 1,
+                  height: 40,
+                  fontSize: 16,
+                  color: "#000",
+                }}
+              />
+            </View>
+
+            {/* Members List */}
+            <FlatList
+              data={filteredParticipants}
+              renderItem={renderItem}
+              keyExtractor={(item) => item.userId}
+              style={{ maxHeight: 300 }}
+              ListEmptyComponent={() => (
+                <View style={{ alignItems: "center", marginTop: 20 }}>
+                  <Text style={{ fontSize: 16, color: "#888" }}>
+                  No Matching member Found.
+                  </Text>
+                </View>
+              )}
+            />
+
+            {/* Add to Call Button */}
+
+            {selectedUserIds?.length > 0 && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 12,
+                  backgroundColor: themeModule().theme_background,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 4,
+                  elevation: 5, // Android shadow
+                }}
+                onPress={() => handleModalClose(selectedUserIds)}
+              >
+                <Text
+                  style={{
+                    color: iconTheme().iconColor,
+                    fontSize: 16,
+                    fontWeight: "bold",
+                  }}
+                >
+                  Add to Call
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1649,7 +2050,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   chatRoomText: {
-    color: iconTheme().iconColorNew,
+    color: iconTheme().text_color,
     marginLeft: 10,
     fontSize: 17,
     fontWeight: "700",
@@ -1700,7 +2101,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   photoVideoText: {
-    color: iconTheme().iconColorNew,
+    color: iconTheme().text_color,
     fontSize: 15,
     fontWeight: "600",
   },
@@ -1709,7 +2110,7 @@ const styles = StyleSheet.create({
     // marginTop: 8,
   },
   dateText: {
-    color: iconTheme().iconColorNew,
+    color: iconTheme().text_color,
     fontSize: 12,
   },
   documentIconView: {
@@ -1741,5 +2142,61 @@ const styles = StyleSheet.create({
     height: 50,
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "white",
+    padding: 20,
+    marginTop: 100,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  header: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  itemContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+  },
+  image: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "darkgray",
+    marginRight: 10,
+  },
+  userName: {
+    flex: 1,
+    fontSize: 16,
+  },
+  openButton: {
+    backgroundColor: "#007BFF",
+    padding: 10,
+    borderRadius: 5,
+  },
+  openButtonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  closeButton: {
+    backgroundColor: "#28A745",
+    padding: 10,
+    borderRadius: 5,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  closeButtonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });

@@ -20,6 +20,7 @@ import TopBar from "../../Components/TopBar/TopBar";
 import { terms_and_condition } from "../../Constant/Api";
 import { LoaderModel } from "../Modals/LoaderModel";
 import { t } from "i18next";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
 
 const isDarkMode = true;
 
@@ -29,6 +30,8 @@ export default function TermsAndConditions({ navigation }: any) {
   const windowHeight = Dimensions.get("window").height;
   const [loaderModel, setloaderMoedl] = useState(false);
   const [content, setContent] = useState("");
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+
 
   useEffect(() => {
     console.log("In terms and condition page")
@@ -58,8 +61,10 @@ export default function TermsAndConditions({ navigation }: any) {
   // eslint-disable-next-line
   const profileApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
-      setloaderMoedl(false);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
     } else {
       setContent(ResponseData.data.content);
       setloaderMoedl(false);
@@ -126,6 +131,12 @@ export default function TermsAndConditions({ navigation }: any) {
       />
 
       <LoaderModel visible={loaderModel} />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
 
       {/* // ********** Title Text   ********** // */}
       <TopBar

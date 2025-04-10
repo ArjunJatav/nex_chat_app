@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Dimensions,
   Image,
   ImageBackground,
@@ -72,6 +73,11 @@ import axios from "axios";
 import { GetApiCall } from "../../Components/ApiServices/GetApi";
 import { setProfileData } from "../../Redux/MessageSlice";
 import ToShowContactName from "../calling/components/ContactShow";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
+import { ErrorInviteUserModel } from "../Modals/ErrorInviteUser";
+import { Mixpanel } from "mixpanel-react-native";
+import { AppsFlyerTracker } from "../EventTracker/AppsFlyerTracker";
 const isDarkMode = true;
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height; 
@@ -91,8 +97,44 @@ export default function NewChatScreen({ navigation, route }: any) {
   const [inviteUserModel, setInviteUserModel] = useState(false);
   const [isUIUpdated, setIsUIUpdated] = useState(false);
   const [addUserModel, setAddUserModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+  const [errorInviteUserModel, setErrorInviteUserModel] = useState(false);
+
 
   // **********   Headers for api ********** ///
+
+
+ 
+
+  useEffect(() => {
+    // Function to handle back button press
+    const handleBackPress = () => {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return true; // Prevent the default behavior
+      }
+      return false; // Allow default behavior if there's no back action
+    };
+
+    // Add the event listener when the screen is focused
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    });
+
+    // Remove the event listener when the screen is unfocused
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    });
+
+    // Clean up on component unmount
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [navigation]);
+
   const headers = {
     Accept: "application/json",
     "Content-Type": "application/x-www-form-urlencoded",
@@ -159,16 +201,52 @@ export default function NewChatScreen({ navigation, route }: any) {
 
   const clickScan = async () => {
     requestContactsPermission();
+    
+  };
+
+
+
+  ////////////  MIXPANEL EVENT TRACKER    ///////// 
+
+  const trackAutomaticEvents = false;
+  const mixpanel = new Mixpanel(
+    `${globalThis.mixpanelToken}`,
+    trackAutomaticEvents
+  );
+
+
+
+  const handleButtonPress = (eventName) => {
+    handleCallEvent("Add Friend by Contact Screen",eventName)
+    // Track button click event with Mixpanel
+    mixpanel.track("Add Friend by Contact Screen", {
+      type: eventName,
+    });
+  };
+
+  const handleCallEvent = (eventTrack,eventName1) => {
+    const eventName = eventTrack;
+    const eventValues = {
+      af_content_id: eventName1,
+      af_customer_user_id: globalThis.chatUserId,
+      af_quantity: 1,
+    };
+  
+    AppsFlyerTracker(eventName, eventValues, globalThis.chatUserId); // Pass user ID if you want to set it globally
   };
 
   const getContactUploadStatus = async () => {
+    console.log("eslewwwweee");
     setTokeeContacts([]);
     setContactLoaderModel(true);
     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     contactUploadStatus = await AsyncStorage.getItem("isAllContactUploaded");
     if (contactUploadStatus == null) {
       requestContactsPermission();
+      console.log("eslewww");
     } else {
+      console.log("esle");
+      
       setContactLoaderModel(false);
       getContactAllList();
     }
@@ -176,14 +254,22 @@ export default function NewChatScreen({ navigation, route }: any) {
 
   const clickPerson = async () => {
     setAddUserModel(true);
+    handleButtonPress("Add Friend by Contact Number");
   };
 
    // eslint-disable-next-line
   const contactUploadApiResponse = async (ResponseData: any, ErrorStr: any) => {
+    console.log("eslewwwdsdfsd",ResponseData);
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setContactLoaderModel(false);
+
+      globalThis.errorMessage = ErrorStr ;
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+     
     } else {
+     
+      
       await AsyncStorage.setItem("isAllContactUploaded", "true");
       checkStatusOfAllContactsSync();
     }
@@ -213,9 +299,11 @@ export default function NewChatScreen({ navigation, route }: any) {
 
         })
         .catch((error) => {
+          console.log("sdfdsfdsfdsf",error)
           alert(error)
         });
     } catch (error) {
+      console.log("sdfdsfdsfdsf",error)
       alert(error)
     }
   }
@@ -238,204 +326,338 @@ export default function NewChatScreen({ navigation, route }: any) {
     );
   }
 
+
   const requestContactsPermission = async () => {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
-        {
-          title: "Contacts",
-          message: "This app would like to view your contacts.",
-          buttonNegative: "Cancel",
-          buttonPositive: "OK",
+  try {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+      {
+        title: t("tokee_would_like_to_access_your_contact"),
+        message: t("this_permission_is_requried_for_app_to_funcation_well "),
+        buttonPositive: "Ok",
+      }
+    );
+
+    // If permission is granted
+    if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+      fetchContacts();
+    } else {
+      // If permission is denied, show an alert and exit the function
+      Alert.alert(
+        t("tokee_would_like_to_access_your_contact"),
+        t("please_enable_contacts_permission"),
+        [
+          {
+            text: "Ok",
+          },
+        ],
+        { cancelable: true }
+      );
+      setContactLoaderModel(false); // Hide loader if permission denied
+    }
+  } catch (error) {
+    setContactLoaderModel(false);
+  }
+};
+
+// Separate function to fetch and process contacts
+const fetchContacts = async () => {
+  try {
+    const uniquePhoneNumbers = new Set();
+    setContactLoaderModel(true); // Show loader during contact fetching
+
+    // Fetch all contacts
+    const contacts = await Contacts.getAll();
+
+    const contactArr = [];
+    contacts.forEach((item) => {
+      item.phoneNumbers.forEach((contactPhone) => {
+        const phoneNumber = contactPhone.number;
+        // Check if the phone number is unique
+        if (!uniquePhoneNumbers.has(phoneNumber)) {
+          uniquePhoneNumbers.add(phoneNumber);
+          const trimNumber = phoneNumber.toString();
+          const result = trimNumber.replace(/[()\- *#]/g, "");
+          const contactDict = {
+            country_code: "",
+            phone_number: result,
+            contact_name: ToShowContactName(item),
+          };
+          contactArr.push(contactDict);
+        }
+      });
+    });
+
+    // Insert contacts and sync if needed
+    await handleContactsSync(contactArr);
+  } catch (error) {
+    if (error.message === "denied") {
+      Alert.alert(
+        t("tokee_would_like_to_access_your_contact"),
+        t("please_enable_contacts_permission"),
+        [
+          {
+            text: "Ok",
+          },
+        ],
+        { cancelable: true }
+      );
+    }
+    setContactLoaderModel(false);
+  }
+};
+
+// Function to handle contacts sync based on previous contact upload status
+const handleContactsSync = async (contactArr) => {
+  try {
+    insertContact(contactArr);
+
+    if (contactUploadStatus == null) {
+      const data = {
+        user_contacts: JSON.stringify(contactArr),
+      };
+
+      PostApiCall(
+        uploadContacts,
+        data,
+        headers,
+        navigation,
+        (ResponseData, ErrorStr) => {
+          contactUploadApiResponse(ResponseData, ErrorStr);
         }
       );
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        const uniquePhoneNumbers = new Set();
-        Contacts.getAll()
-          .then(async (contacts) => {
-            setContactLoaderModel(true);
-            // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-            const contactArr: Array = [];
-            contacts.forEach((item) => {
-              item.phoneNumbers.forEach((contactPhone) => {
-                const phoneNumber = contactPhone.number;
-                // Check if the phone number is not in the Set, and if not, add it to the array and the Set
-                if (!uniquePhoneNumbers.has(phoneNumber)) {
-                  uniquePhoneNumbers.add(phoneNumber);
-                  const trimNumber = phoneNumber.toString();
-                  const result = trimNumber.replace(/[()\- *#]/g, "");
-                  const contactDict = {
-                    country_code: "",
-                    phone_number: result,
-                    contact_name: ToShowContactName(item),
-                  };
-                  contactArr.push(contactDict);
-                }
-              });
-            });
-            insertContact(contactArr);
-            if (contactUploadStatus == null) {
-              const data = {
-                user_contacts: JSON.stringify(contactArr),
-              };
+    } else {
+      const allContacts = await AsyncStorage.getItem("allcontacts");
+      const allContactsJSON = JSON.parse(allContacts);
 
-              PostApiCall(
-                uploadContacts,
-                data,
-                headers,
-                navigation,
-                (ResponseData, ErrorStr) => {
-                  contactUploadApiResponse(ResponseData, ErrorStr);
-                }
-              );
-            } else {
-              const allContacts = await AsyncStorage.getItem("allcontacts");
+      const newContacts = contactArr.filter((upcomingContact) => {
+        return !allContactsJSON.some(
+          (previousContact) =>
+            previousContact.phone_number === upcomingContact.phone_number
+        );
+      });
 
-              // Convert JSON string back to array
-              const allContactsJSON = JSON.parse(
-                 // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-                allContacts
-              );
- // eslint-disable-next-line
-              const newContacts = contactArr.filter((upcomingContact: any) => {
-                // Check if the phone_number of upcomingContact is not present in previousContacts
-                return !allContactsJSON.some(
-                   // eslint-disable-next-line
-                  (previousContact: any) =>
-                    previousContact.phone_number ===
-                    upcomingContact.phone_number
-                );
-              });
-              if (newContacts.length > 0) {
-                const data = {
-                  user_contacts: JSON.stringify(newContacts),
-                };
-                await AsyncStorage.setItem(
-                  "allcontacts",
-                  JSON.stringify(contactArr)
-                );
-
-                syncContacts(data);
-              } else {
-                setContactLoaderModel(false);
-              }
-            }
-          })
-          .catch(() => {
-            setContactLoaderModel(false);
-          });
+      if (newContacts.length > 0) {
+        const data = {
+          user_contacts: JSON.stringify(newContacts),
+        };
+        await AsyncStorage.setItem("allcontacts", JSON.stringify(contactArr));
+        syncContacts(data);
       } else {
-        if (Platform.OS === "android") {
-          setContactLoaderModel(false);
-          Alert.alert(
-            t("tokee_would_like_to_access_your_contact"),
-            t("please_enable_contacts_permission"),
-            [
-              {
-                text: "Ok",
-              },
-            ],
-            { cancelable: true }
-          );
-
-          return;
-        }
-
-        setContactLoaderModel(true);
-        const uniquePhoneNumbers = new Set();
-        Contacts.getAll()
-          .then(async (contacts) => {
-             // eslint-disable-next-line
-            var contactArr: any = [];
-            contacts.forEach((item) => {
-              item.phoneNumbers.forEach((contactPhone) => {
-                const phoneNumber = contactPhone.number;
-                // Check if the phone number is not in the Set, and if not, add it to the array and the Set
-                if (!uniquePhoneNumbers.has(phoneNumber)) {
-                  uniquePhoneNumbers.add(phoneNumber);
-                  const trimNumber = phoneNumber.toString();
-                  const result = trimNumber.replace(/[()\- *#]/g, "");
-                  const contactDict = {
-                    country_code: "",
-                    phone_number: result,
-                    contact_name: ToShowContactName(item),
-                  };
-
-                  contactArr.push(contactDict);
-                }
-              });
-            });
-            insertContactIOS(contactArr);
-            if (contactUploadStatus == null) {
-              const data = {
-                user_contacts: JSON.stringify(contactArr),
-              };
-              setContactLoaderModel(true);
-
-              PostApiCall(
-                uploadContacts,
-                data,
-                headers,
-                navigation,
-                (ResponseData, ErrorStr) => {
-                  contactUploadApiResponse(ResponseData, ErrorStr);
-                }
-              );
-            } else {
-              //newcontacts
-              const allContacts = await AsyncStorage.getItem("allcontacts");
-
-              // Convert JSON string back to array
-              const allContactsJSON = JSON.parse(
-                 // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-                allContacts
-              );
-
-               // eslint-disable-next-line
-              const newContacts = contactArr.filter((upcomingContact: any) => {
-                // Check if the phone_number of upcomingContact is not present in previousContacts
-                return !allContactsJSON.some(
-                   // eslint-disable-next-line
-                  (previousContact: any) =>
-                    previousContact.phone_number ===
-                    upcomingContact.phone_number
-                );
-              });
-
-              if (newContacts.length > 0) {
-                const data = {
-                  user_contacts: JSON.stringify(newContacts),
-                };
-                await AsyncStorage.setItem(
-                  "allcontacts",
-                  JSON.stringify(contactArr)
-                );
-                syncContacts(data);
-              } else {
-                setContactLoaderModel(false);
-              }
-            }
-          })
-          .catch((err) => {
-            if (err.message == "denied") {
-              Alert.alert(
-                t("tokee_would_like_to_access_your_contact"),
-                t("please_enable_contacts_permission"),
-                [
-                  {
-                    text: "Ok",
-                  },
-                ],
-                { cancelable: true }
-              );
-            }
-            setContactLoaderModel(false);
-          });
+        setContactLoaderModel(false);
       }
-    } catch (error) {
-      setContactLoaderModel(false);
     }
-  };
+  } catch (error) {
+    setContactLoaderModel(false);
+  }
+};
+
+//   const requestContactsPermission = async () => {
+    
+//     try {
+//       const granted = await PermissionsAndroid.request(
+//         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+//         {
+//           title: t("tokee_would_like_to_access_your_contact"),
+//           message: t("this_permission_is_requried_for_app_to_funcation_well "),
+//           buttonPositive: "Ok",
+//         }
+//       );
+//       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+//         const uniquePhoneNumbers = new Set();
+//         Contacts.getAll()
+//           .then(async (contacts) => {
+//             setContactLoaderModel(true);
+//             // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//             const contactArr: Array = [];
+//             contacts.forEach((item) => {
+//               item.phoneNumbers.forEach((contactPhone) => {
+//                 const phoneNumber = contactPhone.number;
+//                 // Check if the phone number is not in the Set, and if not, add it to the array and the Set
+//                 if (!uniquePhoneNumbers.has(phoneNumber)) {
+//                   uniquePhoneNumbers.add(phoneNumber);
+//                   const trimNumber = phoneNumber.toString();
+//                   const result = trimNumber.replace(/[()\- *#]/g, "");
+//                   const contactDict = {
+//                     country_code: "",
+//                     phone_number: result,
+//                     contact_name: ToShowContactName(item),
+//                   };
+//                   contactArr.push(contactDict);
+//                 }
+//               });
+//             });
+//             insertContact(contactArr);
+//             if (contactUploadStatus == null) {
+//               const data = {
+//                 user_contacts: JSON.stringify(contactArr),
+//               };
+        
+
+//               console.log("data>>>>>>>>>",data);
+              
+
+//               PostApiCall(
+//                 uploadContacts,
+//                 data,
+//                 headers,
+//                 navigation,
+//                 (ResponseData, ErrorStr) => {
+//                   contactUploadApiResponse(ResponseData, ErrorStr);
+//                 }
+//               );
+//             } else {
+           
+//               const allContacts = await AsyncStorage.getItem("allcontacts");
+
+//               // Convert JSON string back to array
+//               const allContactsJSON = JSON.parse(
+//                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//                 allContacts
+//               );
+//  // eslint-disable-next-line
+//               const newContacts = contactArr.filter((upcomingContact: any) => {
+//                 // Check if the phone_number of upcomingContact is not present in previousContacts
+//                 return !allContactsJSON.some(
+//                    // eslint-disable-next-line
+//                   (previousContact: any) =>
+//                     previousContact.phone_number ===
+//                     upcomingContact.phone_number
+//                 );
+//               });
+//               console.log("datadatadata",contactArr)
+//               if (newContacts.length > 0) {
+//                 const data = {
+//                   user_contacts: JSON.stringify(newContacts),
+//                 };
+//                 await AsyncStorage.setItem(
+//                   "allcontacts",
+//                   JSON.stringify(contactArr)
+//                 );
+
+//                 syncContacts(data);
+//               } else {
+//                 setContactLoaderModel(false);
+//               }
+//             }
+//           })
+//           .catch(() => {
+//             setContactLoaderModel(false);
+//           });
+//       } else {
+//         if (Platform.OS === "android") {
+//           setContactLoaderModel(false);
+//           Alert.alert(
+//             t("tokee_would_like_to_access_your_contact"),
+//             t("please_enable_contacts_permission"),
+//             [
+//               {
+//                 text: "Ok",
+//               },
+//             ],
+//             { cancelable: true }
+//           );
+
+//           return;
+//         }
+
+//         setContactLoaderModel(true);
+//         const uniquePhoneNumbers = new Set();
+//         Contacts.getAll()
+//           .then(async (contacts) => {
+          
+//              // eslint-disable-next-line
+//             var contactArr: any = [];
+//             contacts.forEach((item) => {
+//               item.phoneNumbers.forEach((contactPhone) => {
+//                 const phoneNumber = contactPhone.number;
+//                 // Check if the phone number is not in the Set, and if not, add it to the array and the Set
+//                 if (!uniquePhoneNumbers.has(phoneNumber)) {
+//                   uniquePhoneNumbers.add(phoneNumber);
+//                   const trimNumber = phoneNumber.toString();
+//                   const result = trimNumber.replace(/[()\- *#]/g, "");
+//                   const contactDict = {
+//                     country_code: "",
+//                     phone_number: result,
+//                     contact_name: ToShowContactName(item),
+//                   };
+
+//                   contactArr.push(contactDict);
+//                 }
+//               });
+//             });
+            
+//             insertContactIOS(contactArr);
+//             if (contactUploadStatus == null) {
+//               const data = {
+//                 user_contacts: JSON.stringify(contactArr),
+//               };
+//               setContactLoaderModel(true);
+             
+//               PostApiCall(
+//                 uploadContacts,
+//                 data,
+//                 headers,
+//                 navigation,
+//                 (ResponseData, ErrorStr) => {
+//                   contactUploadApiResponse(ResponseData, ErrorStr);
+//                 }
+//               );
+//             } else {
+//               //newcontacts
+//               const allContacts = await AsyncStorage.getItem("allcontacts");
+             
+//               // Convert JSON string back to array
+//               const allContactsJSON = JSON.parse(
+//                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+//                 allContacts
+//               );
+            
+//                // eslint-disable-next-line
+//               const newContacts = contactArr.filter((upcomingContact: any) => {
+//                 // Check if the phone_number of upcomingContact is not present in previousContacts
+//                 return !allContactsJSON.some(
+//                    // eslint-disable-next-line
+//                   (previousContact: any) =>
+//                     previousContact.phone_number ===
+//                     upcomingContact.phone_number
+//                 );
+//               });
+
+//               if (newContacts.length > 0) {
+//                 const data = {
+//                   user_contacts: JSON.stringify(newContacts),
+//                 };
+//                 await AsyncStorage.setItem(
+//                   "allcontacts",
+//                   JSON.stringify(contactArr)
+//                 );
+//                 syncContacts(data);
+//               } else {
+//                 setContactLoaderModel(false);
+//               }
+//             }
+//           })
+//           .catch((err) => {
+//             if (err.message == "denied") {
+//               Alert.alert(
+//                 t("tokee_would_like_to_access_your_contact"),
+//                 t("please_enable_contacts_permission"),
+//                 [
+//                   {
+//                     text: "Ok",
+//                   },
+//                 ],
+//                 { cancelable: true }
+//               );
+//             }
+//             setContactLoaderModel(false);
+//           });
+//       }
+//     } catch (error) {
+//       setContactLoaderModel(false);
+//     }
+//   };
 
    // eslint-disable-next-line
   const syncContacts = async (data: any) => {
@@ -464,10 +686,15 @@ export default function NewChatScreen({ navigation, route }: any) {
    // eslint-disable-next-line
   const contactApiResponse = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setContactLoaderModel(false);
+      globalThis.errorMessage = ErrorStr ;
+      setErrorAlertModel(true);
       // Navigate to another screen or handle the error in some way
     } else {
+
+  
+      
        // eslint-disable-next-line
       var tokeeContacts: any = [];
        // eslint-disable-next-line
@@ -537,8 +764,10 @@ export default function NewChatScreen({ navigation, route }: any) {
    // eslint-disable-next-line
   const apiSuccess = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setContactLoaderModel(false);
+      globalThis.errorMessage = ErrorStr ;
+      setErrorAlertModel(true);
     } else {
       await AsyncStorage.setItem("isContactUploaded", "true");
 
@@ -616,6 +845,7 @@ export default function NewChatScreen({ navigation, route }: any) {
       CheckIsRoomsBlockedforfriendlist(filter, (data: any) => {
         setTokeeContacts(data);
       });
+    
       setContactList(filter2);
       setIsLoading(false);
     } else {
@@ -630,6 +860,7 @@ export default function NewChatScreen({ navigation, route }: any) {
 
   const Inviteuser = () => {
     Share.share(shareOptions);
+    handleButtonPress("Share Link to Friend");
   };
 
   const message_data =
@@ -645,6 +876,7 @@ export default function NewChatScreen({ navigation, route }: any) {
 
   const buttonPress = () => {
     navigation.navigate("BottomBar");
+    handleButtonPress("Cancel Button Click");
   };
 
    // eslint-disable-next-line
@@ -688,14 +920,16 @@ export default function NewChatScreen({ navigation, route }: any) {
     dispatch(setProfileData({
       chat_user_id:chatId,
     }));
+    handleButtonPress("Move To Chatting Screen");
     navigation.navigate("ChattingScreen", {
       friendId: chatId,
       userName: contactName,
       userImage: profileImage,
       roomType: "single",
       inside: false,
-      screenFrom: "Dashboard",
+      screenFrom: "NewChatScreen",
       FriendNumber: FriendNumber,
+      isPublic:false,
     });
   };
 
@@ -706,7 +940,7 @@ export default function NewChatScreen({ navigation, route }: any) {
       data: contactsInTokee,
     },
     {
-      title: t("invite_contacts"),
+      title: t("invite_contacts_on_Tokee"),
       data: contactList,
     },
   ];
@@ -863,11 +1097,12 @@ export default function NewChatScreen({ navigation, route }: any) {
       // height: 24,
     },
     profile1Container: {
-      marginTop: 10,
+      paddingVertical: Platform.OS == "ios" ? 10 : 5,
       flexDirection: "row",
-      height: 60,
-      borderBottomWidth: 0.5,
-      borderBottomColor: "#F6EBF3",
+      // height: 60,
+      borderBottomWidth: 1,
+      borderBottomColor: "#EAEAEA",
+
     },
 
     profile2Container: {
@@ -1026,12 +1261,12 @@ export default function NewChatScreen({ navigation, route }: any) {
         </View>
 
         <View style={styles.nameInviteContainer}>
-        <View style={{flexDirection:"row"}}>
+        <View style={{flexDirection:"row", alignItems:"center"}}>
           <Text style={styles.name1conText}>{item.contact_name}</Text>
           { item?.premium == "1"  && 
           <Image
-                source={require("../../Assets/Icons/bx_star_dark.png")}
-                style={{height:15, width:15,marginTop:2, tintColor:iconTheme().iconColorNew}}
+                source={require("../../Assets/Image/PremiumBadge.png")}
+                style={{height:15, width:15,marginTop:2, tintColor:iconTheme().iconColorNew,marginLeft: Platform.OS === "ios" ? 2 : 5,}}
               />
               } 
               </View>
@@ -1060,7 +1295,7 @@ export default function NewChatScreen({ navigation, route }: any) {
               }
             >
               <Image
-                source={require("../../Assets/Icons/Video.png")}
+                source={require("../../Assets/Icons/videonewicon.png")}
                 style={[styles.newChatIcon]}
                 resizeMode="contain"
               />
@@ -1095,6 +1330,7 @@ export default function NewChatScreen({ navigation, route }: any) {
 
    // eslint-disable-next-line
   function InviteItem({ item }: any) {
+   
     return (
       <View style={[styles.profile2Container, {}]}>
         <View style={styles.Container2}>
@@ -1138,7 +1374,7 @@ export default function NewChatScreen({ navigation, route }: any) {
   const verify_chat = (phoneNumber: string, phoneCountryCode: string) => {
     if (phoneCountryCode + phoneNumber == globalThis.phone_number) {
       setAddUserModel(false);
-      showToast("You are already logged in with this Number.");
+      showToast(t("you_are_already_login"));
     } else {
       const data_user = {
         country_code: phoneCountryCode,
@@ -1148,11 +1384,11 @@ export default function NewChatScreen({ navigation, route }: any) {
       // ********** InterNet Permission    ********** ///
       NetInfo.fetch().then((state) => {
         if (state.isConnected === false) {
-          Alert.alert(
-            "No Internet",
-            "No Internet, Please check your Internet Connection."
-          );
-
+          // Alert.alert(
+          //   "No Internet",
+          //   "No Internet, Please check your Internet Connection."
+          // );
+setNoInternetModel(true);
           return;
         } else {
           PostApiCall(
@@ -1173,10 +1409,14 @@ export default function NewChatScreen({ navigation, route }: any) {
    // eslint-disable-next-line
   const apiSuccessVerify = (ResponseData: any, ErrorStr: any,data_user:any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [
-        { text: t("cancel") },
-        { text: t("inviteUser"), onPress: () => Inviteuser() },
-      ]);
+      // Alert.alert(t("error"), ErrorStr, [
+      //   { text: t("cancel") },
+      //   { text: t("inviteUser"), onPress: () => Inviteuser() },
+      // ]);
+
+      globalThis.errorInviteUserMessage =ErrorStr;
+      // setAddUserModelphone(false);
+      setErrorInviteUserModel(true);
 
       setAddUserModel(false);
       // Navigate to another screen or handle the error in some way
@@ -1222,7 +1462,9 @@ export default function NewChatScreen({ navigation, route }: any) {
       } else {
         setContactLoaderModel(false);
         setAddUserModel(false);
-        Alert.alert("User does not exist.");
+        // Alert.alert(t("userNotFound"));
+        globalThis.errorMessage = t("userNotFound");
+        setErrorAlertModel(true);
       }
     }
   };
@@ -1254,6 +1496,13 @@ export default function NewChatScreen({ navigation, route }: any) {
         cancel={() => setInviteUserModel(false)}
         clickAblelData={clickAblelData}
       />
+      <ErrorInviteUserModel
+          visible={errorInviteUserModel}
+          onRequestClose={() => setErrorInviteUserModel(false)}
+          errorText={globalThis.errorInviteUserMessage}
+          cancelButton={() => setErrorInviteUserModel(false)}
+          inviteButton={() => { Inviteuser()}}
+        />
       <AddUsereModel
         // {...props}
         visible={addUserModel}
@@ -1262,7 +1511,19 @@ export default function NewChatScreen({ navigation, route }: any) {
         verify_chat={verify_chat}
       />
       <ContactLoaderModel visible={conatctLoaderModel} />
-
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+        <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
       <View
         style={{
           position: "relative",
@@ -1278,7 +1539,7 @@ export default function NewChatScreen({ navigation, route }: any) {
         <TopBar
           showTitle={true}
           title={
-            route.params.data == "NewCall" ? t("new_call") : t("new_chats")
+            route.params.data == "NewCall" ? t("new_call") : t("contact")
           }
           filterIcon={true}
           personIcon={true}
@@ -1303,6 +1564,9 @@ export default function NewChatScreen({ navigation, route }: any) {
           globalThis.selectTheme === "newYear" || 
           globalThis.selectTheme === "newYearTheme" || 
           globalThis.selectTheme === "mongoliaTheme" ||
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "mexicoTheme" || 
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -1319,6 +1583,7 @@ export default function NewChatScreen({ navigation, route }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null
@@ -1331,8 +1596,9 @@ export default function NewChatScreen({ navigation, route }: any) {
           search={searchableData}
           value={searchValue}
           clickCross={clickCross}
-          placeHolder= {t("search")}  
+          placeHolder= {t("search_friends")}  
         />
+{/*     
         {route.params.data == "NewCall" ? null : (
           <View>
             <TouchableOpacity
@@ -1342,7 +1608,9 @@ export default function NewChatScreen({ navigation, route }: any) {
               <Text style={styles.newGroupText}>{t("new_group")}</Text>
             </TouchableOpacity>
           </View>
-        )}
+        )} */}
+
+{/* 
         {route.params.data == "NewCall" ? null : (
           <View>
             <TouchableOpacity
@@ -1352,7 +1620,7 @@ export default function NewChatScreen({ navigation, route }: any) {
               <Text style={styles.newGroupText}>{t("new_broadcast")}</Text>
             </TouchableOpacity>
           </View>
-        )}
+        )} */}
 
         <SectionList
           showsVerticalScrollIndicator={false}
@@ -1360,6 +1628,7 @@ export default function NewChatScreen({ navigation, route }: any) {
           onEndReachedThreshold={0.1}
           keyExtractor={(item, index) => index.toString() + item}
           renderItem={({ item }) => {
+            console.log("item:",item)
              // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
             if (item.is_register == true) {
               return (

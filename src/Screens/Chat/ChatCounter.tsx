@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Text, View } from "react-native";
 import { font } from "../../Components/Fonts/Font";
 
-const ChatCounter = ({ message }) => {
+const ChatCounter = ({ message }:object) => {
   // Function to calculate remaining time
   const calculateRemainingTime = (distime) => {
     const currentTime = new Date().getTime();

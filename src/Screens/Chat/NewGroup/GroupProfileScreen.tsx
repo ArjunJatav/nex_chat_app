@@ -14,7 +14,7 @@ import ThemeContext from "../../../Components/ThemeContext/ThemeContext";
 
 import { StatusBar } from "react-native";
 import DeviceInfo from "react-native-device-info";
-import { COLORS } from "../../../Components/Colors/Colors";
+import { COLORS, themeModule } from "../../../Components/Colors/Colors";
 import { FontSize } from "../../../Components/DeviceSpecs/DeviceStyles";
 import { font } from "../../../Components/Fonts/Font";
 import { t } from "i18next";
@@ -144,7 +144,7 @@ export default function GroupPeofileScreen({ props, navigation, route }: any) {
       alignItems: "center",
       justifyContent: "space-around",
       flexDirection: "row",
-      backgroundColor: colorTheme ? COLORS.primary_blue : COLORS.purple,
+      backgroundColor:themeModule().premiumBackIcon,
     },
     contact2Container: {
       position: "absolute",
@@ -290,7 +290,7 @@ export default function GroupPeofileScreen({ props, navigation, route }: any) {
                 </Text>
               </TouchableOpacity>
               <Image
-                source={require("../../../Assets/Icons/Video.png")}
+                source={require("../../../Assets/Icons/videonewicon.png")}
                 style={styles.backIcon}
                 resizeMode="contain"
               />

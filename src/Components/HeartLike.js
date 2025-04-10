@@ -48,7 +48,12 @@ export const HeartLike = (props) => {
     <TouchableOpacity
       style={{ justifyContent: "center" }}
       onPress={() => {
-        makeLike(), setLiked(!liked);
+        if (!globalThis.stealthModeValue || globalThis.stealthModeValue == "false" ) {
+          makeLike(), setLiked(!liked);
+        }else{
+          setLiked(!liked);
+        }
+       
       }}
     >
       {liked ? (

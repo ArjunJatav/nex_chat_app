@@ -2,15 +2,32 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="17">
+      <module name="android.Tokee.react-native-share" target="21" />
+      <module name="android.Tokee.react-native-vector-icons" target="21" />
       <module name="com.facebook.react.react-native-gradle-plugin" target="11" />
       <module name="com.facebook.react.react-native-gradle-plugin.main" target="11" />
       <module name="com.facebook.react.react-native-gradle-plugin.test" target="11" />
+      <module name="gradle-plugin-root.main" target="21" />
+      <module name="gradle-plugin-root.react-native-gradle-plugin" target="11" />
+      <module name="gradle-plugin-root.react-native-gradle-plugin.main" target="11" />
+      <module name="gradle-plugin-root.react-native-gradle-plugin.test" target="11" />
+      <module name="gradle-plugin-root.settings-plugin" target="11" />
+      <module name="gradle-plugin-root.settings-plugin.main" target="11" />
+      <module name="gradle-plugin-root.settings-plugin.test" target="11" />
+      <module name="gradle-plugin-root.shared" target="11" />
+      <module name="gradle-plugin-root.shared-testutil" target="11" />
+      <module name="gradle-plugin-root.shared-testutil.main" target="11" />
+      <module name="gradle-plugin-root.shared-testutil.test" target="11" />
+      <module name="gradle-plugin-root.shared.main" target="11" />
+      <module name="gradle-plugin-root.shared.test" target="11" />
+      <module name="gradle-plugin-root.test" target="21" />
       <module name="gradle-plugin.react-native-gradle-plugin" target="11" />
       <module name="gradle-plugin.react-native-gradle-plugin.main" target="11" />
       <module name="gradle-plugin.react-native-gradle-plugin.test" target="11" />
       <module name="react-native-gradle-plugin" target="11" />
       <module name="react-native-gradle-plugin.main" target="11" />
       <module name="react-native-gradle-plugin.test" target="11" />
+      <module name="Tokee.react-native-fbsdk-next" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>

@@ -28,7 +28,11 @@ const BottomTab: React.FC = (navigation: any) => {
   const windowWidth = Dimensions.get("window").width;
   const { root } = useSelector((state: any) => state.root);
   const { t, i18n } = useTranslation();
-
+  const totalcount = useSelector(
+    // eslint-disable-next-line
+    (state: any) => state.chatListsql.totalcount
+  );
+  console.log("globalThis.selectTheme", globalThis.selectTheme);
   return (
     <View
       style={{ flex: 1, justifyContent: "center", backgroundColor: "white" }}
@@ -79,8 +83,37 @@ const BottomTab: React.FC = (navigation: any) => {
                     borderRadius: 35,
                     padding: 0,
                     width: windowWidth / 5,
+                    position: "relative",
                   }}
                 >
+                  {totalcount > 0 && (
+                    <View
+                      style={{
+                        right: 5,
+                        top: 0,
+                        position: "absolute",
+                        borderRadius: 20,
+                        width: 20,
+                        height: 20,
+                        backgroundColor: iconTheme().iconColor,
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        alignSelf: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#fff",
+                          fontSize: 12,
+                          textAlign: "center",
+                        }}
+                      >
+                        {totalcount > 9 ? "9+" : totalcount}
+                      </Text>
+                    </View>
+                  )}
+
                   <Image
                     style={{
                       height: IconSize.bottomTabIcon,
@@ -115,6 +148,33 @@ const BottomTab: React.FC = (navigation: any) => {
                     width: windowWidth / 5,
                   }}
                 >
+                  {totalcount > 0 && (
+                    <View
+                      style={{
+                        right: 5,
+                        top: 0,
+                        position: "absolute",
+                        borderRadius: 20,
+                        width: 20,
+                        height: 20,
+                        backgroundColor: iconTheme().iconColor,
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        alignSelf: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#fff",
+                          fontSize: 12,
+                          textAlign: "center",
+                        }}
+                      >
+                        {totalcount > 9 ? "9+" : totalcount}
+                      </Text>
+                    </View>
+                  )}
                   <Image
                     style={{
                       height: IconSize.bottomTabIcon,
@@ -261,7 +321,7 @@ const BottomTab: React.FC = (navigation: any) => {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {t("shop")}
+                    {t("explore")}
                   </Text>
                 </View>
               ) : (
@@ -294,7 +354,7 @@ const BottomTab: React.FC = (navigation: any) => {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {t("shop")}
+                    {t("explore")}
                   </Text>
                 </View>
               );

@@ -48,10 +48,26 @@ import {
 import { accessKeyId, secretAccessKey } from "../../Constant/Key";
 import { LoaderModel } from "../Modals/LoaderModel";
 import { font } from "../../Components/Fonts/Font";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import MentionList from "../../Components/dargText/MentionList";
+import PremiumAlert from "../../Components/CustomAlert/PremiumAlert";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
+import {
+  fetchViolationAttempt,
+  getRemainingSuspensionDays,
+} from "../agora/agoraHandler";
+import {
+  setUserBanned,
+  setUserSuspendedDays,
+} from "../../reducers/userBanSlice";
+import WarningModal from "../Modals/WarningModal";
 
 var selectedTag = {};
+let banType = "Warning";
+let banMessage = "";
+let banTitle = "";
 
 export const ImageUploadGallery = ({ route, navigation }) => {
   const [textInputs, setTextInputs] = useState([]);
@@ -114,6 +130,19 @@ export const ImageUploadGallery = ({ route, navigation }) => {
     (state) => state?.friendListSlice.userPremium
   );
 
+  const [showPremiumAlert, setShowPremiumAlert] = useState(false);
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+  const [warningModalVisible, setWarningModalVisible] = useState(false);
+
+  const dispatch = useDispatch();
+
+  let premiumAlertHeading = "Premium Feature";
+  let premiumAlertSubHeading =
+    "Upgrade to Premium to gain access to add more caption.";
+  let premiumAlertFirstButtonText = "Ok";
+  let premiumAlertSecondButtonText = "Go To Premium";
   var selectedTag = {};
 
   useEffect(() => {
@@ -162,9 +191,28 @@ export const ImageUploadGallery = ({ route, navigation }) => {
 
   //////////////////////////////////////////////mention friends/////////////////////////
 
-
   const handleInputChange = (inputText) => {
+    console.log("userPremium====", userPremium);
     setText(inputText);
+    if (!userPremium) {
+      if (inputText.length == 50) {
+        setShowPremiumAlert(true);
+      }
+      // If not premium, do not filter or suggest mentions
+      setFilteredFriends([]);
+      return;
+    } else if (inputText.length == 200 && userPremium) {
+      // Alert.alert(
+      //   t("Caption_Length_Limit"), // The title of the alert
+      //   t("You_have_reached_the_maximum_caption_length"), // The message body
+      //   [{ text: t("ok") }] // Button options
+      // );
+      globalThis.errorMessage =
+        t("Caption_Length_Limit") +
+        ", " +
+        t("You_have_reached_the_maximum_caption_length");
+      setErrorAlertModel(true);
+    }
     if (!userPremium) {
       // If not premium, do not filter or suggest mentions
       setFilteredFriends([]);
@@ -182,6 +230,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
       }
     });
 
+    console.log("friendsData>>>>", friendsData);
     // Check if '@' is found and handle accordingly
     if (lastAtIndex !== -1) {
       const searchText = inputText.slice(lastAtIndex + 1).toLowerCase();
@@ -192,6 +241,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
           // Show all friends if only "@" is entered, excluding already mentioned
           const filteredFriends = friendsData.filter(
             (friend) =>
+              friend.display_name != null &&
               !mentionedUsers.has(friend.display_name.toLowerCase()) &&
               !mentionedUsers.has(friend.name.toLowerCase())
           );
@@ -240,78 +290,6 @@ export const ImageUploadGallery = ({ route, navigation }) => {
     setFilteredFriends([]);
   };
 
-  ///////////////////////25huly/////////////////////////////////////////
-  // const renderTextWithMentions = (inputText) => {
-  //   const urlRegex =
-  //     /((https?|ftp|file|mailto|tel|data|ws|wss):\/\/[^\s]+|www\.[^\s]+)/g;
-  //   const mentionRegex = new RegExp(
-  //     `(${friendsData.map((friend) => `@${friend.name}`).join("|")})`,
-  //     "g"
-  //   );
-
-  //   const combinedRegex = new RegExp(
-  //     `(${urlRegex.source})|(${mentionRegex.source})`,
-  //     "g"
-  //   );
-  //   const parts = inputText.match(combinedRegex) || [];
-
-  //   let lastIndex = 0;
-  //   const elements = [];
-  //   const mentionedUsers = new Set();
-
-  //   parts.forEach((part, index) => {
-  //     console.log('part parts====================================',parts);
-
-  //     const partIndex = inputText.indexOf(part, lastIndex);
-
-  //     if (partIndex > lastIndex) {
-  //       elements.push(
-  //         <Text key={`${lastIndex}-text`}>
-  //           {inputText.slice(lastIndex, partIndex) + " "}
-  //         </Text>
-  //       );
-  //     }
-
-  //     if (urlRegex.test(part)) {
-  //       elements.push(
-  //         <Text
-  //           key={`${index}-url`}
-  //           style={{ color: "blue", textDecorationLine: "underline" }}
-  //         >
-  //           {part}
-  //         </Text>
-  //       );
-  //     } else if (friendsData.some((friend) => `@${friend.name}` === part)) {
-  //       console.log('part====================================',part);
-  //       const displayName = part.slice(1); // Remove '@' to get display name
-  //       console.log('displayName====================================',!mentionedUsers.has(displayName)
-  //       );
-  //       if (!mentionedUsers.has(displayName)) {
-  //         elements.push(
-  //           <Text
-  //             key={`${index}-mention`}
-  //             style={{ color: "blue", fontWeight: "bold" }}
-  //           >
-  //             {part}
-  //           </Text>
-  //         );
-  //         mentionedUsers.add(displayName);
-  //       }
-  //     }
-
-  //     lastIndex = partIndex + part.length;
-  //   });
-
-  //   if (lastIndex < inputText.length) {
-  //     elements.push(
-  //       <Text key={`${lastIndex}-end`}>{inputText.slice(lastIndex)}</Text>
-  //     );
-  //   }
-
-  //   console.log('elements====================================',elements);
-
-  //   return elements;
-  // };
   ///////////////////////////////////////////////////////////////////////
   const renderTextWithMentions = (inputText) => {
     if (!userPremium) {
@@ -398,7 +376,9 @@ export const ImageUploadGallery = ({ route, navigation }) => {
   };
 
   const updateMentionsFromText = (input) => {
-    console.log("Inside update mentions >>>>> ", input);
+    if (!userPremium) {
+      return; // Exit the function if user is not premium
+    }
     // Regular expression to match mentions starting with '@' followed by letters, digits, underscores, or spaces
     const mentionRegex = /@([a-zA-Z\d_]+)/g;
     const extractedMentions = [];
@@ -441,97 +421,6 @@ export const ImageUploadGallery = ({ route, navigation }) => {
 
     setMentions(updatedMentions);
   };
-
-  
-
-  
-
-  /////////////////////////////////////////////////////////////////////////
-
-  // const updateMentionsFromText = (input) => {
-  //   // Regular expression to match mentions starting with '@' followed by letters, spaces, or digits
-  //   console.log("Inside update mentions >>>>> ",input)
-  //   const mentionRegex = /@([a-zA-Z\d\s]+)/g;
-
-  //   // Extract all mentions using the regular expression
-  //   const extractedMentions = [];
-  //   let match;
-
-  //   while ((match = mentionRegex.exec(input)) !== null) {
-  //     const mentionName = match[1].trim(); // Trim spaces around the mention
-  //     if (mentionName.length > 0) {
-  //       // Find a friend with the exact name
-  //       // const friend = friendsData.find(
-  //       //   (f) => f.name.toLowerCase() === mentionName.toLowerCase()
-  //       // );
-  //       const friend = friendsData.filter(
-  //         (f) => f.name.toLowerCase() === mentionName.toLowerCase()
-  //       );
-
-  //       console.log("friend count >>>>>>>",friend)
-  //       if (friend.length > 0) {
-  //         friend.forEach((friendsub) => {
-
-  //           if(selectedTag.chat_user_id == friendsub.chat_user_id){
-  //             extractedMentions.push({
-  //               name: friendsub.name,
-  //               chat_user_id: friendsub.chat_user_id,
-  //             });
-  //             menstion.push({
-  //               name: friendsub.name,
-  //               chat_user_id: friendsub.chat_user_id,
-  //             })
-  //           }
-
-  //         })
-
-  //       }else{
-  //         console.log("inside else condition",friend)
-  //         var count = (input.match(/@/g) || []).length;
-  //         if(selectedTag != {} && filteredFriends?.length>0 ){
-  //           console.log("inside hellllllllllll")
-  //           let temp = []
-  //           var i = 0
-  //           mentions?.forEach((part, index) => {
-  //                console.log("index >>>>>>>>",i)
-  //                if(i == count - 1){
-
-  //                }else{
-  //                 temp.push(part)
-  //                }
-  //                i = i + 1
-
-  //           })
-  //           console.log("temp >>>>>",temp)
-  //           setMentions(temp)
-  //           selectedTag = {}
-
-  //         }
-  //         console.log("count  >>>>>>>>>",count)
-  //       }
-  //     }
-  //   }
-
-  //   // // Compare extracted mentions with the current mentions
-  //   // const updatedMentions = mentions.filter((mention) =>
-  //   //   extractedMentions.some(
-  //   //     (newMention) => newMention.chat_user_id === mention.chat_user_id
-  //   //   )
-  //   // );
-
-  //   // // Add any new valid mentions
-  //   // extractedMentions.forEach((newMention) => {
-  //   //   if (
-  //   //     !updatedMentions.some(
-  //   //       (mention) => mention.chat_user_id === newMention.chat_user_id
-  //   //     )
-  //   //   ) {
-  //   //     updatedMentions.push(newMention);
-  //   //   }
-  //   // });
-
-  //  // setMentions(extractedMentions);
-  // };
 
   useEffect(() => {
     updateMentionsFromText(text);
@@ -634,8 +523,8 @@ export const ImageUploadGallery = ({ route, navigation }) => {
     const bucket = new AWS.S3({
       bucketName: "tokee-chat-staging",
       region: "us-east-2",
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
+      accessKeyId: globalThis.accessKey,
+      secretAccessKey: globalThis.awsSecretAccessKey,
       s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/",
     });
 
@@ -865,8 +754,8 @@ export const ImageUploadGallery = ({ route, navigation }) => {
     const bucket = new AWS.S3({
       bucketName: "tokee-chat-staging",
       region: "us-east-2",
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
+      accessKeyId: globalThis.accessKey,
+      secretAccessKey: globalThis.awsSecretAccessKey,
       s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/",
     });
     const folderName = "Profile/";
@@ -969,7 +858,10 @@ export const ImageUploadGallery = ({ route, navigation }) => {
             .catch((error) => {
               setloaderMoedl(false);
               setIsAddingImage(false);
-              Alert.alert(error);
+              console.log("sdfdsfdsfdsf", error);
+              // Alert.alert(error);
+              globalThis.errorMessage = error;
+              setErrorAlertModel(true);
             });
         } catch (error) {
           setloaderMoedl(false);
@@ -983,10 +875,10 @@ export const ImageUploadGallery = ({ route, navigation }) => {
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
-
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
+        setNoInternetModel(true);
         return;
       } else {
         let headers = {
@@ -1012,7 +904,10 @@ export const ImageUploadGallery = ({ route, navigation }) => {
   // **********  Method for return the get  api Response   ********** ///
   const deleteApiSuccess = (ResponseData, ErrorStr) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      //setloaderModel(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
     } else {
       console.log("image delete sucessfully");
     }
@@ -1073,25 +968,67 @@ export const ImageUploadGallery = ({ route, navigation }) => {
               data: data,
             })
               .then((response) => {
+                console.log(
+                  "responsedata====================================",
+                  response.data
+                );
+
                 if (response.data.status == true) {
-                  Alert.alert(t("success"), t("story_has_posted"), [
-                    {
-                      text: t("ok"),
-                      onPress: () => {
-                        setMainImage("");
-                        setImages([]);
-                        setTextInputs([]);
-                        setTimeout(() => {
-                          navigation.navigate("BottomBar", {
-                            screen: "chatScreen",
-                          });
-                        }, 300);
-                      },
-                    },
-                  ]);
+                  // Alert.alert(t("success"), t("story_has_posted"), [
+                  //   {
+                  //     text: t("ok"),
+                  //     onPress: () => {
+                  //       setMainImage("");
+                  //       setImages([]);
+                  //       setTextInputs([]);
+                  //       setTimeout(() => {
+                  //         navigation.navigate("BottomBar", {
+                  //           screen: "chatScreen",
+                  //         });
+                  //       }, 300);
+                  //     },
+                  //   },
+                  // ]);
                   setloaderMoedl(false);
+                  setSuccessAlertModel(true);
                 } else {
                   setloaderMoedl(false);
+
+                  if (response?.data?.data?.nudity_detected == 1) {
+                    fetchViolationAttempt()
+                      .then((response) => {
+                        console.log("get attempt response===", response);
+                        if (response) {
+                          const remainingDays = getRemainingSuspensionDays(
+                            response?.suspended_remove_date
+                          );
+                          if (response.violation_attempt == 1) {
+                            banType = "Warning";
+                            setWarningModalVisible(true);
+                          } else if (
+                            response.violation_attempt > 1 &&
+                            response.violation_attempt <= 4
+                          ) {
+                            banType = "Ban";
+                            dispatch(setUserSuspendedDays(remainingDays));
+                            setWarningModalVisible(true);
+                            dispatch(setUserBanned(response.is_ban));
+                          } else if (response.violation_attempt == 5) {
+                            banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                            banTitle = "Account Suspended!";
+                            dispatch(setUserSuspendedDays(remainingDays));
+                            setWarningModalVisible(true);
+                            dispatch(setUserBanned(response.is_ban));
+                          } else if (response.violation_attempt > 5) {
+                            banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                            banTitle = "Account Permanently Suspended!";
+                            setWarningModalVisible(true);
+                            dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                          }
+                        }
+                      })
+                      .catch((error) => console.error("Error:", error));
+                  }
                 }
               })
               .catch((error) => {
@@ -1109,19 +1046,68 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                       data: data,
                     })
                       .then((response) => {
+                        console.log(
+                          "responsedata====================================",
+                          response.data
+                        );
                         if (response.data.status == true) {
-                          Alert.alert(t("success"), t("story_has_posted"), [
-                            {
-                              text: t("ok"),
-                              onPress: () =>
-                                navigation.navigate("BottomBar", {
-                                  screen: "chatScreen",
-                                }),
-                            },
-                          ]);
+                          // Alert.alert(t("success"), t("story_has_posted"), [
+                          //   {
+                          //     text: t("ok"),
+                          //     onPress: () =>
+                          //       navigation.navigate("BottomBar", {
+                          //         screen: "chatScreen",
+                          //       }),
+                          //   },
+                          // ]);
                           setloaderMoedl(false);
+                          setSuccessAlertModel(true);
                         } else {
                           setloaderMoedl(false);
+                          if (response?.data?.data?.nudity_detected == 1) {
+                            fetchViolationAttempt()
+                              .then((response) => {
+                                console.log(
+                                  "get attempt response===",
+                                  response
+                                );
+                                if (response) {
+                                  const remainingDays =
+                                    getRemainingSuspensionDays(
+                                      response?.suspended_remove_date
+                                    );
+
+                                  if (response.violation_attempt == 1) {
+                                    banType = "Warning";
+                                    setWarningModalVisible(true);
+                                  } else if (
+                                    response.violation_attempt > 1 &&
+                                    response.violation_attempt <= 4
+                                  ) {
+                                    banType = "Ban";
+                                    dispatch(
+                                      setUserSuspendedDays(remainingDays)
+                                    );
+                                    setWarningModalVisible(true);
+                                    dispatch(setUserBanned(response.is_ban));
+                                  } else if (response.violation_attempt == 5) {
+                                    banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                                    banTitle = "Account Suspended!";
+                                    dispatch(
+                                      setUserSuspendedDays(remainingDays)
+                                    );
+                                    setWarningModalVisible(true);
+                                    dispatch(setUserBanned(response.is_ban));
+                                  } else if (response.violation_attempt > 5) {
+                                    banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                                    banTitle = "Account Permanently Suspended!";
+                                    setWarningModalVisible(true);
+                                    dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                                  }
+                                }
+                              })
+                              .catch((error) => console.error("Error:", error));
+                          }
                         }
                       })
                       .catch((error) => {
@@ -1136,6 +1122,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                 }
               });
           } catch (error) {
+            console.log("error====================================", error);
             setloaderMoedl(false);
           }
         }, 1000);
@@ -1358,12 +1345,92 @@ export const ImageUploadGallery = ({ route, navigation }) => {
     }
   };
 
+  const successModalCheck = () => {
+    setSuccessAlertModel(false);
+    // Clear states
+    setMainImage("");
+    setImages([]);
+    setTextInputs([]);
+
+    // Set timeout for navigation with cleanup
+    const timeoutId = setTimeout(() => {
+      navigation.navigate("BottomBar", {
+        screen: "chatScreen",
+      });
+    }, 300);
+
+    // Optional: Clear timeout if component unmounts before navigating
+    return () => clearTimeout(timeoutId);
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#000000" }}>
       <LoaderModel
         visible={loaderMoedl}
         onRequestClose={() => setloaderMoedl(false)}
         cancel={() => setloaderMoedl(false)}
+      />
+      <SuccessModel
+        visible={successAlertModel}
+        onRequestClose={() => setSuccessAlertModel(false)}
+        succesText={t("story_has_posted")}
+        doneButton={() => {
+          successModalCheck();
+        }}
+      />
+
+      <WarningModal
+        visible={warningModalVisible}
+        type={banType}
+        onClose={() => {
+          if (
+            banTitle === "Account Suspended!" ||
+            banTitle === "Account Permanently Suspended!"
+          ) {
+            setWarningModalVisible(false);
+                    banType = "Warning";
+                        banMessage = "";
+                        banTitle = "";
+                        dispatch(setUserSuspendedDays(0));
+            navigation.push("Login");
+          } else {
+            setWarningModalVisible(false);
+          }
+        }}
+        message={banMessage}
+        title={banTitle}
+      />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
+
+      <PremiumAlert
+        visible={showPremiumAlert}
+        onRequestClose={() => setShowPremiumAlert(false)}
+        cancel={() => setShowPremiumAlert(false)}
+        Heading={premiumAlertHeading}
+        SubHeading={premiumAlertSubHeading}
+        FirstButton={premiumAlertFirstButtonText}
+        SecondButton={premiumAlertSecondButtonText}
+        firstButtonClick={() => setShowPremiumAlert(false)}
+        secondButtonClick={() => {
+          if (premiumAlertSecondButtonText == "Cancel") {
+            setShowPremiumAlert(false);
+          } else {
+            setShowPremiumAlert(false);
+            navigation.navigate("PremiumFeaturesScreen");
+          }
+        }}
       />
 
       <ViewShot
@@ -1405,7 +1472,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                       position: "absolute",
                       left: 20,
                       zIndex: 1,
-                      backgroundColor: textTheme().textColor,
+                      backgroundColor: themeModule().premiumBackIcon,
                       borderRadius: 5,
                     }}
                     onPress={() => setModalVisible(false)}
@@ -1472,7 +1539,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                       position: "absolute",
                       left: 20,
                       zIndex: 1,
-                      backgroundColor: textTheme().textColor,
+                      backgroundColor: themeModule().premiumBackIcon,
                       borderRadius: 5,
                     }}
                     onPress={() => setImageModal(false)}
@@ -1513,15 +1580,15 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                     : setShowDelete(false);
                 }}
               >
-                <ColorMatrix
+                {/* <ColorMatrix
                   matrix={filters[selectedFilterIndex].matrix}
-                  style={styles.imageContainer}
-                >
-                  <MainImage
-                    source={mainImage}
-                    onChange={(event, styles) => mainImageUpdatedStyle(styles)}
-                  />
-                </ColorMatrix>
+                 // style={styles.imageContainer}
+                > */}
+                <MainImage
+                  source={mainImage}
+                  onChange={(event, styles) => mainImageUpdatedStyle(styles)}
+                />
+                {/* </ColorMatrix> */}
                 {textInputs.map(
                   (input) =>
                     activeTextId !== input.id && (
@@ -1906,62 +1973,66 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                       )}
                       {activeTextId !== null || showInput === false ? (
                         <>
-                          <TouchableOpacity
-                            onPress={() => {
-                              setColor(!chooseColor);
-                              setFilterView(false);
-                              setFontView(false);
-                            }}
-                            style={{
-                              alignSelf: "center",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "rgba(0,0,0,0.3)",
-                              borderRadius: 50,
-                              height: 45,
-                              width: 45,
-                              marginHorizontal: 20,
-                              marginVertical: 10,
-                              zIndex: 150,
-                            }}
-                          >
-                            <Image
-                              source={require("../../Assets/Image/newFaceColor.png")}
-                              style={{
-                                height: 29,
-                                width: 29,
-                                resizeMode: "cover",
+                          {!showCaption && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setColor(!chooseColor);
+                                setFilterView(false);
+                                setFontView(false);
                               }}
-                            />
-                          </TouchableOpacity>
+                              style={{
+                                alignSelf: "center",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                backgroundColor: "rgba(0,0,0,0.3)",
+                                borderRadius: 50,
+                                height: 45,
+                                width: 45,
+                                marginHorizontal: 20,
+                                marginVertical: 10,
+                                zIndex: 150,
+                              }}
+                            >
+                              <Image
+                                source={require("../../Assets/Image/newFaceColor.png")}
+                                style={{
+                                  height: 29,
+                                  width: 29,
+                                  resizeMode: "cover",
+                                }}
+                              />
+                            </TouchableOpacity>
+                          )}
 
-                          <TouchableOpacity
-                            onPress={() => {
-                              setColor(false);
-                              setFontView(!fontView);
-                            }}
-                            style={{
-                              alignSelf: "center",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "rgba(0,0,0,0.3)",
-                              borderRadius: 50,
-                              height: 45,
-                              width: 45,
-                              marginHorizontal: 20,
-                              marginVertical: 10,
-                              zIndex: 150,
-                            }}
-                          >
-                            <Image
-                              source={require("../../Assets/Image/font.png")}
-                              style={{
-                                height: 25,
-                                width: 25,
-                                resizeMode: "contain",
+                          {!showCaption && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setColor(false);
+                                setFontView(!fontView);
                               }}
-                            />
-                          </TouchableOpacity>
+                              style={{
+                                alignSelf: "center",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                backgroundColor: "rgba(0,0,0,0.3)",
+                                borderRadius: 50,
+                                height: 45,
+                                width: 45,
+                                marginHorizontal: 20,
+                                marginVertical: 10,
+                                zIndex: 150,
+                              }}
+                            >
+                              <Image
+                                source={require("../../Assets/Image/font.png")}
+                                style={{
+                                  height: 25,
+                                  width: 25,
+                                  resizeMode: "contain",
+                                }}
+                              />
+                            </TouchableOpacity>
+                          )}
                         </>
                       ) : null}
                     </View>
@@ -2009,60 +2080,62 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                     </View>
 
                     {filteredFriends.length > 0 && (
-                      <MentionList 
-                      filteredFriends={filteredFriends}
-                      handleFriendPress={handleFriendPress}
+                      <MentionList
+                        filteredFriends={filteredFriends}
+                        handleFriendPress={handleFriendPress}
                       />
-                      // <FlatList
-                      //   data={filteredFriends}
-                      //   keyExtractor={(item) => item.chat_user_id}
-                      //   keyboardShouldPersistTaps="handled"
-                      //   renderItem={({ item }) => (
-                      //     <TouchableOpacity
-                      //       style={styles.friendItem}
-                      //       onPress={() => handleFriendPress(item)}
-                      //     >
-                      //       <Image
-                      //         source={{ uri: item.profile_image }}
-                      //         style={styles.friendImage}
-                      //       />
-                      //       <Text style={{ fontSize: 16, color: "#fff" }}>
-                      //         {item.name}
-                      //       </Text>
-                      //     </TouchableOpacity>
-                      //   )}
-                      //   style={styles.mentionList}
-                      // />
                     )}
 
                     {showCaption && (
-                      <TextInput
-                        ref={textCaptionRef}
-                        style={[
-                          styles.textInput,
-                          {
-                            maxHeight: Math.min(inputHeight, 200),
-                            textAlignVertical: "top",
-                            textAlign: "center",
-                            color: "#fff",
-                            fontFamily: "YourFont", // Replace with your font
-                            minHeight: 50,
-                          },
-                        ]}
-                        multiline={true}
-                        onChangeText={handleInputChange}
-                        value={text}
-                        // selection={{ start: text.length, end: text.length }}
-                        onContentSizeChange={(e) =>
-                          setInputHeight(e.nativeEvent.contentSize.height)
-                        }
-                        placeholderTextColor="#fff"
-                        placeholder="Add a caption..."
-                        // onSubmitEditing={handleSubmit} // Submit on return key
-                        autoFocus={true}
-                        maxLength={userPremium ? 200 : 50}
-                        // onBlur={handleSubmit} // Submit on blur (keyboard dismissal)
-                      />
+                      <View
+                        style={{
+                          //backgroundColor: "#0C0C0C",
+                          borderRadius: 20,
+                        }}
+                      >
+                        <TextInput
+                          ref={textCaptionRef}
+                          style={[
+                            styles.textInput,
+                            {
+                              maxHeight: Math.min(inputHeight, 200),
+                              textAlignVertical: "top",
+                              textAlign: "center",
+                              color: "#fff",
+                              fontFamily: "YourFont", // Replace with your font
+                              minHeight: 50,
+                            },
+                          ]}
+                          multiline={true}
+                          onChangeText={handleInputChange}
+                          value={text}
+                          // selection={{ start: text.length, end: text.length }}
+                          onContentSizeChange={(e) =>
+                            setInputHeight(e.nativeEvent.contentSize.height)
+                          }
+                          placeholderTextColor="#fff"
+                          placeholder={t("add_a_caption") + "..."}
+                          // onSubmitEditing={handleSubmit} // Submit on return key
+                          autoFocus={true}
+                          maxLength={userPremium ? 200 : 50}
+                          // onBlur={handleSubmit} // Submit on blur (keyboard dismissal)
+                        />
+                        <Text
+                          style={{
+                            alignSelf: "flex-end",
+                            //marginTop: 5,
+                            fontSize: 14,
+                            color: "#ffff",
+                            fontFamily: font.bold(),
+                            paddingRight: 15,
+                          }}
+                        >
+                          {userPremium
+                            ? 200 - (text?.length || 0)
+                            : 50 - (text?.length || 0)}{" "}
+                          / {userPremium ? 200 : 50}
+                        </Text>
+                      </View>
                     )}
 
                     <View>
@@ -2121,13 +2194,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
           </ScrollView>
         ) : null}
       </View>
-{/* 
-      {filterView ||
-      activeTextId !== null ||
-      showInput ||
-      showCaption ?  ( */}
-
-
+      {!filterView && (
         <View
           style={{
             justifyContent: "space-between",
@@ -2159,7 +2226,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                   fontFamily: font.bold(),
                 }}
               >
-                {t("Edit caption")}
+                {t("Edit_caption")}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -2180,7 +2247,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
                   fontFamily: font.bold(),
                 }}
               >
-                {t("Add a caption")}
+                {t("Add_a_caption")}
               </Text>
             </TouchableOpacity>
           )}
@@ -2205,8 +2272,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
             </Text>
           </TouchableOpacity>
         </View>
-
-      {/* ):null} */}
+      )}
 
       {filterView || activeTextId !== null || showInput ? null : (
         <View
@@ -2281,7 +2347,7 @@ export const ImageUploadGallery = ({ route, navigation }) => {
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
-
+          // right:0,
           position: "absolute",
           top: 50,
           //  width: "100%",
@@ -2293,7 +2359,9 @@ export const ImageUploadGallery = ({ route, navigation }) => {
           onPress={() => {
             setTextInputs([]),
               setImages([]),
-              navigation.push("AddCameraStoryScreen");
+              setText(""),
+              setShowCaption(false);
+            navigation.push("AddCameraStoryScreen");
           }}
           style={{
             alignSelf: "center",

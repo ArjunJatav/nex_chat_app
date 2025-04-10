@@ -1,8 +1,9 @@
 // PinModal.js
 
-import React, { useState } from "react";
+import React from "react";
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import PinInput from "./GeneratePin";
+import { t } from "i18next";
 
 const PinModal = ({ isVisible, onClose, onPinEntered, onSubmit }) => {
   const pinLength = 4;
@@ -19,16 +20,16 @@ const PinModal = ({ isVisible, onClose, onPinEntered, onSubmit }) => {
         activeOpacity={1}
       >
         <TouchableOpacity style={styles.modalContent} activeOpacity={1}>
-          <Text style={styles.title}>Generate PIN</Text>
+          <Text style={styles.title}>{t("generate_pin")}</Text>
           <PinInput pinLength={pinLength} onPinEntered={onPinEntered} />
           <View
             style={{ flexDirection: "row", justifyContent: "space-between" }}
           >
             <TouchableOpacity onPress={() => onClose()}>
-              <Text style={styles.closeButton}>Close</Text>
+            <Text style={styles.closeButton}>{t("Close")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => onSubmit()}>
-              <Text style={styles.closeButton}>Submit</Text>
+            <Text style={styles.closeButton}>{t("submit")}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

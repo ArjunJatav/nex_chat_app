@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Image,
@@ -16,7 +16,7 @@ import {
   Alert,
 } from "react-native";
 
-import {  useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Text } from "react-native";
 import { ScrollView } from "react-native";
 import axios from "axios";
@@ -30,17 +30,45 @@ import ColorPicker from "../../Components/dargText/ColorPicker";
 import { font } from "../../Components/Fonts/Font";
 import { LoaderModel } from "../Modals/LoaderModel";
 import { SetProfileModal } from "../Modals/SetProfileModel";
-import { Base_Url, chatUserDetailApi, get_profile, reportUserApi, update_profile, userDetailApi } from "../../Constant/Api";
+import {
+  Base_Url,
+  chatUserDetailApi,
+  get_profile,
+  reportUserApi,
+  update_profile,
+  userDetailApi,
+} from "../../Constant/Api";
 import { GetApiCall } from "../../Components/ApiServices/GetApi";
 import { PostApiCall } from "../../Components/ApiServices/PostApi";
 import { t } from "i18next";
 import { stopSound } from "../../utils/callKitCustom";
 import { showToast } from "../../Components/CustomToast/Action";
-
-
-
+import { WINDOW_WIDTH } from "@gorhom/bottom-sheet";
+import {
+  COLORS,
+  iconTheme,
+  setWallpaper,
+} from "../../Components/Colors/Colors";
+import { UpdateNameModel } from "../Modals/UpdatenameModel";
+import PremiumAlert from "../../Components/CustomAlert/PremiumAlert";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
+import WarningModal from "../Modals/WarningModal";
+import {
+  checkImageNudity,
+  getRemainingSuspensionDays,
+  updateViolationAttempt,
+} from "../agora/agoraHandler";
+import {
+  setUserBanned,
+  setUserSuspendedDays,
+} from "../../reducers/userBanSlice";
 
 var isStiPopViewShowing = false;
+let banType = "Warning";
+let banMessage = "";
+let banTitle = "";
 
 export const EditCoverImage = ({ route, navigation }) => {
   const [images, setImages] = React.useState(
@@ -69,9 +97,16 @@ export const EditCoverImage = ({ route, navigation }) => {
   const [userDisplayName, setUserDisplayName] = React.useState();
   const [userTagline, setUserTagline] = React.useState("");
   const [wallpaperModel, setWallpaperModel] = React.useState(false);
+  const [updatenamemodel, setupdatenamemodel] = React.useState(false);
+  const [showBoi, setShowBio] = React.useState(false);
+  const [showPremiumAlert, setShowPremiumAlert] = React.useState(false);
   const [edit, setEdit] = React.useState(
     route.params.param == "myProfile" ? false : true
   );
+  const [warningModalVisible, setWarningModalVisible] = useState(false);
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
   const [prevStyles, setPrevStyles] = React.useState({
     position: { x: 100, y: 400 },
     scale: 1,
@@ -87,25 +122,25 @@ export const EditCoverImage = ({ route, navigation }) => {
   var stickerSingleTapListener = null;
   var stickerDoubleTapListener = null;
   const { StipopModule } = NativeModules;
+  const dispatch = useDispatch();
 
-
-  const userImageUrl = route?.params?.data?.profile_image || globalThis.userImage;
+  const userImageUrl =
+    route?.params?.data?.profile_image || globalThis.userImage;
   const cacheBuster = Date.now();
 
-  const imageUrl =  `${userImageUrl}?${cacheBuster}`;
-
+  const imageUrl = `${userImageUrl}?${cacheBuster}`;
 
   var nativeEventEmitter = null;
 
   switch (Platform.OS) {
     case "android":
-         // eslint-disable-next-line
+      // eslint-disable-next-line
       const { StipopModule } = NativeModules;
       nativeEventEmitter = new NativeEventEmitter(StipopModule);
       break;
 
     case "ios":
-         // eslint-disable-next-line
+      // eslint-disable-next-line
       const { StipopEmitter } = NativeModules;
       nativeEventEmitter = new NativeEventEmitter(StipopEmitter);
       break;
@@ -128,7 +163,7 @@ export const EditCoverImage = ({ route, navigation }) => {
   React.useEffect(() => {
     NetInfo.fetch().then((state) => {
       if (state.isInternetReachable === false) {
-        alert("No Internet, Please check your Internet Connection.")
+        alert("No Internet, Please check your Internet Connection.");
         return;
       } else {
         UserDetailApiCalling();
@@ -180,14 +215,13 @@ export const EditCoverImage = ({ route, navigation }) => {
             setUserDetailData(
               fromPage ? response.data.data.user : response.data.data
             );
-           
           }
         })
         .catch((error) => {
-          alert(error)
+          alert(error);
         });
     } catch (error) {
-      alert(error)
+      alert(error);
     }
   };
 
@@ -265,7 +299,6 @@ export const EditCoverImage = ({ route, navigation }) => {
       (event) => {
         const stickerImg = event.stickerImg;
         addImage(stickerImg);
-;
       }
     );
   };
@@ -278,13 +311,6 @@ export const EditCoverImage = ({ route, navigation }) => {
       stickerDoubleTapListener.remove();
     }
   };
-
-
-
-  React.useEffect(() => {
-    return () => {
-    };
-  }, []);
 
   React.useEffect(() => {
     StipopModule.connect(globalThis.userChatId);
@@ -302,7 +328,6 @@ export const EditCoverImage = ({ route, navigation }) => {
     };
   }, []);
 
-
   const captureCoverImage = async () => {
     let isCameraPermitted = await requestCameraPermission();
     if (isCameraPermitted) {
@@ -311,19 +336,76 @@ export const EditCoverImage = ({ route, navigation }) => {
         height: Dimensions.get("screen").height,
         cropping: true,
         //enableRotationGesture: true,
-        cropperRotateButtonsHidden:true,
-        hideBottomControls:true
+        cropperRotateButtonsHidden: true,
+        hideBottomControls: true,
+        mediaType: "photo",
       })
         .then((image) => {
           if (image !== undefined) {
-            setCoverImage(image.path);
             setcoverImageModal(false);
-            setTextInputs([]);
-            setImages([]);
+
+            setTimeout(async () => {
+              setloaderMoedl(true);
+              // Add delay before making API call
+              const filePath = image.path.startsWith("file://")
+                ? image.path
+                : `file://${image.path}`;
+
+              const response = await checkImageNudity(filePath);
+              console.log(
+                "Nudity Check Response:",
+                response?.data?.is_nude_file
+              );
+              if (response?.data?.is_nude_file == true) {
+                setloaderMoedl(false);
+
+                const reason = `In update profile, the user uploaded inappropriate image.`;
+                const result = await updateViolationAttempt(reason);
+                if (result.success) {
+              const remainingDays = getRemainingSuspensionDays(result?.data?.suspended_remove_date);
+
+                  if (result.data.violation_attempt == 1) {
+                    banType = "Warning";
+                    setWarningModalVisible(true);
+                  } else if (
+                    result.data.violation_attempt > 1 &&
+                    result.data.violation_attempt <= 4
+                  ) {
+                    banType = "Ban";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt == 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                    banTitle = "Account Suspended!";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt > 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                    banTitle = "Account Permanently Suspended!";
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                  } else {
+                    globalThis.errorMessage =
+                      "This photo violates our guidelines as it contains inappropriate content. Please upload a suitable image.";
+                    setErrorAlertModel(true);
+                  }
+                }
+              } else {
+                setloaderMoedl(false);
+                setCoverImage(image.path);
+
+                setTextInputs([]);
+                setImages([]);
+              }
+            }, 500);
           }
         })
         .catch((e) => {
-          console.log("error>>>",e)
+          console.log("error>>>", e);
           setcoverImageModal(false);
         });
     }
@@ -339,16 +421,71 @@ export const EditCoverImage = ({ route, navigation }) => {
         width: Dimensions.get("screen").width,
         height: Dimensions.get("screen").height,
         cropping: true,
-       // enableRotationGesture: true,
-        cropperRotateButtonsHidden:true,
-        hideBottomControls:true
+        // enableRotationGesture: true,
+        cropperRotateButtonsHidden: true,
+        hideBottomControls: true,
       })
         .then((image) => {
           if (image !== undefined) {
-            setCoverImage(image.path);
-            setTextInputs([]);
-            setImages([]);
             setcoverImageModal(false);
+
+            setTimeout(async () => {
+              setloaderMoedl(true);
+              // Add delay before making API call
+              const filePath = image.path.startsWith("file://")
+                ? image.path
+                : `file://${image.path}`;
+
+              const response = await checkImageNudity(filePath);
+              console.log(
+                "Nudity Check Response:",
+                response?.data?.is_nude_file
+              );
+              if (response?.data?.is_nude_file == true) {
+                setloaderMoedl(false);
+
+                const reason = `In update profile, the user uploaded inappropriate image.`;
+                const result = await updateViolationAttempt(reason);
+                if (result.success) {
+           const remainingDays = getRemainingSuspensionDays(result?.data?.suspended_remove_date);
+
+                  if (result.data.violation_attempt == 1) {
+                    banType = "Warning";
+                    setWarningModalVisible(true);
+                  } else if (
+                    result.data.violation_attempt > 1 &&
+                    result.data.violation_attempt <= 4
+                  ) {
+                    banType = "Ban";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt == 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                    banTitle = "Account Suspended!";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt > 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                    banTitle = "Account Permanently Suspended!";
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                  } else {
+                    globalThis.errorMessage =
+                      "This photo violates our guidelines as it contains inappropriate content. Please upload a suitable image.";
+                    setErrorAlertModel(true);
+                  }
+                }
+              } else {
+                setloaderMoedl(false);
+                setCoverImage(image.path);
+                setTextInputs([]);
+                setImages([]);
+              }
+            }, 500);
           }
         })
         .catch(() => {
@@ -358,7 +495,6 @@ export const EditCoverImage = ({ route, navigation }) => {
   };
 
   const removeStipopView = () => {
-
     if (showInput == true) {
       handleSubmitText();
     } else if (isStiPopViewShowing == true) {
@@ -371,13 +507,9 @@ export const EditCoverImage = ({ route, navigation }) => {
           return;
 
         case "ios":
-          StipopModule.show(
-            isStiPopViewShowing,
-            isStiPopViewShowing,
-            () => {
-              isStiPopViewShowing = false;
-            }
-          );
+          StipopModule.show(isStiPopViewShowing, isStiPopViewShowing, () => {
+            isStiPopViewShowing = false;
+          });
           return;
       }
     } else if (activeTextId !== null) {
@@ -394,64 +526,40 @@ export const EditCoverImage = ({ route, navigation }) => {
       setTimeout(() => {
         if (Platform.OS === "android") {
           textInputRef.current?.focus();
-          StipopModule.show(
-            isStiPopViewShowing,
-            isStiPopViewShowing,
-            () => {
-              isStiPopViewShowing = true;
-              setShowInput(false);
-            }
-          );
+          StipopModule.show(isStiPopViewShowing, isStiPopViewShowing, () => {
+            isStiPopViewShowing = true;
+            setShowInput(false);
+          });
         } else if (Platform.OS === "ios") {
-          StipopModule.show(
-            isStiPopViewShowing,
-            isStiPopViewShowing,
-            () => {
-              isStiPopViewShowing = true;
-            }
-          );
+          StipopModule.show(isStiPopViewShowing, isStiPopViewShowing, () => {
+            isStiPopViewShowing = true;
+          });
         }
       }, 600);
     } else {
       if (isStiPopViewShowing) {
         if (Platform.OS === "android") {
-          StipopModule.show(
-            isStiPopViewShowing,
-            isStiPopViewShowing,
-            () => {
-              isStiPopViewShowing = false;
-            }
-          );
+          StipopModule.show(isStiPopViewShowing, isStiPopViewShowing, () => {
+            isStiPopViewShowing = false;
+          });
         } else if (Platform.OS === "ios") {
-          StipopModule.show(
-            isStiPopViewShowing,
-            isStiPopViewShowing,
-            () => {
-              isStiPopViewShowing = false;
-              Keyboard.dismiss();
-            }
-          );
+          StipopModule.show(isStiPopViewShowing, isStiPopViewShowing, () => {
+            isStiPopViewShowing = false;
+            Keyboard.dismiss();
+          });
         }
         return;
       }
 
       if (Platform.OS === "android") {
-        StipopModule.show(
-          isStiPopViewShowing,
-          isStiPopViewShowing,
-          () => {
-            isStiPopViewShowing = true;
-            setShowInput(false);
-          }
-        );
+        StipopModule.show(isStiPopViewShowing, isStiPopViewShowing, () => {
+          isStiPopViewShowing = true;
+          setShowInput(false);
+        });
       } else if (Platform.OS === "ios") {
-        StipopModule.show(
-          isStiPopViewShowing,
-          isStiPopViewShowing,
-          () => {
-            isStiPopViewShowing = true;
-          }
-        );
+        StipopModule.show(isStiPopViewShowing, isStiPopViewShowing, () => {
+          isStiPopViewShowing = true;
+        });
       }
     }
   };
@@ -603,7 +711,6 @@ export const EditCoverImage = ({ route, navigation }) => {
       rotation: rotation,
       scale: scale,
     });
-   
   };
 
   const handleSetActiveText = (id) => {
@@ -672,11 +779,67 @@ export const EditCoverImage = ({ route, navigation }) => {
         cropping: true,
         compressImageQuality: 0.2,
         cropperCircleOverlay: true,
+        mediaType: "photo",
       })
         .then((image) => {
           if (image !== undefined && image !== null && image !== "") {
             setWallpaperModel(false);
-            UpdateImageApi(image.path);
+
+            setTimeout(async () => {
+              setloaderMoedl(true);
+              // Add delay before making API call
+              const filePath = image.path.startsWith("file://")
+                ? image.path
+                : `file://${image.path}`;
+
+              const response = await checkImageNudity(filePath);
+              console.log(
+                "Nudity Check Response:",
+                response?.data?.is_nude_file
+              );
+              if (response?.data?.is_nude_file == true) {
+                setloaderMoedl(false);
+
+                const reason = `In update profile, the user uploaded inappropriate image.`;
+                const result = await updateViolationAttempt(reason);
+                if (result.success) {
+             const remainingDays = getRemainingSuspensionDays(result?.data?.suspended_remove_date);
+
+                  if (result.data.violation_attempt == 1) {
+                    banType = "Warning";
+                    setWarningModalVisible(true);
+                  } else if (
+                    result.data.violation_attempt > 1 &&
+                    result.data.violation_attempt <= 4
+                  ) {
+                    banType = "Ban";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt == 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                    banTitle = "Account Suspended!";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt > 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                    banTitle = "Account Permanently Suspended!";
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                  } else {
+                    globalThis.errorMessage =
+                      "This photo violates our guidelines as it contains inappropriate content. Please upload a suitable image.";
+                    setErrorAlertModel(true);
+                  }
+                }
+              } else {
+                setloaderMoedl(false);
+                UpdateImageApi(image.path);
+              }
+            }, 500);
           }
         })
         .catch(() => {
@@ -696,12 +859,64 @@ export const EditCoverImage = ({ route, navigation }) => {
         cropping: true,
         compressImageQuality: 0.2,
         cropperCircleOverlay: true,
-       
       })
         .then((image) => {
           if (image !== undefined) {
             setWallpaperModel(false);
-            UpdateImageApi(image.path);
+            setTimeout(async () => {
+              setloaderMoedl(true);
+              // Add delay before making API call
+              const filePath = image.path.startsWith("file://")
+                ? image.path
+                : `file://${image.path}`;
+
+              const response = await checkImageNudity(filePath);
+              console.log(
+                "Nudity Check Response:",
+                response?.data?.is_nude_file
+              );
+              if (response?.data?.is_nude_file == true) {
+                setloaderMoedl(false);
+
+                const reason = `In update profile, the user uploaded inappropriate image.`;
+                const result = await updateViolationAttempt(reason);
+                if (result.success) {
+              const remainingDays = getRemainingSuspensionDays(result?.data?.suspended_remove_date);
+                  if (result.data.violation_attempt == 1) {
+                    banType = "Warning";
+                    setWarningModalVisible(true);
+                  } else if (
+                    result.data.violation_attempt > 1 &&
+                    result.data.violation_attempt <= 4
+                  ) {
+                    banType = "Ban";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt == 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                    banTitle = "Account Suspended!";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt > 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                    banTitle = "Account Permanently Suspended!";
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                  } else {
+                    globalThis.errorMessage =
+                      "This photo violates our guidelines as it contains inappropriate content. Please upload a suitable image.";
+                    setErrorAlertModel(true);
+                  }
+                }
+              } else {
+                setloaderMoedl(false);
+                UpdateImageApi(image.path);
+              }
+            }, 500);
           }
         })
         .catch(() => {
@@ -729,13 +944,14 @@ export const EditCoverImage = ({ route, navigation }) => {
 
   const profileApiSuccess = (ResponseData, ErrorStr) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      //  Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
       setloaderMoedl(false);
+      setErrorAlertModel(true);
       // Navigate to another screen or handle the error in some way
     } else {
-      globalThis.userImage="",
-      setCoverImage(ResponseData.data.cover_image);
-     
+      (globalThis.userImage = ""), setCoverImage(ResponseData.data.cover_image);
+
       setProfileImage("");
       globalThis.userImage = ResponseData.data.profile_image;
       setUserDisplayName(ResponseData.data.first_name);
@@ -748,7 +964,7 @@ export const EditCoverImage = ({ route, navigation }) => {
     Accept: "application/json",
     "Content-Type": "application/x-www-form-urlencoded",
     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-       // eslint-disable-next-line
+    // eslint-disable-next-line
     "Content-Type": "multipart/form-data",
     Authorization: "Bearer " + globalThis.Authtoken,
     localization: globalThis.selectLanguage,
@@ -756,7 +972,7 @@ export const EditCoverImage = ({ route, navigation }) => {
 
   const uploaddata = new FormData();
   uploaddata.append("first_name", userDisplayName);
-  uploaddata.append("tagline", userTagline  != null ? userTagline :"");
+  uploaddata.append("tagline", userTagline != null ? userTagline : "");
   uploaddata.append("Image_text", JSON.stringify(textInputs));
   uploaddata.append("sticker_position", JSON.stringify(images));
 
@@ -776,10 +992,11 @@ export const EditCoverImage = ({ route, navigation }) => {
     /////////////////////// ********** Internet Permission   ********** ////////////////////
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
         setloaderMoedl(false);
+        setNoInternetModel(true);
         return;
       } else {
         setloaderMoedl(true);
@@ -799,14 +1016,18 @@ export const EditCoverImage = ({ route, navigation }) => {
   const apiSuccess = (ResponseData, ErrorStr) => {
     // Custom logic to execute on success
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
       setloaderMoedl(false);
+      setErrorAlertModel(true);
     } else {
       globalThis.userImage = ResponseData.data.profile_image;
-      Alert.alert(t("success"), ResponseData.message, [
-        { text: t("ok"), onPress: () => navigation.navigate("BottomBar") },
-      ]);
+      globalThis.successMessage = ResponseData.message;
+      // Alert.alert(t("success"), ResponseData.message, [
+      //   { text: t("ok"), onPress: () => navigation.navigate("BottomBar") },
+      // ]);
       setloaderMoedl(false);
+      setSuccessAlertModel(true);
     }
   };
 
@@ -825,7 +1046,7 @@ export const EditCoverImage = ({ route, navigation }) => {
       });
     }
     data.append("first_name", userDisplayName);
-    data.append("tagline", userTagline  != null ? userTagline :"");
+    data.append("tagline", userTagline != null ? userTagline : "");
 
     try {
       axios({
@@ -834,8 +1055,8 @@ export const EditCoverImage = ({ route, navigation }) => {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/x-www-form-urlencoded",
-         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-            // eslint-disable-next-line
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+          // eslint-disable-next-line
           "Content-Type": "multipart/form-data",
           Authorization: "Bearer " + globalThis.Authtoken,
           localization: globalThis.selectLanguage,
@@ -873,22 +1094,57 @@ export const EditCoverImage = ({ route, navigation }) => {
       : null;
   };
 
+  let premiumAlertHeading =
+    showBoi == true ? "You have exceed the Limit" : "Premium Feature";
+  let premiumAlertSubHeading =
+    showBoi == true
+      ? "Upgrade to Premium to gain access to add more bio"
+      : "You have exceed the Limit.";
+  let premiumAlertFirstButtonText = "Ok";
+  let premiumAlertSecondButtonText = "Go To Premium";
+
   return (
     <View
       onTouchStart={() => {
-        Platform.OS == "ios" && showInput != true && activeTextId == null ? removeStipopView() : null;
+        Platform.OS == "ios" && showInput != true && activeTextId == null
+          ? removeStipopView()
+          : null;
       }}
       style={styles.container}
     >
       <StatusBar translucent backgroundColor="transparent" />
 
       {renderIf(loaderModel == true, <LoaderModel visible={loaderModel} />)}
+
       <SetProfileModal
         visible={wallpaperModel}
         onRequestClose={() => setWallpaperModel(false)}
         Camera={() => captureImage()}
         select={() => selectImage()}
         cancel={() => setWallpaperModel(false)}
+      />
+
+      <WarningModal
+        visible={warningModalVisible}
+        type={banType}
+        onClose={() => {
+          if (
+            banTitle === "Account Suspended!" ||
+            banTitle === "Account Permanently Suspended!"
+          ) {
+            setWarningModalVisible(false);
+            banType = "Warning";
+            banMessage = "";
+            banTitle = "";
+           
+            dispatch(setUserSuspendedDays(0));
+            navigation.push("Login");
+          } else {
+            setWarningModalVisible(false);
+          }
+        }}
+        message={banMessage}
+        title={banTitle}
       />
 
       <SetProfileModal
@@ -898,6 +1154,68 @@ export const EditCoverImage = ({ route, navigation }) => {
         select={() => selectCoverImage()}
         cancel={() => setcoverImageModal(false)}
       />
+      <SuccessModel
+        visible={successAlertModel}
+        onRequestClose={() => setSuccessAlertModel(false)}
+        succesText={globalThis.successMessage}
+        doneButton={() => {
+          setSuccessAlertModel(false), navigation.navigate("BottomBar");
+          //successModalCheck()
+        }}
+      />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
+
+      <PremiumAlert
+        visible={showPremiumAlert}
+        onRequestClose={() => setShowPremiumAlert(false)}
+        cancel={() => setShowPremiumAlert(false)}
+        Heading={premiumAlertHeading}
+        SubHeading={premiumAlertSubHeading}
+        FirstButton={premiumAlertFirstButtonText}
+        SecondButton={premiumAlertSecondButtonText}
+        firstButtonClick={() => {
+          setShowPremiumAlert(false);
+        }}
+        secondButtonClick={() => {
+          if (premiumAlertSecondButtonText == "Cancel") {
+            setShowPremiumAlert(false);
+          } else {
+            setupdatenamemodel(false);
+            setShowPremiumAlert(false);
+            navigation.navigate("PremiumFeaturesScreen");
+          }
+        }}
+      />
+
+      <UpdateNameModel
+        visible={updatenamemodel}
+        data={{
+          username: userDisplayName,
+          aboutus: userTagline || "",
+        }}
+        onRequestClose={() => {
+          setupdatenamemodel(false);
+        }}
+        cancel={() => setupdatenamemodel(false)}
+        navigation={navigation}
+        setUserDisplayName={setUserDisplayName}
+        setUserTagline={setUserTagline}
+        setShowPremiumAlert={setShowPremiumAlert}
+        setShowBio={setShowBio}
+      />
+
       <Modal
         transparent={true}
         visible={colorModal}
@@ -1010,8 +1328,7 @@ export const EditCoverImage = ({ route, navigation }) => {
               }}
               multiline={true}
               placeholder="Reason for reporting"
-              onSubmitEditing={()=>Keyboard.dismiss()}
-
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
 
             <View
@@ -1201,9 +1518,9 @@ export const EditCoverImage = ({ route, navigation }) => {
           />
         ))}
 
-        {textFriend?.map((item,index) => (
+        {textFriend?.map((item, index) => (
           <View
-          key={index}
+            key={index}
             style={{
               position: "absolute",
               left: item.position.x,
@@ -1232,7 +1549,7 @@ export const EditCoverImage = ({ route, navigation }) => {
           </View>
         ))}
 
-        {textInputs?.map((item,) => (
+        {textInputs?.map((item) => (
           <>
             {edit ? null : (
               <View
@@ -1281,29 +1598,27 @@ export const EditCoverImage = ({ route, navigation }) => {
           }}
         >
           <View style={{}}>
-           
-
             {route.params.param == "myProfile" && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "rgba(0,0,0,0.5)",
-                  borderRadius: 5,
-                  justifyContent: "center",
-                }}
+              <TouchableOpacity //@ts-ignore
                 onPress={() => {
-                  navigation.navigate("EditProfileScreen");
+                  navigation.navigate("EditProfileScreen", {
+                    fromExplore: false,
+                  });
+                }}
+                style={{
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: 45,
+                  width: 45,
+                  backgroundColor: "rgba(20, 20, 20, 0.8)",
+                  borderRadius: 5,
                 }}
               >
-                <Text
-                  style={{
-                    color: "#FFF",
-                    fontWeight: "bold",
-                    fontSize: 18,
-                    padding: 8,
-                  }}
-                >
-                  Cancel
-                </Text>
+                <Image
+                  source={require("../../Assets/Icons/Cross.png")}
+                  style={{ height: 20, width: 20, tintColor: "#fff" }}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -1319,12 +1634,15 @@ export const EditCoverImage = ({ route, navigation }) => {
                   edit ? editProfileApi() : setEdit(true);
                 }}
                 style={{
-                  backgroundColor: "rgba(0,0,0,0.5)",
-                  borderRadius: 5,
                   justifyContent: "center",
+                  alignItems: "center",
+                  height: 45,
+                  width: 45,
+                  backgroundColor: "rgba(156, 49, 163, 0.8)",
+                  borderRadius: 5,
                 }}
               >
-                <Text
+                {/* <Text
                   style={{
                     color: "#FFF",
                     fontWeight: "bold",
@@ -1333,11 +1651,18 @@ export const EditCoverImage = ({ route, navigation }) => {
                   }}
                 >
                   {edit ? "Done" : "Edit"}
-                </Text>
+                </Text> */}
+                <Image
+                  source={
+                    edit
+                      ? require("../../Assets/Icons/savebutton.png")
+                      : require("../../Assets/Icons/NotePen.png")
+                  }
+                  style={{ height: 20, width: 20, tintColor: "#fff" }}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
             )}
-
-       
           </View>
         </View>
         {showInput == false && activeTextId == null && (
@@ -1345,49 +1670,91 @@ export const EditCoverImage = ({ route, navigation }) => {
             style={[
               styles.overlay,
               {
-                bottom: route.params.param == "myProfile" ? 150 : 60,
+                // bottom: route.params.param == "myProfile" ? 150 : 60,
                 backgroundColor:
                   route.params.param == "myProfile"
-                    ? "transparent"
+                    ? "rgba(20, 20, 20, 0.8)"
                     : "rgba(0,0,0,0.2)",
               },
             ]}
           >
             <View>
-              <Image
-                source={{ uri: profileImage == "" ? imageUrl : profileImage }}
-                style={styles.overlayImage}
-                resizeMode="cover"
-              />
-              {route.params.param == "myProfile" && (
-                <TouchableOpacity
-                  style={styles.cameraContainer}
-                  onPress={() => setWallpaperModel(true)}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  width: 101,
+                  alignSelf: "center",
+                }}
+              >
+                <Image
+                  source={{ uri: profileImage == "" ? imageUrl : profileImage }}
+                  style={styles.overlayImage}
+                  resizeMode="cover"
+                />
+                {route.params.param == "myProfile" && (
+                  <TouchableOpacity
+                    style={styles.cameraContainer}
+                    onPress={() => setWallpaperModel(true)}
+                  >
+                    <Image
+                      // eslint-disable-next-line
+                      source={require("../../Assets/Icons/CameraIcon.png")}
+                      style={{ height: 16, width: 16, tintColor: "#fff" }}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <Text
+                style={[
+                  styles.userDisplayName,
+                  {
+                    color: "#fff",
+                    fontFamily: font.semibold(),
+                    fontSize: 16,
+                    fontWeight: "bold",
+                  },
+                ]}
+              >
+                {userDisplayName}
+              </Text>
+              {userTagline && (
+                <Text
+                  style={[
+                    styles.userDisplayName,
+                    {
+                      color: COLORS.white,
+                      fontFamily: font.regular(),
+                    },
+                  ]}
                 >
-                  <Image
-                   // eslint-disable-next-line
-                    source={require("../../Assets/Icons/CameraIcon.png")}
-                    style={{ height: 30, width: 30, tintColor: "#fff" }}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                  {userTagline}
+                </Text>
               )}
             </View>
 
-            <Text
+            <TouchableOpacity
               style={[
-                styles.userDisplayName,
-                {
-                  color: "#fff",
-                  fontFamily: font.semibold(),
-                  fontSize: 16,
-                  fontWeight: "bold",
-                },
+                styles.applyButtonStyle,
+                { marginTop: 35, flexDirection: "row" },
               ]}
+              onPress={() => setupdatenamemodel(true)}
             >
-              {userDisplayName}
-            </Text>
-          
+              <Image
+                source={require("../../Assets/Icons/NotePen.png")}
+                style={{
+                  height: 20,
+                  width: 20,
+                  tintColor: "#000",
+                  marginRight: 5,
+                }}
+                resizeMode="contain"
+              />
+              <Text style={styles.applyText}>{t("Edit_Bio")}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1441,7 +1808,6 @@ export const EditCoverImage = ({ route, navigation }) => {
                     onStart={() => onStartDrag(input.id)}
                     prevStyles={""}
                     onChange={(event, styles) => {
-                      
                       updateTextPosition(input.id, styles);
                     }}
                     bigButton={""}
@@ -1472,7 +1838,6 @@ export const EditCoverImage = ({ route, navigation }) => {
                 flex: 1,
                 paddingHorizontal: 20,
                 backgroundColor: "rgba(0,0,0,0.6)",
-
               }}
             >
               {activeTextId !== null && (
@@ -1491,8 +1856,7 @@ export const EditCoverImage = ({ route, navigation }) => {
                   value={editedText}
                   onChangeText={setEditedText}
                   autoFocus={true}
-                  onSubmitEditing={()=>Keyboard.dismiss()}
-
+                  onSubmitEditing={() => Keyboard.dismiss()}
                 />
               )}
               {showInput && (
@@ -1513,34 +1877,30 @@ export const EditCoverImage = ({ route, navigation }) => {
                   onChangeText={(text) => setTextInputValue(text)}
                   multiline={true}
                   autoFocus={true}
-                  onSubmitEditing={()=>Keyboard.dismiss()}
-
+                  onSubmitEditing={() => Keyboard.dismiss()}
                 />
               )}
 
               {activeTextId !== null || showInput ? (
-                <View style={{ marginTop: 10,paddingVertical:20,}}>
+                <View style={{ marginTop: 10, paddingVertical: 20 }}>
                   <ColorPicker
                     selectedColor={selectedColor}
                     onColorChange={handleColorChange}
                   />
                 </View>
               ) : null}
-
             </View>
           </TouchableOpacity>
         ) : null}
 
         {route.params.param == "myProfile" && edit && (
-          <View
-            style={styles.scrollContainer}
-          >
+          <View style={styles.scrollContainer}>
             <TouchableOpacity
               style={styles.textContainer}
               onPress={handleButtonClick}
             >
               <Image
-               // eslint-disable-next-line
+                // eslint-disable-next-line
                 source={require("../../Assets/Icons/smile.png")}
                 style={{ height: 25, width: 30, tintColor: "#fff" }}
                 resizeMode="contain"
@@ -1575,7 +1935,7 @@ export const EditCoverImage = ({ route, navigation }) => {
               }}
             >
               <Image
-               // eslint-disable-next-line
+                // eslint-disable-next-line
                 source={require("../../Assets/Icons/profiletext.png")}
                 style={{ height: 25, width: 25, tintColor: "#fff" }}
                 resizeMode="contain"
@@ -1587,7 +1947,7 @@ export const EditCoverImage = ({ route, navigation }) => {
               onPress={() => setcoverImageModal(true)}
             >
               <Image
-               // eslint-disable-next-line
+                // eslint-disable-next-line
                 source={require("../../Assets/Icons/CameraIcon.png")}
                 style={{ height: 30, width: 30, tintColor: "#fff" }}
                 resizeMode="contain"
@@ -1601,6 +1961,26 @@ export const EditCoverImage = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  applyButton: {
+    marginVertical: 30,
+    flexDirection: "column",
+    paddingHorizontal: 0,
+    justifyContent: "space-between",
+  },
+  applyButtonStyle: {
+    height: 50,
+    // marginTop: 10,
+    width: WINDOW_WIDTH - 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+  },
+  applyText: {
+    fontSize: 16,
+    color: COLORS.black,
+    fontFamily: font.semibold(),
+  },
   container: {
     flex: 1,
     position: "relative",
@@ -1613,36 +1993,41 @@ const styles = StyleSheet.create({
   },
   overlay: {
     position: "absolute",
-    margin: 10,
-    alignSelf: "center",
-    borderRadius: 15,
+    margin: 0,
+    // alignSelf: "center",
+    borderRadius: 30,
     overflow: "hidden",
-    justifyContent: "center",
+    // justifyContent: "center",
     alignItems: "center",
     zIndex: 9999999,
     paddingVertical: 15,
+    width: WINDOW_WIDTH,
+    bottom: 0,
+    // height:"50%",
+    paddingTop: 30,
+    paddingBottom: 90,
   },
   overlayImage: {
     width: 100,
     height: 100,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: "lightgray",
-    backgroundColor: "lightgray",
+    borderColor: "rgba(240, 224, 241, 1)",
+    backgroundColor: "rgba(240, 224, 241, 1)",
   },
   userDisplayName: {
     color: "#666666",
-    marginTop: 4,
+    marginTop: 8,
     textTransform: "capitalize",
     textAlign: "center",
   },
   scrollContainer: {
     position: "absolute",
-    top: 100,
-    paddingHorizontal: 5,
+    top: 109,
+    paddingHorizontal: 3,
     zIndex: 55,
     right: 10,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(20, 20, 20, 0.8)",
     borderRadius: 5,
   },
   textContainer: {
@@ -1660,8 +2045,11 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     position: "absolute",
-    bottom: -10,
-    right: 0,
+    bottom: 0,
+    right: -10,
+    backgroundColor: setWallpaper().iconColor,
+    borderRadius: 100,
+    padding: 10,
   },
   buttonContainer: {
     flexDirection: "row",

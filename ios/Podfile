@@ -55,6 +55,7 @@ target 'tokee' do
   pod 'nanopb', :modular_headers => true;
   pod 'Firebase/Analytics';
   pod 'StipopUIKit', '0.9.3';
+  pod 'AppsFlyerFramework'
   permissions_path = '../node_modules/react-native-permissions/ios'
   # pod 'Permission-Camera', :path => "#{permissions_path}/Camera"
   pod 'Permission-Camera', :path => "#{permissions_path}/Camera"

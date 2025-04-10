@@ -7,6 +7,8 @@ import callerIDReducers from "./callerIDReducers";
 import getAppStateReducers from "./getAppStateReducers";
 import friendListSlice from "./friendListSlice";
 import pinSlice from "./pinSlice";
+import profileSlice from "./ProfileCallingReducer"
+import userBanSlice from "./userBanSlice";
 
 const rootReducer = combineReducers({
   VoipReducer: VoipReducer,
@@ -15,7 +17,9 @@ const rootReducer = combineReducers({
   callerIDReducers: callerIDReducers,
   getAppStateReducers: getAppStateReducers,
   friendListSlice:friendListSlice,
-  pinSlice :pinSlice
+  pinSlice :pinSlice,
+  profileSlice:profileSlice,
+  userBanSlice: userBanSlice,
 });
 
 export default rootReducer;

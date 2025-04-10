@@ -7,6 +7,7 @@ import {
   Linking,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -22,6 +23,7 @@ import { GetApiCall } from "../../Components/ApiServices/GetApi";
 import { PostApiCall } from "../../Components/ApiServices/PostApi";
 import {
   COLORS,
+  appBarText,
   iconTheme,
   textTheme,
   themeModule,
@@ -40,14 +42,17 @@ import {
   get_profile,
   loguot,
   settings_notifications,
+  user_control,
 } from "../../Constant/Api";
-import { settingTop } from "../../Navigation/Icons";
+import { chatTop, settingTop, StatusBarColor } from "../../Navigation/Icons";
 import { socket, socketDisconnect } from "../../socket";
 import {
+  UpdateProfileImage,
   clearChatRooms,
   deleteMessageByResId,
+  getChannelInfo,
   getDisapperMessage,
-  UpdateProfileImage,
+  getMyChannelInfo,
 } from "../../sqliteStore";
 import { ChatBackUpModel } from "../Modals/ChatBackUpModel";
 import { ChatSettingModel } from "../Modals/ChatSettingModel";
@@ -60,9 +65,30 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
 import { setbackupsuccessfull, toggleSwitch } from "../../Redux/backupSlice";
 import { showToast } from "../../Components/CustomToast/Action";
+import PremiumAlert from "../../Components/CustomAlert/PremiumAlert";
 import CustomBottomSheetModal from "../../Components/CustomBottomSheetModal";
-import { setProfileData } from "../../Redux/MessageSlice";
-import { setStorylist } from "../../reducers/friendListSlice";
+import { setChannelSliceData, setProfileData } from "../../Redux/MessageSlice";
+import { setPremium, setStorylist } from "../../reducers/friendListSlice";
+import {
+  setJoinChannelLimitFree,
+  setJoinChannelLimitPremium,
+  setJoinGroupLimitFree,
+  setJoinGroupLimitPremium,
+  setNonPremiumBioCharacterLimit,
+  setNonPremiumStoryLimit,
+  setPinChatLimitFree,
+  setPinChatLimitPremium,
+  setPremiumBioCharacterLimit,
+  setPremiumProfileLinkLimit,
+  setStoryCaptionFree,
+  setStoryCaptionPremium,
+} from "../../Redux/premiumLimit";
+import { ChannelTypeModal } from "../Modals/ChannelTypeModal";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ConfirmAlertModel } from "../Modals/ConfirmAlertModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
+import { DiamondBalanceModal } from "../Modals/DiamondBalanceModel";
 
 const isDarkMode = true;
 const windowWidth = Dimensions.get("window").width;
@@ -70,7 +96,10 @@ const windowHeight = Dimensions.get("window").height;
 // eslint-disable-next-line
 export default function SettingScreen({ navigation }: any) {
   const dispatch = useDispatch();
-  const [switchValue, setSwitchValue] = useState(true);
+  const enablenotification = useSelector(
+    (state: any) => state.friendListSlice.enableNotification
+  );
+  const [switchValue, setSwitchValue] = useState(enablenotification);
   const [phoneNumber, setphoneNumber] = useState("");
   const [userName, setuserName] = useState("");
   const [userTagline, setUserTagline] = useState("");
@@ -81,10 +110,15 @@ export default function SettingScreen({ navigation }: any) {
   const [languageModel, setlanguageModel] = useState(false);
   const [chatSettingModel, setChatSettingModel] = useState(false);
   const [rateModel, setRateModel] = useState(false);
+  const [succesaModel, setSuccesaModel] = useState(false);
+  const [confirmAlertModel, setConfirmAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+const [isDiamondBalanceModal,setisDiamondBalanceModal]=useState(false)
   const [deleteAccountModel, setDeleteAccountModel] = useState(false);
   const { t } = useTranslation();
   const [isUIUpdated, setIsUIUpdated] = useState(false);
-
+  const [isChannelTypeModal, setChannelTypeModal] = useState(false);
   const [imageSource, setImageSource] = useState(null);
   const [topBackground, setTopBackground] = useState("");
   const [isForceReMount, setIsForceRemound] = useState(true);
@@ -97,18 +131,130 @@ export default function SettingScreen({ navigation }: any) {
   });
   ////// ******    PREMIMUM  USER  ********  ////
   const [stealthMode, setStealthMode] = useState(
-    (globalThis.stealthModeValue== "true" ? true : false)
+    globalThis.stealthModeValue == "true" ? true : false
+  );
+  const [explorePage, setExplorePage] = useState(
+    globalThis.ExplorePageValue == "true" ? true : false
+  );
+  const publicSelected = true;
+  const [lastSeenMode, setlastSeenMode] = useState(true);
+  const [showPremiumAlert, setShowPremiumAlert] = useState(false);
+  const [premiumMessage, setPremiumMessage] = useState(false);
+  const userPremium = useSelector(
+    //@ts-expect-error
+    (state) => state?.friendListSlice.userPremium
+  );
+const DiamondBalanceObj = useSelector((state)=>state?.message?.diamondBalanceObj)
+console.log("diamond balance ::",DiamondBalanceObj)
+  function TosetExploreApiCalling(value) {
+    setExplorePage(value);
+    const data = {
+      is_show_in_friend_suggestion: value,
+    };
+    console.log("data ::",data)
+    const headers = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: "Bearer " + globalThis.Authtoken,
+      localization: globalThis.selectLanguage,
+    };
+    PostApiCall(
+      user_control,
+data,
+headers,
+navigation,
+async (ResponseData, ErrorStr) => {
+  setExplorePage(value);
+  globalThis.ExplorePageValue = value;
+  await AsyncStorage.setItem("explorePage", value.toString());
+console.log("api response::",ResponseData)
+})
+    
+  }
+  const toggleFeature = async (feature, value) => {
+    setloaderMoedl(true);
+    try {
+      switch (feature) {
+        case "stealth_mode":
+          setStealthMode(value); // Update state for stealth mode
+          globalThis.stealthModeValue = value;
+
+          await AsyncStorage.setItem("stealthMode", value.toString()); // Store the value in AsyncStorage
+          break;
+
+        case "show_last_seen":
+          setlastSeenMode(value); // Update state for last seen visibility
+          globalThis.lastSeenMode = value;
+          await AsyncStorage.setItem("lastSeenMode", value.toString()); // Store the value in AsyncStorage
+          break;
+
+          case "explore_page":
+          // Store the value in AsyncStorage
+          break;
+        
+
+        default:
+          console.warn(`Unknown feature: ${feature}`);
+          break;
+      }
+
+      // Optionally navigate or update UI
+      navigation.navigate("BottomBar"); // Navigating after a successful API response
+    } catch (error) {
+      console.error(`Failed to update feature: ${feature}`, error);
+      // Alert.alert(t("error"), t("featureUpdateFailed"), [{ text: t("ok") }]);
+      setloaderMoedl(false);
+      globalThis.errorMessage = t("featureUpdateFailed");
+      setErrorAlertModel(true);
+    } finally {
+      setloaderMoedl(false); // Hide loader in both success and failure cases
+    }
+
+    console.log(`${feature} value>>>> `, value);
+    const data = {
+      [feature]: value,
+    };
+
+    PostApiCall(
+      enable_notifications,
+      data,
+      headers,
+      navigation,
+      (ResponseData, ErrorStr) => {
+        apiSuccess2(ResponseData, ErrorStr, feature, value);
+      }
+    );
+
+    // }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchLastSeenMode = async () => {
+        try {
+          if (globalThis.isUserPremium) {
+            const storedValue = await AsyncStorage.getItem("lastSeenMode");
+            if (storedValue != null) {
+              setlastSeenMode(storedValue === "true"); // Convert to boolean
+            }
+          } else {
+            setlastSeenMode(true);
+          }
+        } catch (error) {
+          console.error("Failed to fetch lastSeenMode:", error);
+          setlastSeenMode(true); // Fallback to default value in case of error
+        }
+      };
+
+      fetchLastSeenMode();
+    }, [])
   );
 
-  const stealthModeValue = async (value: boolean) => {
-    console.log("value>>>>", value);
-
-    // To handle switch toggle
-    setStealthMode(value);
-    globalThis.stealthModeValue = value;
-    //  setStealthMode(value);
-    await AsyncStorage.setItem("stealthMode", value.toString());
-  };
+  useEffect(() => {
+    if (!userPremium) {
+      globalThis.stealthModeValue = undefined;
+    }
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -122,8 +268,6 @@ export default function SettingScreen({ navigation }: any) {
   );
 
   useEffect(() => {
-    console.log("globalThis.stealthMode>>", globalThis.stealthModeValue);
-
     // setloaderMoedl(true);
     setuserName(globalThis.userName);
     setphoneNumber(globalThis.phone_number);
@@ -136,6 +280,9 @@ export default function SettingScreen({ navigation }: any) {
         globalThis.selectTheme == "newYearTheme" ||
         globalThis.selectTheme === "mongoliaTheme" ||
         globalThis.selectTheme == "mexicoTheme" ||
+        globalThis.selectTheme === "indiaTheme" ||
+        globalThis.selectTheme === "englandTheme" ||
+        globalThis.selectTheme === "americaTheme" ||
         globalThis.selectTheme == "usindepTheme"
       ) {
         setTopBackground(themeModule().theme_background);
@@ -146,10 +293,11 @@ export default function SettingScreen({ navigation }: any) {
       }
       NetInfo.fetch().then(async (state) => {
         if (state.isConnected === false) {
-          Alert.alert(t("noInternet"), t("please_check_internet"), [
-            { text: t("ok") },
-          ]);
+          // Alert.alert(t("noInternet"), t("please_check_internet"), [
+          //   { text: t("ok") },
+          // ]);
           setloaderMoedl(false);
+          setNoInternetModel(true);
           return;
         } else {
           setIsUIUpdated(!isUIUpdated);
@@ -174,7 +322,7 @@ export default function SettingScreen({ navigation }: any) {
     setSwitchValue(value);
     saveSwitchValue(value);
 
-    showToast(value ? "Notifications Enabled" : "Notifications Disabled");
+    showToast(value ? t("Notifications_Enabled") : t("Notifications_Disabled"));
 
     const data = {
       enable_notifications: value,
@@ -196,10 +344,10 @@ export default function SettingScreen({ navigation }: any) {
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
-
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
+        setNoInternetModel(true);
         return;
       } else {
         loguotApi();
@@ -212,9 +360,10 @@ export default function SettingScreen({ navigation }: any) {
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
+        setNoInternetModel(true);
         return;
       } else {
         socket.emit("logout", { userId: globalThis.chatUserId });
@@ -246,9 +395,13 @@ export default function SettingScreen({ navigation }: any) {
   // eslint-disable-next-line
   const deleteAccountApiSucess = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+
+      // setloaderMoedl(false);
 
       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
       globalThis.Authtoken = undefined;
       globalThis.chatUserId = undefined;
@@ -269,10 +422,13 @@ export default function SettingScreen({ navigation }: any) {
       await AsyncStorage.removeItem("thumbnail");
       await AsyncStorage.removeItem("userName");
       await AsyncStorage.removeItem("chatUserID");
+      await AsyncStorage.removeItem("FriendMatchPopup");
+      await AsyncStorage.removeItem("lastFriendMatchShown");
       // await AsyncStorage.removeItem("isContactUploaded");
       await AsyncStorage.removeItem("phone_number");
       await AsyncStorage.removeItem("lockChatPinCode");
       await AsyncStorage.removeItem("chatlockusernumber");
+      await AsyncStorage.removeItem("setSeenCardIntro");
       navigation.navigate("Login");
       setloaderMoedl(false);
     }
@@ -292,6 +448,7 @@ export default function SettingScreen({ navigation }: any) {
       userName: userName,
       userImage: userImage,
       userTagline: userTagline == null ? "" : userTagline,
+      fromExplore: false
     });
     setloaderMoedl(false);
   };
@@ -314,14 +471,29 @@ export default function SettingScreen({ navigation }: any) {
   // eslint-disable-next-line
   const apiSuccess = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
       // Navigate to another screen or handle the error in some way
     } else {
-      console.log("ResponseData   grt", ResponseData);
       // setNotificationPermission(ResponseData.status   ? 'undetermined' : 'disabled');
-
       navigation.navigate("BottomBar");
+      setloaderMoedl(false);
+    }
+  };
+
+  const apiSuccess2 = async (
+    ResponseData: any,
+    ErrorStr: any,
+    feature: any,
+    value: any
+  ) => {
+    if (ErrorStr) {
+      setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+      return; // Exit the function if there is an error
+    } else {
       setloaderMoedl(false);
     }
   };
@@ -335,10 +507,10 @@ export default function SettingScreen({ navigation }: any) {
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
-
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
+        setNoInternetModel(true);
         return;
       } else {
         Linking.canOpenURL(
@@ -354,6 +526,18 @@ export default function SettingScreen({ navigation }: any) {
       }
     });
   };
+
+  function AfterChoosingChannelType(value) {
+    setChannelTypeModal(false);
+
+    if (value == "public") {
+      navigation.navigate("NewChannelScreen", { type: "public" });
+    } else {
+      navigation.navigate("NewChannelScreen", { type: "private" });
+    }
+
+    //newGroupPress(value);
+  }
 
   // eslint-disable-next-line
   const openWebViewUrl = (pageName: any, pageUrl: any) => {
@@ -382,16 +566,32 @@ export default function SettingScreen({ navigation }: any) {
   // eslint-disable-next-line
   const NotificationApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
       // Navigate to another screen or handle the error in some way
     } else {
       setloaderMoedl(false);
-      const Notification_value = ResponseData.data.enable_notifications;
-      if (Notification_value == "1") {
-        setSwitchValue(true);
-      } else {
-        setSwitchValue(false);
+
+      // Extract the relevant data from the response
+      const { enable_notifications, stealth_mode, show_last_seen } =
+        ResponseData.data;
+
+      // Set the switch values based on the response
+      if (
+        enable_notifications != undefined &&
+        stealth_mode != undefined &&
+        show_last_seen != undefined
+      ) {
+        setSwitchValue(enable_notifications === 1);
+
+        if (!userPremium) {
+          setlastSeenMode(true);
+          setStealthMode(false);
+        } else {
+          setlastSeenMode(show_last_seen == 1 ? true : false);
+          setStealthMode(stealth_mode === 1);
+        }
       }
     }
   };
@@ -413,18 +613,111 @@ export default function SettingScreen({ navigation }: any) {
   // eslint-disable-next-line
   const profileApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
       // Navigate to another screen or handle the error in some way
     } else {
       setloaderMoedl(false);
-      console.log("RESPONSE GET ", ResponseData.data);
+
+      const settings = ResponseData?.setting;
+
+      // Function to find and parse settings by key
+      const findSetting = (key) => {
+        const setting = settings.find((item) => item.key === key);
+        return setting ? parseInt(setting.value, 10) : null;
+      };
+
+      // Find and store story caption limits
+      const freeCaptionLimit = findSetting(
+        "STORY_CAPTION_LIMITS_FOR_FREE_USERS"
+      );
+      const premiumCaptionLimit = findSetting(
+        "STORY_CAPTION_LIMITS_FOR_PREMIUM_USERS"
+      );
+      const nonPremiumStoryLimit = findSetting("NON_PREMIUM_STORY_LIMITS");
+      const premiumProfileLinkLimit = findSetting(
+        "PREMIUM_PROFILE_LINKS_LIMITS"
+      );
+      const nonPremiumBioCharacterLimit = findSetting(
+        "BIO_CHARACTER_LIMITS_FOR_FREE_USERS"
+      );
+      const premiumBioCharacterLimit = findSetting(
+        "BIO_CHARACTER_LIMITS_FOR_PREMIUM_USERS"
+      );
+      const joinGroupLimitFree = findSetting(
+        "JOIN_GROUP_LIMITS_FOR_FREE_USERS"
+      );
+      const joinGroupLimitPremium = findSetting(
+        "JOIN_GROUP_LIMITS_FOR_PREMIUM_USERS"
+      );
+      const joinChannelLimitFree = findSetting(
+        "JOIN_CHANNEL_LIMITS_FOR_FREE_USERS"
+      );
+      const joinChannelLimitPremium = findSetting(
+        "JOIN_CHANNEL_LIMITS_FOR_PREMIUM_USERS"
+      );
+      const pinChatLimitFree = findSetting("PIN_CHAT_LIMITS_FOR_FREE_USERS");
+      const pinChatLimitPremium = findSetting(
+        "PIN_CHAT_LIMITS_FOR_PREMIUM_USERS"
+      );
+
+      // Store the story caption limits
+      if (freeCaptionLimit !== null) {
+        dispatch(setStoryCaptionFree(freeCaptionLimit));
+      }
+
+      if (premiumCaptionLimit !== null) {
+        dispatch(setStoryCaptionPremium(premiumCaptionLimit));
+      }
+
+      if (nonPremiumStoryLimit !== null) {
+        dispatch(setNonPremiumStoryLimit(nonPremiumStoryLimit));
+      }
+
+      if (premiumProfileLinkLimit !== null) {
+        dispatch(setPremiumProfileLinkLimit(premiumProfileLinkLimit));
+      }
+
+      if (nonPremiumBioCharacterLimit !== null) {
+        dispatch(setNonPremiumBioCharacterLimit(nonPremiumBioCharacterLimit));
+      }
+
+      if (premiumBioCharacterLimit !== null) {
+        dispatch(setPremiumBioCharacterLimit(premiumBioCharacterLimit));
+      }
+
+      if (joinGroupLimitFree !== null) {
+        dispatch(setJoinGroupLimitFree(joinGroupLimitFree));
+      }
+
+      if (joinGroupLimitPremium !== null) {
+        dispatch(setJoinGroupLimitPremium(joinGroupLimitPremium));
+      }
+
+      if (pinChatLimitFree !== null) {
+        dispatch(setPinChatLimitFree(pinChatLimitFree));
+      }
+
+      if (pinChatLimitPremium !== null) {
+        dispatch(setPinChatLimitPremium(pinChatLimitPremium));
+      }
+
+      if (joinChannelLimitFree !== null) {
+        dispatch(setJoinChannelLimitFree(joinChannelLimitFree));
+      }
+
+      if (joinChannelLimitPremium !== null) {
+        dispatch(setJoinChannelLimitPremium(joinChannelLimitPremium));
+      }
 
       // Custom logic to execute on success
       setUserTagline(ResponseData.data.tagline);
       setIsForceRemound(!isForceReMount);
       setuserImage("");
       setuserImage(ResponseData.data.thumbnail);
+      console.log('ResponseData.data.thumbnail=======',ResponseData.data.thumbnail);
+      
       setuserName(ResponseData.data.first_name);
       setphoneNumber(ResponseData.data.phone_number);
       globalThis.userImage = ResponseData.data.profile_image;
@@ -433,10 +726,9 @@ export default function SettingScreen({ navigation }: any) {
       globalThis.displayName = ResponseData.data.first_name;
       globalThis.myScanner = ResponseData.data.qrcode;
       globalThis.uniqueId = ResponseData?.data?.unique_id;
-      globalThis.chatUserId = ResponseData?.data?.chat_user_id;
-      globalThis.isUserPermimum =
+      globalThis.isUserPremium =
         ResponseData?.data?.premium == 1 ? true : false;
-      console.log("globalThis.isUserPermimum", globalThis.isUserPermimum);
+      dispatch(setPremium(globalThis.isUserPremium));
       // eslint-disable-next-line
       ResponseData.setting.map((item: any) => {
         if (item.key == "MIRROR_API_KEY") {
@@ -457,7 +749,8 @@ export default function SettingScreen({ navigation }: any) {
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), "", [{ text: t("ok") }]);
+        // Alert.alert(t("noInternet"), "", [{ text: t("ok") }]);
+        setNoInternetModel(true);
         return;
       } else {
         const headers = {
@@ -513,8 +806,11 @@ export default function SettingScreen({ navigation }: any) {
   // eslint-disable-next-line
   const loguotApiSucess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // setloaderMoedl(false);
       setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
       // eslint-disable-next-line
       getDisapperMessage((data: any) => {
@@ -538,6 +834,39 @@ export default function SettingScreen({ navigation }: any) {
         { text: t("ok"), onPress: () => UserLoggedOut() },
       ]);
     }
+  };
+
+  const AllChaneelListApi = async (chatid: any) => {
+    getMyChannelInfo((channels, count) => {
+      const reversedData = channels.reverse();
+      dispatch(setChannelSliceData(reversedData));
+    });
+    // console.log("chatid >>>> ",urlStr);
+
+    // return new Promise((resolve, reject) => {
+    //   axios({
+    //     method: "get",
+    //     url: urlStr,
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //     },
+    //   })
+    //     .then((response) => {
+    //       if (response.data.status === true) {
+    //         console.log("response.data.data >>>> ",response.data.data);
+
+    //         dispatch(setChannelSliceData(response.data.data));
+    //         resolve(response.data.data);
+    //       } else {
+    //         Alert.alert(response.data.message);
+    //         reject(response.data.message);
+    //       }
+    //     })
+    //     .catch((error) => {
+    //       console.error("Error in AllChaneelListApi:", error);
+    //       reject(error);
+    //     });
+    // });
   };
 
   const styles = StyleSheet.create({
@@ -566,7 +895,7 @@ export default function SettingScreen({ navigation }: any) {
       fontFamily: font.semibold(),
       color: COLORS.black,
       paddingLeft: 10,
-      height: 25,
+      // height: 25,
     },
     name2Text: {
       fontSize: DeviceInfo.isTablet() ? 20 : 14,
@@ -711,12 +1040,42 @@ export default function SettingScreen({ navigation }: any) {
     return `${userIma}?${new Date().getTime()}`;
   };
 
+  const handleApiCalls = async (chatid: any, username: any, userimage: any) => {
+    setloaderMoedl(true); // Start loader
 
+    try {
+      // Use Promise.all to wait for all API calls to complete
+      await Promise.all([
+        getBottomProfileApi(chatid, username, userimage),
+        AllPostsListApi(chatid),
+        AllChaneelListApi(chatid),
+      ]);
+    } catch (error) {
+      setloaderMoedl(false);
+      console.error("Error in one of the API calls:", error);
+      // Alert.alert("Error", "An error occurred while fetching data.");
+      globalThis.errorMessage = "An error occurred while fetching data.";
+      setErrorAlertModel(true);
+    } finally {
+      setloaderMoedl(false); // Stop loader after all API calls are done
+    }
+  };
 
-
-    // eslint-disable-next-line
-    const getBottomProfileApi = async (chatid: any, username: any, userimage: any) => {
-     
+  const getBottomProfileApi = async (
+    chatid: any,
+    username: any,
+    userimage: any
+  ) => {
+    return new Promise((resolve, reject) => {
+      dispatch(
+        setProfileData({
+          Image_text: "",
+          sticker_position: "",
+          display_name: username,
+          profile_image: userimage,
+          chat_user_id: chatid,
+        })
+      );
       const headers = {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -726,66 +1085,72 @@ export default function SettingScreen({ navigation }: any) {
       const data = {
         chat_user_id: chatid,
       };
-  
+
       PostApiCall(
         get_by_ChatId,
         data,
         headers,
         navigation,
         (ResponseData, ErrorStr) => {
-          getapiSuccess(ResponseData, ErrorStr, username, userimage);
+          if (ErrorStr) {
+            reject(ErrorStr);
+          } else {
+            getapiSuccess(ResponseData, ErrorStr, username, userimage);
+            resolve(ResponseData);
+          }
         }
       );
-    };
+    });
+  };
 
+  const getapiSuccess = (
+    // eslint-disable-next-line
+    ResponseData: any,
+    // eslint-disable-next-line
+    ErrorStr: any,
+    // eslint-disable-next-line
+    username: any,
+    // eslint-disable-next-line
+    userimage: any
+  ) => {
+    if (ErrorStr) {
+      setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+      // Navigate to another screen or handle the error in some way
+    } else {
+      const userData = ResponseData.data.user;
+      const imageText = JSON.parse(userData.Image_text);
+      const stickerPosition = JSON.parse(userData.sticker_position);
+      dispatch(
+        setProfileData({
+          ...userData,
+          Image_text: imageText,
+          sticker_position: stickerPosition,
+          display_name: username,
+          profile_image: userimage,
+          userProfile: globalThis.userImage,
+        })
+      );
 
-    const getapiSuccess = (
-      // eslint-disable-next-line
-      ResponseData: any,
-      // eslint-disable-next-line
-      ErrorStr: any,
-      // eslint-disable-next-line
-      username: any,
-      // eslint-disable-next-line
-      userimage: any
-    ) => {
-      if (ErrorStr) {
-        Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
-        setloaderMoedl(false);
-        // Navigate to another screen or handle the error in some way
-      } else {
-        const userData = ResponseData.data.user;
-        const imageText = JSON.parse(userData.Image_text);
-        const stickerPosition = JSON.parse(userData.sticker_position);
-        dispatch(
-          setProfileData({
-            ...userData,
-            Image_text: imageText,
-            sticker_position: stickerPosition,
-            display_name: username,
-            profile_image: ResponseData?.data?.user?.profile_image,
-          })
-        );
-  
-        UpdateProfileImage(
-          ResponseData?.data?.user?.chat_user_id,
-          ResponseData?.data?.user?.profile_image,
-          // eslint-disable-next-line
-          (res: any) => {
-            if (res) {
-           //   console.log("profile image updated");
-            } else {
-              console.log("can't update profile iamge");
-            }
+      UpdateProfileImage(
+        ResponseData?.data?.user?.chat_user_id,
+        userimage,
+        // eslint-disable-next-line
+        (res: any) => {
+          if (res) {
+          } else {
+            console.log("can't update profile iamge");
           }
-        );
-        handlePresentModalPress();
-        setloaderMoedl(false);
-      }
-    };
+        }
+      );
+      handlePresentModalPress();
+      setloaderMoedl(false);
+    }
+  };
 
-
-    const AllPostsListApi = async (chatid: any, ) => {
+  const AllPostsListApi = async (chatid: any) => {
+    return new Promise((resolve, reject) => {
       dispatch(
         setProfileData({
           Image_text: "",
@@ -802,49 +1167,110 @@ export default function SettingScreen({ navigation }: any) {
       const data = {
         chat_user_id: chatid,
       };
-  
+
       PostApiCall(
         get_by_User_allposts,
         data,
         headers,
         navigation,
         (ResponseData, ErrorStr) => {
-          getAllPostByuser(ResponseData, ErrorStr,);
+          if (ErrorStr) {
+            reject(ErrorStr);
+          } else {
+            getAllPostByuser(ResponseData, ErrorStr);
+            resolve(ResponseData);
+          }
         }
       );
-    };
-  
-     // eslint-disable-next-line
-     const getAllPostByuser = (ResponseData: any, ErrorStr: any) => {
-      if (ErrorStr) {
-        Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
-        setloaderMoedl(false);
-      } else {
-       console.log("ResponseData>>>>>",ResponseData.data);
-       dispatch(setStorylist(ResponseData.data))
-      }
-       
-    };
-  
+    });
+  };
+
+  // eslint-disable-next-line
+  const getAllPostByuser = (ResponseData: any, ErrorStr: any) => {
+    if (ErrorStr) {
+      setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+    } else {
+      dispatch(setStorylist(ResponseData.data));
+    }
+  };
+
+  let premiumAlertHeading = t("Premium_Feature");
+  let premiumAlertSubHeading = premiumMessage
+    ? t("Premium_Feature_For_stealth_mode")
+    : t("Premium_Feature_For_Alert_for_online");
+  let premiumAlertFirstButtonText = "Ok";
+  let premiumAlertSecondButtonText = "Go To Premium";
 
   return (
     <MainComponent
-      statusBar="#000"
-      statusBarColr="#000"
+      statusBar="light-content"
+      statusBarColr="light-content"
       safeAreaColr={topBackground}
     >
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+       <DiamondBalanceModal
+          visible={isDiamondBalanceModal}
+         onRequestClose={() => setisDiamondBalanceModal(false)}
+         popupPressed={()=>{
+          setisDiamondBalanceModal(false);
+          navigation.navigate("DiamondPurcahse");
+         }}
+        />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
+
+      <PremiumAlert
+        visible={showPremiumAlert}
+        onRequestClose={() => setShowPremiumAlert(false)}
+        cancel={() => setShowPremiumAlert(false)}
+        Heading={premiumAlertHeading}
+        SubHeading={premiumAlertSubHeading}
+        FirstButton={premiumAlertFirstButtonText}
+        SecondButton={premiumAlertSecondButtonText}
+        firstButtonClick={() => setShowPremiumAlert(false)}
+        secondButtonClick={() => {
+          if (premiumAlertSecondButtonText == "Cancel") {
+            setShowPremiumAlert(false);
+          } else {
+            setShowPremiumAlert(false);
+            navigation.navigate("PremiumFeaturesScreen");
+          }
+        }}
+      />
+      <ChannelTypeModal
+        visible={isChannelTypeModal}
+        isPublicSelected={publicSelected}
+        onRequestClose={() => setChannelTypeModal(false)}
+        onNextClick={AfterChoosingChannelType}
+      />
       <ChatBackUpModel
         visible={chatBackUpModel}
         onRequestClose={() => setchatBackUpModel(false)}
         cancel={() => setchatBackUpModel(false)}
       />
-<CustomBottomSheetModal
-          ref={bottomSheetSettingRef}
-          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-          navigation={navigation}
-          // newChattingPress={newChattingPress}
-          fromScreen={"settingScreen"}
-        />
+      <CustomBottomSheetModal
+        ref={bottomSheetSettingRef}
+        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+        navigation={navigation}
+        publicSelected={true}
+        fromScreen={"settingScreen"}
+        openChannelModal={() => {
+          setChannelTypeModal(true);
+        }}
+      />
+
       <LogOutModel
         visible={chatLogOutModel}
         onRequestClose={() => setlogOutModel(false)}
@@ -874,6 +1300,13 @@ export default function SettingScreen({ navigation }: any) {
         cancel={() => setRateModel(false)}
         rateApp={() => handleClick()}
       />
+      <SuccessModel
+        visible={succesaModel}
+        onRequestClose={() => setSuccesaModel(false)}
+        cancel={() => setSuccesaModel(false)}
+        rateApp={() => setSuccesaModel(false)}
+      />
+
       <DeleteAccountModel
         visible={deleteAccountModel}
         onRequestClose={() => setDeleteAccountModel(false)}
@@ -914,6 +1347,7 @@ export default function SettingScreen({ navigation }: any) {
               position: "absolute",
               bottom: 0,
               zIndex: 0,
+              top: chatTop().top,
             }}
           ></ImageBackground>
         )}
@@ -927,12 +1361,21 @@ export default function SettingScreen({ navigation }: any) {
             height: "90%",
             maxHeight: DeviceInfo.hasNotch()
               ? windowHeight - 250
-              : windowHeight - 190,
+              : windowHeight - 175,
           }}
         >
           <TouchableOpacity
             style={styles.profileContainer}
-            onPress={() =>{getBottomProfileApi(globalThis.chatUserId,userName,userImage), AllPostsListApi( globalThis.chatUserId,);}}
+            onPress={() => {
+              handleApiCalls(globalThis.chatUserId, userName, userImage);
+              // getBottomProfileApi(
+              //   globalThis.chatUserId,
+              //   userName,
+              //   getUniqueImageUrl(userImage)
+              // ),
+              //   AllPostsListApi(globalThis.chatUserId),
+              //   AllChaneelListApi(globalThis.chatUserId);
+            }}
             activeOpacity={0.7}
           >
             {isForceReMount}
@@ -941,7 +1384,7 @@ export default function SettingScreen({ navigation }: any) {
                 <Image
                   source={{ uri: getUniqueImageUrl(userImage) }}
                   style={styles.circleImageLayout}
-                  resizeMode="cover"
+                  // resizeMode="cover"
                 />
               ) : (
                 <Image
@@ -954,18 +1397,19 @@ export default function SettingScreen({ navigation }: any) {
               )}
             </View>
             <View style={styles.nameContainer}>
-              <View style={{ flexDirection: "row" }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Text style={styles.nameText}>{userName?.toUpperCase()}</Text>
-                {globalThis.isUserPermimum && (
+                {userPremium && (
                   <Image
-                    source={require("../../Assets/Icons/bx_star_dark.png")}
+                    source={require("../../Assets/Image/PremiumBadge.png")}
                     style={{
                       height: 15,
                       width: 15,
                       marginLeft: 5,
-                      marginTop: 2,
+                      alignSelf: userName.length > 15 ? "flex-start" : "center",
                       tintColor: iconTheme().iconColorNew,
                     }}
+                    resizeMode="cover"
                   />
                 )}
               </View>
@@ -988,62 +1432,259 @@ export default function SettingScreen({ navigation }: any) {
               style={styles.editProfile}
             >
               <Image
-                source={require("../../Assets/Icons/scan.png")}
+                source={require("../../Assets/Icons/Scanner_icon.png")}
                 style={styles.newChatIcon}
               />
             </TouchableOpacity>
           </TouchableOpacity>
 
-          <View style={[styles.enableNoticication, { alignItems: "center" }]}>
-            <View style={[styles.enableTextAndIcon, { alignItems: "center" }]}>
-              <Image
-                source={
-                  switchValue
-                    ? require("../../Assets/Icons/notification.png")
-                    : require("../../Assets/Icons/mute_notificatio.png")
-                }
-                style={[styles.newChatIcon, { marginRight: 10 }]}
-              />
-              <Text style={styles.nText}>{t("enable_notifications")}</Text>
+          <TouchableOpacity
+            style={[
+              styles.enableNoticication,
+              { alignItems: "center", height: "auto", flexDirection: "column", },
+            ]}
+            onPress={()=>setisDiamondBalanceModal(true)}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              <View
+                style={[styles.enableTextAndIcon, { alignItems: "center" }]}
+              >
+                <Image
+                  source={require("../../Assets/Icons/diamond.png")}
+                  style={[
+                    styles.newChatIcon,
+                    {
+                      marginRight: 10,
+                      height: DeviceInfo.isTablet() ? 27 : 22,
+                      width: DeviceInfo.isTablet() ? 27 : 22,
+                      resizeMode: "contain",
+                      tintColor: appBarText().textColor,
+                    },
+                  ]}
+                />
+
+                <Text style={styles.nText}>
+                  {t("Diamond")} {t("Balance")}
+                </Text>
+              </View>
+              <View style={{ alignItems: "center", flexDirection: "row" }}>
+                <Text>{DiamondBalanceObj.credited_diamonds + DiamondBalanceObj.earned_diamonds + DiamondBalanceObj.purchase_diamonds}</Text>
+                <Image
+                  source={require("../../Assets/Icons/diamond.png")}
+                  style={{
+                    height: 18,
+                    width: 18,
+                    tintColor: iconTheme().iconColorNew,
+                    marginLeft: 5,
+                  }}
+                  resizeMode="contain"
+                />
+              </View>
             </View>
-            <View>
-              <Switch onValueChange={buttonEnable} value={switchValue} />
-            </View>
-          </View>
-          {renderIf(
-            switchValue,
-            <Text style={{ color: "gray", marginLeft: 10 }}>
-              To receive Tokee notifications, please enable notification
-              permissions in your phone’s settings.
-            </Text>
-          )}
-         
-          <View style={[styles.enableNoticication, { alignItems: "center" }]}>
-            <View style={[styles.enableTextAndIcon, { alignItems: "center" }]}>
-              <Image
-                source={
-                  stealthMode
-                    ? require("../../Assets/Icons/Hide.png")
-                    : require("../../Assets/Icons/Eye.png")
-                }
-                style={[styles.newChatIcon, { marginRight: 10 }]}
-              />
-              <Text style={styles.nText}>{"Stealth Mode"}</Text>
-            </View>
-            <View>
-              <Switch onValueChange={stealthModeValue} value={stealthMode} />
-            </View>
-          </View>
-          {renderIf(
-            stealthMode,
-            <Text style={{ color: "gray", marginLeft: 10 }}>
-              Gain the ability to browse other people’s stories anonymously with Stealth Mode.
-            </Text>
-          )}
+          </TouchableOpacity>
+
           <View
             style={[
               styles.enableNoticication,
-              { height: 300, flexDirection: "column" },
+              { alignItems: "center", height: "auto", flexDirection: "column" },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              <View
+                style={[styles.enableTextAndIcon, { alignItems: "center" }]}
+              >
+                <Image
+                  source={
+                    switchValue
+                      ? require("../../Assets/Icons/settingunmute.png")
+                      : require("../../Assets/Icons/MUTE01.png")
+                  }
+                  style={[
+                    styles.newChatIcon,
+                    {
+                      marginRight: 10,
+                      height: DeviceInfo.isTablet() ? 27 : 22,
+                      width: DeviceInfo.isTablet() ? 27 : 22,
+                      resizeMode: "contain",
+                    },
+                  ]}
+                />
+
+                <Text style={styles.nText}>{t("enable_notifications")}</Text>
+              </View>
+              <View>
+                <Switch onValueChange={buttonEnable} value={switchValue} />
+              </View>
+            </View>
+
+            <View style={{ width: "100%" }}>
+              <Text style={{ color: "gray", marginLeft: 3 }}>
+                {t("enableNotifivationDetails")}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.enableNoticication,
+              { alignItems: "center", height: "auto", flexDirection: "column" },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              <View
+                style={[styles.enableTextAndIcon, { alignItems: "center" }]}
+              >
+                <Image
+                  source={
+                    stealthMode
+                      ? require("../../Assets/Icons/stealth_mode.png")
+                      : require("../../Assets/Icons/stealth_mode.png")
+                  }
+                  style={[styles.newChatIcon, { marginRight: 10 }]}
+                />
+                <Text style={styles.nText}>{t("enable_mode_stealth")}</Text>
+              </View>
+              <View>
+                <Switch
+                  onValueChange={(value) => {
+                    setPremiumMessage(true);
+                    if (globalThis.isUserPremium) {
+                      toggleFeature("stealth_mode", value); // Toggle feature if the user is premium
+                    } else {
+                      setShowPremiumAlert(true); // Show alert if the user is not premium
+                    }
+                  }}
+                  value={stealthMode}
+                />
+              </View>
+            </View>
+            {/* {renderIf(
+              stealthMode, */}
+            <View style={{ width: "100%" }}>
+              <Text style={{ color: "gray", marginLeft: 3 }}>
+                {t("enableStealthDetails")}
+              </Text>
+            </View>
+            {/* )} */}
+          </View>
+
+          <View
+            style={[
+              styles.enableNoticication,
+              { alignItems: "center", height: "auto", flexDirection: "column" },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              <View
+                style={[styles.enableTextAndIcon, { alignItems: "center" }]}
+              >
+                <Image
+                  source={require('../../Assets/Icons/explore2.png')
+                  }
+                  style={[styles.newChatIcon, { marginRight: 10 }]}
+                />
+                <Text style={styles.nText}>{t("enable_explore_page")}</Text>
+              </View>
+              <View>
+                <Switch
+                  onValueChange={(value) => {
+                    TosetExploreApiCalling(value)
+                    // toggleFeature("explore_page", value); 
+                  }}
+                  value={explorePage}
+                />
+              </View>
+            </View>
+            {/* {renderIf(
+              stealthMode, */}
+            <View style={{ width: "100%" }}>
+              <Text style={{ color: "gray", marginLeft: 3 }}>
+                {t("Show_me_on_explore_page")}
+              </Text>
+            </View>
+            {/* )} */}
+          </View>
+          <View
+            style={[
+              styles.enableNoticication,
+              { alignItems: "center", height: "auto", flexDirection: "column" },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              <View
+                style={[
+                  styles.enableTextAndIcon,
+                  { alignItems: "center", width: "auto" },
+                ]}
+              >
+                <Image
+                  source={
+                    lastSeenMode
+                      ? require("../../Assets/Icons/Eye.png")
+                      : require("../../Assets/Icons/Hide.png")
+                  }
+                  style={[styles.newChatIcon, { marginRight: 10 }]}
+                />
+                <Text style={styles.nText}>{t("enable_lastseen_online")}</Text>
+              </View>
+              <View>
+                <Switch
+                  onValueChange={(value) => {
+                    setPremiumMessage(false);
+                    if (globalThis.isUserPremium) {
+                      toggleFeature("show_last_seen", value); // Toggle feature if the user is premium
+                    } else {
+                      setShowPremiumAlert(true); // Show alert if the user is not premium
+                    }
+                  }}
+                  value={lastSeenMode}
+                />
+              </View>
+            </View>
+            {/* {renderIf(
+              lastSeenMode, */}
+            <View style={{ width: "100%" }}>
+              <Text style={{ color: "gray", marginLeft: 3 }}>
+                {t("enableOnlineDetails")}
+              </Text>
+            </View>
+            {/* )} */}
+          </View>
+
+          <View
+            style={[
+              styles.enableNoticication,
+              { height: 350, flexDirection: "column" },
             ]}
           >
             <TouchableOpacity
@@ -1061,8 +1702,15 @@ export default function SettingScreen({ navigation }: any) {
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Image
-                  source={require("../../Assets/Icons/scan.png")}
-                  style={[styles.newChatIcon, { marginRight: 10 }]}
+                  source={require("../../Assets/Icons/Scanner_icon.png")}
+                  style={[
+                    styles.newChatIcon,
+                    {
+                      marginRight: 10,
+                      height: DeviceInfo.isTablet() ? 27 : 22,
+                      width: DeviceInfo.isTablet() ? 27 : 22,
+                    },
+                  ]}
                 />
                 <Text style={styles.nText}>{t("my_qr_code")} </Text>
               </View>
@@ -1078,11 +1726,56 @@ export default function SettingScreen({ navigation }: any) {
             </TouchableOpacity>
             <View
               style={{
-                height: 0.3,
+                height: 0.5,
                 backgroundColor: COLORS.lightgrey,
                 width: "100%",
               }}
             ></View>
+
+            {/* <TouchableOpacity
+              style={[
+                styles.enableTextAndIcon,
+                {
+                  width: "100%",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 5,
+                },
+              ]}
+              onPress={() => navigation.navigate("ExplorePage")}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Image
+                  source={require("../../Assets/Icons/explore.png")}
+                  style={[
+                    styles.newChatIcon,
+                    {
+                      marginRight: 10,
+                      height: DeviceInfo.isTablet() ? 27 : 22,
+                      width: DeviceInfo.isTablet() ? 27 : 22,
+                    },
+                  ]}
+                />
+                <Text style={styles.nText}>{t("Explore_Page")} </Text>
+              </View>
+              <Image
+                source={require("../../Assets/Icons/Arrow_Forword.png")}
+                style={{
+                  marginRight: 5,
+                  height: 13,
+                  width: 10,
+                  alignSelf: "center",
+                }}
+              />
+            </TouchableOpacity> */}
+            {/* <View
+              style={{
+                height: 0.5,
+                backgroundColor: COLORS.lightgrey,
+                width: "100%",
+              }}
+            ></View> */}
             <TouchableOpacity
               style={[
                 styles.enableTextAndIcon,
@@ -1098,8 +1791,11 @@ export default function SettingScreen({ navigation }: any) {
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Image
-                  source={require("../../Assets/Icons/language_glob.png")}
-                  style={[styles.newChatIcon, { marginRight: 10 }]}
+                  source={require("../../Assets/Icons/languagenew.png")}
+                  style={[
+                    styles.newChatIcon,
+                    { marginRight: 10, resizeMode: "contain" },
+                  ]}
                 />
                 <Text style={styles.nText}>{t("language")} </Text>
               </View>
@@ -1115,7 +1811,7 @@ export default function SettingScreen({ navigation }: any) {
             </TouchableOpacity>
             <View
               style={{
-                height: 0.3,
+                height: 0.5,
                 backgroundColor: COLORS.lightgrey,
                 width: "100%",
               }}
@@ -1151,7 +1847,7 @@ export default function SettingScreen({ navigation }: any) {
             </TouchableOpacity>
             <View
               style={{
-                height: 0.3,
+                height: 0.5,
                 backgroundColor: COLORS.lightgrey,
                 width: "100%",
               }}
@@ -1173,7 +1869,11 @@ export default function SettingScreen({ navigation }: any) {
                   source={require("../../Assets/Icons/chat_setting.png")}
                   style={[
                     styles.newChatIcon,
-                    { marginRight: 10, height: 24, width: 23 },
+                    {
+                      marginRight: 10,
+                      height: DeviceInfo.isTablet() ? 27 : 24,
+                      width: DeviceInfo.isTablet() ? 27 : 23,
+                    },
                   ]}
                 />
                 <Text style={styles.nText}>{t("chat_setting")}</Text>
@@ -1209,13 +1909,13 @@ export default function SettingScreen({ navigation }: any) {
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Image
-                  source={require("../../Assets/Icons/chnage_app_icon.png")}
+                  source={require("../../Assets/Icons/App_icon.png")}
                   style={[
                     styles.newChatIcon,
-                    { marginRight: 10, width: 20, height: 20 },
+                    { marginRight: 10, width: 25, height: 25 },
                   ]}
                 />
-                <Text style={styles.nText}>{t("App Icon")}</Text>
+                <Text style={styles.nText}>{t("app_icon")}</Text>
               </View>
               <Image
                 source={require("../../Assets/Icons/Arrow_Forword.png")}
@@ -1227,9 +1927,10 @@ export default function SettingScreen({ navigation }: any) {
                 }}
               />
             </TouchableOpacity>
+
             <View
               style={{
-                height: 0.3,
+                height: 0.5,
                 backgroundColor: COLORS.lightgrey,
                 width: "100%",
               }}
@@ -1241,7 +1942,6 @@ export default function SettingScreen({ navigation }: any) {
                   width: "100%",
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  marginBottom: 5,
                 },
               ]}
               onPress={() => fontSettingScreen()}
@@ -1250,7 +1950,13 @@ export default function SettingScreen({ navigation }: any) {
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Image
                   source={require("../../Assets/Icons/font_setting.png")}
-                  style={[styles.newChatIcon, { marginRight: 10 }]}
+                  style={{
+                    marginRight: 10,
+                    height: DeviceInfo.isTablet() ? 27 : 24,
+                    width: DeviceInfo.isTablet() ? 27 : 24,
+                    alignSelf: "center",
+                    tintColor: iconTheme().iconColorNew,
+                  }}
                 />
                 <Text style={styles.nText}>{t("Font_Settings")}</Text>
               </View>
@@ -1264,14 +1970,14 @@ export default function SettingScreen({ navigation }: any) {
                 }}
               />
             </TouchableOpacity>
-          </View>
 
-          <View
-            style={[
-              styles.enableNoticication,
-              { height: 55, flexDirection: "column" },
-            ]}
-          >
+            <View
+              style={{
+                height: 0.5,
+                backgroundColor: COLORS.lightgrey,
+                width: "100%",
+              }}
+            ></View>
             <TouchableOpacity
               style={[
                 styles.enableTextAndIcon,
@@ -1279,18 +1985,27 @@ export default function SettingScreen({ navigation }: any) {
                   width: "100%",
                   flexDirection: "row",
                   justifyContent: "space-between",
-                  marginTop: 5,
+                  //  marginBottom: 5,
+                  //  marginTop: 5,
+                  //  backgroundColor:"red"
                 },
               ]}
-              onPress={() => navigation.navigate("TokeePremium")}
+              onPress={() => navigation.navigate("PremiumFeaturesScreen")}
               activeOpacity={0.7}
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Image
-                  source={require("../../Assets/Icons/Group.png")}
-                  style={[styles.newChatIcon, { marginRight: 10 }]}
+                  source={require("../../Assets/Icons/tokee_premium.png")}
+                  style={[
+                    {
+                      marginRight: 8,
+                      width: 25,
+                      height: 22,
+                      tintColor: iconTheme().iconColorNew,
+                    },
+                  ]}
                 />
-                <Text style={styles.nText}>Tokee Premium</Text>
+                <Text style={styles.nText}>{t("tokee_premium")}</Text>
               </View>
               <Image
                 source={require("../../Assets/Icons/Arrow_Forword.png")}
@@ -1304,10 +2019,19 @@ export default function SettingScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
+          {/* <View
+            style={[
+              styles.enableNoticication,
+              { height: 55, flexDirection: "column" },
+            ]}
+          >
+          
+          </View> */}
+
           <View
             style={[
               styles.enableNoticication,
-              { height: 140, flexDirection: "column" },
+              { height: 220, flexDirection: "column" },
             ]}
           >
             <TouchableOpacity
@@ -1413,6 +2137,98 @@ export default function SettingScreen({ navigation }: any) {
                   style={[styles.newChatIcon, { marginRight: 10 }]}
                 />
                 <Text style={styles.nText}>{t("terms_and_condition")}</Text>
+              </View>
+              <Image
+                source={require("../../Assets/Icons/Arrow_Forword.png")}
+                style={{
+                  marginRight: 5,
+                  height: 13,
+                  width: 10,
+                  alignSelf: "center",
+                }}
+              />
+            </TouchableOpacity>
+
+            {/* ///by-dinki */}
+            <View
+              style={{
+                height: 0.5,
+                backgroundColor: COLORS.lightgrey,
+                width: "100%",
+              }}
+            ></View>
+            <TouchableOpacity
+              style={[
+                styles.enableTextAndIcon,
+                {
+                  width: "100%",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                
+                },
+              ]}
+              onPress={() => navigation.navigate("DiamondPurcahse")}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Image
+                  source={require("../../Assets/Icons/diamond.png")}
+                  style={[
+                    {
+                      marginRight: 8,
+                      width: 25,
+                      height: 22,
+                      tintColor: iconTheme().iconColorNew,
+                    },
+                  ]}
+                />
+                <Text style={styles.nText}>{t("Purchase_Diamond")}</Text>
+              </View>
+              <Image
+                source={require("../../Assets/Icons/Arrow_Forword.png")}
+                style={{
+                  marginRight: 5,
+                  height: 13,
+                  width: 10,
+                  alignSelf: "center",
+                }}
+              />
+            </TouchableOpacity>
+
+
+            <View
+              style={{
+                height: 0.5,
+                backgroundColor: COLORS.lightgrey,
+                width: "100%",
+              }}
+            ></View>
+            <TouchableOpacity
+              style={[
+                styles.enableTextAndIcon,
+                {
+                  width: "100%",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                
+                },
+              ]}
+              onPress={() => navigation.navigate("UpdateTokeeMatchImage")}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Image
+                  source={require("../../Assets/Icons/uil_camera-change.png")}
+                  style={[
+                    {
+                      marginRight: 8,
+                      width: 25,
+                      height: 22,
+                      tintColor: iconTheme().iconColorNew,
+                    },
+                  ]}
+                />
+                <Text style={styles.nText}>{t("update_tokee_match_image")}</Text>
               </View>
               <Image
                 source={require("../../Assets/Icons/Arrow_Forword.png")}
@@ -1545,7 +2361,7 @@ export default function SettingScreen({ navigation }: any) {
               />
             </TouchableOpacity>
           </View>
-          <View style={{ width: "100%", height: 30 }}></View>
+          <View style={{ width: "100%", height: DeviceInfo.isTablet() ? 50 : 70 }}></View>
         </ScrollView>
       </View>
     </MainComponent>

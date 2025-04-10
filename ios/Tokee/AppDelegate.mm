@@ -3,14 +3,17 @@
 #import <React/RCTBundleURLProvider.h>
 #import "RNCallKeep.h"
 #import "CustomBannerView.h"
-
-
+#import <AVFoundation/AVFoundation.h>
+#import "RNVoipPushNotificationManager.h"
+#import <AppsFlyerLib/AppsFlyerLib.h>
 @implementation AppDelegate
 
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   self.moduleName = @"Tokee";
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+  [[AVAudioSession sharedInstance] setActive:YES error:nil];
   [FIRApp configure];
 
     [RNCallKeep setup:@{
@@ -24,16 +27,17 @@
   // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
   
-  UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
-  center.delegate = self;
-  
-  [center requestAuthorizationWithOptions:(UNAuthorizationOptionSound | UNAuthorizationOptionBadge)
-                        completionHandler:^(BOOL granted, NSError * _Nullable error) {
-      if (!error) {
-          NSLog(@"User authorization granted!");
-      }
-  }];
+//  UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+//  center.delegate = self;
+//  
+//  [center requestAuthorizationWithOptions:(UNAuthorizationOptionSound | UNAuthorizationOptionBadge)
+//                        completionHandler:^(BOOL granted, NSError * _Nullable error) {
+//      if (!error) {
+//          NSLog(@"User authorization granted!");
+//      }
+//  }];
   [application registerForRemoteNotifications];
+  [RNVoipPushNotificationManager voipRegistration];
   
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }
@@ -71,18 +75,18 @@
     
     if([status isEqualToString:@"incoming"]){
       
-      [RNCallKeep reportNewIncomingCall: uuidval
-                                 handle: callerName
-                             handleType: @"generic"
-                               hasVideo: isVideo
-                    localizedCallerName: callerName
-                        supportsHolding: NO
-                           supportsDTMF: NO
-                       supportsGrouping: NO
-                     supportsUngrouping: NO
-                            fromPushKit: YES
-                                payload: userInfo
-                  withCompletionHandler: nil];
+//      [RNCallKeep reportNewIncomingCall: uuidval
+//                                 handle: callerName
+//                             handleType: @"generic"
+//                               hasVideo: isVideo
+//                    localizedCallerName: callerName
+//                        supportsHolding: NO
+//                           supportsDTMF: NO
+//                       supportsGrouping: NO
+//                     supportsUngrouping: NO
+//                            fromPushKit: YES
+//                                payload: userInfo
+//                  withCompletionHandler: nil];
       
       
     }
@@ -111,6 +115,10 @@
       UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
       [center removeAllPendingNotificationRequests];
   });
+  // Set up AppsFlyer SDK
+    [AppsFlyerLib shared].appsFlyerDevKey = @"dtGQqRTRrBmwCRWFJ379sd"; // Your AppsFlyer dev key
+    [AppsFlyerLib shared].appleAppID = @"id1641356322"; // Your app ID
+    [[AppsFlyerLib shared] start];
 
   [UIApplication sharedApplication].applicationIconBadgeNumber = 0;
 }
@@ -126,31 +134,35 @@
   
   // --- Retrieve information from your voip push payload
   NSString *JsonString = content.userInfo[@"data"];
-  NSData *jsonData = [JsonString dataUsingEncoding:NSUTF8StringEncoding];
+  if(JsonString != nil){
+    NSData *jsonData = [JsonString dataUsingEncoding:NSUTF8StringEncoding];
 
-  NSError *error = nil;
-  NSDictionary *dictionary = [NSJSONSerialization JSONObjectWithData:jsonData
-                                                             options:kNilOptions
-                                                               error:&error];
+    NSError *error = nil;
+    NSDictionary *dictionary = [NSJSONSerialization JSONObjectWithData:jsonData
+                                                               options:kNilOptions
+                                                                 error:&error];
 
-  if (error) {
-      NSLog(@"Error parsing JSON string: %@", error.localizedDescription);
-  } else {
-    NSLog(@"Parsed Dictionary: %@", dictionary);
-    if(dictionary.count > 0){
-      
-      // NSString *handle = [dictionary valueForKey:@"caller"];
-      NSString *uuid = @"b8236c1b-9f68-4b6e-a8ce-803aec634c98";
-      // NSString *isVideo = [dictionary valueForKey:@"isVideo"];
-      NSString *callerName = [dictionary valueForKey:@"sender_name"];
-      NSString * status = [dictionary valueForKey: @"status"];
-      if([status isEqualToString:@"incoming"]){
+    if (error) {
+        NSLog(@"Error parsing JSON string: %@", error.localizedDescription);
+    } else {
+      NSLog(@"Parsed Dictionary: %@", dictionary);
+      if(dictionary.count > 0){
         
-        
+        // NSString *handle = [dictionary valueForKey:@"caller"];
+        NSString *uuid = @"b8236c1b-9f68-4b6e-a8ce-803aec634c98";
+        // NSString *isVideo = [dictionary valueForKey:@"isVideo"];
+        NSString *callerName = [dictionary valueForKey:@"sender_name"];
+        NSString * status = [dictionary valueForKey: @"status"];
+        if([status isEqualToString:@"incoming"]){
+          
+          
+        }
       }
+      
     }
     
   }
+
 }
 
 
@@ -225,10 +237,12 @@
   
   }else{
     //completionHandler(UIUserNotificati); // No system banner
-    completionHandler(UNNotificationPresentationOptionNone); // No system banner
+    //completionHandler(UNNotificationPresentationOptionNone); // No system banner
+    completionHandler(UNNotificationPresentationOptionBanner | UNNotificationPresentationOptionSound);
+
         
         // Example: Show a custom banner view
-        [self showCustomBannerForNotification:notification];
+     //  [self showCustomBannerForNotification:notification];
     
   }
   
@@ -283,4 +297,85 @@
 #endif
 }
 
+#pragma mark - PushKit
+
+/* Add PushKit delegate method */
+
+// Handle updated push credentials
+- (void)pushRegistry:(PKPushRegistry *)registry didUpdatePushCredentials:(PKPushCredentials *)credentials forType:(NSString *)type {
+  // Register VoIP push token (a property of PKPushCredentials) with server
+  [RNVoipPushNotificationManager didUpdatePushCredentials:credentials forType:(NSString *)type];
+}
+
+// Handle incoming pushes
+- (void)pushRegistry:(PKPushRegistry *)registry didReceiveIncomingPushWithPayload:(PKPushPayload *)payload forType:(NSString *)type {
+  // Process the received push
+  [RNVoipPushNotificationManager didReceiveIncomingPushWithPayload:payload forType:(NSString *)type];
+}
+
+- (void)pushRegistry:(PKPushRegistry *)registry didReceiveIncomingPushWithPayload:(PKPushPayload *)payload forType:(PKPushType)type withCompletionHandler:(void (^)(void))completion {
+  NSString *uuid = [[[NSUUID UUID] UUIDString] lowercaseString];
+  
+     NSDictionary *payloadDict = payload.dictionaryPayload;
+
+     // Example: Extracting specific values from the payload
+     NSString *alertTitle = payloadDict[@"aps"][@"alert"][@"sender_name"];
+     // NSString *alertBody = payloadDict[@"aps"][@"alert"][@"body"];
+     NSDictionary *customData = payloadDict[@"aps"][@"alert"]; // replace 'customKey' with your actual key
+
+  NSString *uuidval = customData[@"uuid"];
+  NSString *callerName = customData[@"sender_name"];
+  NSString * status = customData[@"status"];
+  NSString * videoStatus = [NSString stringWithFormat:@"%@",customData[@"is_video"]];
+  
+  BOOL isVideo = NO;
+  if([videoStatus isEqualToString:@"1"]){
+    isVideo = YES;
+    
+  }
+
+  
+  [RNVoipPushNotificationManager addCompletionHandler:uuid completionHandler:completion];
+  [RNVoipPushNotificationManager didReceiveIncomingPushWithPayload:payload forType:(NSString *)type];
+
+    // NSString * videoStatus = customData[@"is_video"];
+    
+    // BOOL isVideo = NO;
+    // if( [videoStatus isEqualToString:@"1"]){
+    //   isVideo = YES;
+      
+    // }
+    
+ //   if([status isEqualToString:@"incoming"]){
+      
+//      [RNCallKeep reportNewIncomingCall: uuidval
+//                                 handle: callerName
+//                             handleType: @"generic"
+//                               hasVideo: isVideo
+//                    localizedCallerName: callerName
+//                        supportsHolding: NO
+//                           supportsDTMF: NO
+//                       supportsGrouping: NO
+//                     supportsUngrouping: NO
+//                            fromPushKit: YES
+//                                payload: userInfo
+//                  withCompletionHandler: nil];
+  
+  [RNCallKeep reportNewIncomingCall: uuidval
+                             handle: callerName
+                         handleType: @"generic"
+                           hasVideo: isVideo
+                localizedCallerName: callerName
+                    supportsHolding: NO
+                       supportsDTMF: NO
+                   supportsGrouping: NO
+                 supportsUngrouping: NO
+                        fromPushKit: YES
+                            payload: customData
+              withCompletionHandler: completion];
+  
+  completion();
+}
+
 @end
+

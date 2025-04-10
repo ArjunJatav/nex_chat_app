@@ -7,7 +7,7 @@ import WebView from "react-native-webview";
 import { themeModule } from "../../../Components/Colors/Colors";
 import { LoaderModel } from "../../Modals/LoaderModel";
 import TopBar from "../../../Components/TopBar/TopBar";
-import { settingTop } from "../../../Navigation/Icons";
+import { chatTop, settingTop } from "../../../Navigation/Icons";
 import { Dimensions } from "react-native";
 import MainComponent from "../../../Components/MainComponent/MainComponent";
 import CustomStatusBar from "../../../Components/CustomStatusBar/CustomStatusBar";
@@ -99,6 +99,9 @@ const ChannelWebScreen = ({ navigation, route }) => {
           globalThis.selectTheme === "newYear" || //@ts-ignore
           globalThis.selectTheme === "newYearTheme" || //@ts-ignore
           globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -111,6 +114,7 @@ const ChannelWebScreen = ({ navigation, route }) => {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null

@@ -24,7 +24,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from "react-native"; 
+} from "react-native";
 import CryptoJS from "react-native-crypto-js";
 import DeviceInfo from "react-native-device-info";
 import ImagePicker from "react-native-image-crop-picker";
@@ -36,6 +36,7 @@ import {
   appBarText,
   iconTheme,
   searchBar,
+  themeModule,
 } from "../../Components/Colors/Colors";
 import { showToast } from "../../Components/CustomToast/Action";
 import { FontSize } from "../../Components/DeviceSpecs/DeviceStyles";
@@ -57,8 +58,10 @@ import {
   deleteGroup,
   deletechatApi,
   exitgroupApi,
+  getChannels,
   getRoomMembersApi,
   get_by_ChatId,
+  get_by_User_allposts,
   groupDetailApi,
   groupEditApi,
   muteChatApi,
@@ -90,6 +93,7 @@ import {
   blockRoom,
   deleteRoomId,
   getMembersFromRoomMembersSql,
+  getMyChannelInfo,
   lockChat,
   muteroom,
   removeAllMembersFromRoomMembersSql,
@@ -100,11 +104,35 @@ import {
 import { LoaderModel } from "../Modals/LoaderModel";
 import { ReportUserModel } from "../Modals/ReportUserModel";
 import { SetProfileModal } from "../Modals/SetProfileModel";
-import { setProfileData } from "../../Redux/MessageSlice";
+import { setChannelSliceData, setProfileData } from "../../Redux/MessageSlice";
 import CustomBottomSheetModal from "../../Components/CustomBottomSheetModal";
-import { updateAppState, updatedmembersall } from "../../reducers/getAppStateReducers";
+import {
+  updateAppState,
+  updatedmembersall,
+} from "../../reducers/getAppStateReducers";
+import { setStorylist } from "../../reducers/friendListSlice";
+import { ChannelTypeModal } from "../Modals/ChannelTypeModal";
+import { ConfirmAlertModel } from "../Modals/ConfirmAlertModel";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
+import { encryptMessage } from "../../utils/CryptoHelper";
+import {
+  checkImageNudity,
+  getRemainingSuspensionDays,
+  updateViolationAttempt,
+} from "../agora/agoraHandler";
+import {
+  setUserBanned,
+  setUserSuspendedDays,
+} from "../../reducers/userBanSlice";
+import WarningModal from "../Modals/WarningModal";
 const isDarkMode = true;
 var isDeviceVerified = false;
+let banType = "Warning";
+let banMessage = "";
+let banTitle = "";
+
 export default function ContactPageScreen({ props, navigation, route }: any) {
   const dispatch = useDispatch();
   const { colorTheme } = useContext(ThemeContext);
@@ -125,7 +153,8 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   const newroomType = useSelector(
     (state: any) => state.chatHistory.newroomType
   );
-
+  const [isChannelTypeModal, setChannelTypeModal] = useState(false);
+  const publicSelected = true;
   const mainprovider = useSelector(
     (state: any) => state.chatHistory.mainprovider
   );
@@ -162,14 +191,25 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   const [adminCount, setAdminCount] = useState(0);
   // const [userListFromScreen, setUserListFromScreen] = useState(route.params.fromScreen);
   const [isLoading, setIsLoading] = useState(false);
-  const bottomSheetRef = useRef(null); 
+  const isUserPremium = route?.params?.isUserPremium;
+  const isDiamonds = route?.params?.isDiamonds;
+
+  const [warningModalVisible, setWarningModalVisible] = useState(false);
+
+  const bottomSheetRef = useRef(null);
   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
   const handlePresentModalPress = () => bottomSheetRef.current?.present();
   const membersupdated = useSelector(
-   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     (state) => state?.getAppStateReducers?.membersupdated
   );
   const mId = Math.floor(Math.random() * 9000) + 1000;
+
+  const [confirmAlertModel, setConfirmAlertModel] = useState(false);
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+
   useEffect(() => {
     setGroupImage(roominfo.roomImage);
   }, [roominfo]);
@@ -177,6 +217,8 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   useEffect(() => {
     getChatLockdata();
   }, [isFocused]);
+
+  // console.log("currentUserDatacurrentUserData",currentUserData)
 
   const getChatLockdata = async () => {
     const chatLockPin = JSON.parse(
@@ -202,7 +244,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   const makeAdminButtonPress = (userDetails: any, roomId: any) => {
     if (userDetails.userId) {
       socket.emit("updateAdmin", {
-        userId: userDetails.userId, 
+        userId: userDetails.userId,
         adminId: globalThis.chatUserId,
         roomId: roomId,
         operation: "add",
@@ -222,14 +264,14 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       });
 
       remaningMembers.push({
-        chat_user_id: globalThis.chatUserId, 
-        contact_name: globalThis.displayName, 
-        profile_image: globalThis.image, 
+        chat_user_id: globalThis.chatUserId,
+        contact_name: globalThis.displayName,
+        profile_image: globalThis.image,
         phone_number: globalThis.phone_number,
         isAdmin: true,
       });
 
-      const chatIds: string[] = [] as string[]; 
+      const chatIds: string[] = [] as string[];
       groupDetailData.forEach((d) => {
         chatIds.push(d.userId);
       });
@@ -243,6 +285,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         membersList: chatIds,
         roomId: newroomID,
         isPublic: currentUserData?.isPublic,
+        owner: currentUserData?.owner,
       });
     }
   };
@@ -250,7 +293,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   const removeAdminButtonPress = (userDetails: any, roomId: any) => {
     if (userDetails.userId) {
       socket.emit("updateAdmin", {
-        userId: userDetails.userId, 
+        userId: userDetails.userId,
         adminId: globalThis.chatUserId,
         roomId: roomId,
         operation: "remove",
@@ -270,14 +313,14 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       });
 
       remaningMembers.push({
-        chat_user_id: globalThis.chatUserId, 
-        contact_name: globalThis.displayName, 
-        profile_image: globalThis.image, 
+        chat_user_id: globalThis.chatUserId,
+        contact_name: globalThis.displayName,
+        profile_image: globalThis.image,
         phone_number: globalThis.phone_number,
         isAdmin: true,
       });
 
-      const chatIds: string[] = [] as string[]; 
+      const chatIds: string[] = [] as string[];
       groupDetailData.forEach((d) => {
         chatIds.push(d.userId);
       });
@@ -290,6 +333,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         membersList: chatIds,
         roomId: newroomID,
         isPublic: currentUserData?.isPublic,
+        owner: currentUserData?.owner,
       });
     }
   };
@@ -342,21 +386,29 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         }
       } else {
         setOtp("");
-        Alert.alert(t("error"), t("enter_a_valid_6_digit_OTP"));
-        Alert.alert(t("error"), t("enter_a_valid_6_digit_OTP"));
+        // Alert.alert(t("error"), t("enter_a_valid_6_digit_OTP"));
+        // Alert.alert(t("error"), t("enter_a_valid_6_digit_OTP"));
+        globalThis.errorMessage = t("enter_a_valid_6_digit_OTP");
+        setErrorAlertModel(true);
       }
     } catch (error) {
       if (error.code === "auth/invalid-verification-code") {
-        Alert.alert("", t("invalid_OTP_Please_try_again"));
+        // Alert.alert("", t("invalid_OTP_Please_try_again"));
+        globalThis.errorMessage = t("invalid_OTP_Please_try_again");
+        setErrorAlertModel(true);
       } else if (error.code === "auth/code-expired") {
-        Alert.alert("", t("OTP_has_expired_please_request_a_new_one"));
+        // Alert.alert("", t("OTP_has_expired_please_request_a_new_one"));
+        globalThis.errorMessage = t("OTP_has_expired_please_request_a_new_one");
+        setErrorAlertModel(true);
       } else {
         if (isDeviceVerified == true && Platform.OS == "android") {
           isDeviceVerified = false;
           setOtpModalVisible(false);
           setGeneratePinModalVisible(true);
         } else {
-          Alert.alert(t("error"), "Enter a valid 6-digit OTP.");
+          // Alert.alert(t("error"), "Enter a valid 6-digit OTP.");
+          globalThis.errorMessage = "Enter a valid 6-digit OTP.";
+          setErrorAlertModel(true);
         }
       }
     }
@@ -367,13 +419,26 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       setGeneratePinModalVisible(false);
       setConfirmPinModalVisible(true);
     } else {
-      Alert.alert(t("error"), t("enter_a_valid_4_digit_PIN"));
+      // Alert.alert(
+      //   t("error"),
+      //   t("enter_a_valid_4_digit_PIN"),
+      //   [
+
+      //     {
+      //       text: t("cancel"),
+      //       onPress: () => null,
+      //       style: "cancel",
+      //     },
+      //   ]
+      // );
+      globalThis.errorMessage = t("enter_a_valid_4_digit_PIN");
+      setErrorAlertModel(true);
     }
   };
 
   const confirmPinSubmit = async () => {
     if (generatePin == confirmPin) {
-      setPinApi(confirmPin); 
+      setPinApi(confirmPin);
       globalThis.confirmPin = confirmPin;
       await AsyncStorage.setItem("lockChatPinCode", JSON.stringify(confirmPin));
       showToast("Your chat has been locked");
@@ -381,7 +446,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       lockChat(newroomID, lockValue, (res: any) => {
         if (res) {
           socket.emit("changeLockStatus", {
-            room: newroomID, 
+            room: newroomID,
             user: globalThis.chatUserId,
             lock: lockValue,
           });
@@ -392,7 +457,9 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         }
       });
     } else {
-      Alert.alert(t("error"), "Your pin and confirm pin does not match.");
+      // Alert.alert(t("error"), "Your pin and confirm pin does not match.");
+      globalThis.errorMessage = "Your pin and confirm pin does not match.";
+      setErrorAlertModel(true);
     }
   };
 
@@ -401,7 +468,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       lockChat(newroomID, lockValue, (res: any) => {
         if (res) {
           socket.emit("changeLockStatus", {
-            room: newroomID, 
+            room: newroomID,
             user: globalThis.chatUserId,
             lock: lockValue,
           });
@@ -418,7 +485,21 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       setConfirmPin("");
     } else {
       setloaderMoedl(false);
-      Alert.alert(t("error"), t("enter_a_valid_4_digit_PIN"));
+      // Alert.alert(
+      //   t("error"),
+      //   t("enter_a_valid_4_digit_PIN"),
+      //   [
+
+      //     {
+      //       text: t("cancel"),
+      //       onPress: () => null,
+      //       style: "cancel",
+      //     },
+      //   ]
+      // );
+
+      globalThis.errorMessage = t("enter_a_valid_4_digit_PIN");
+      setErrorAlertModel(true);
     }
   };
 
@@ -451,13 +532,81 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         cropping: true,
         compressImageQuality: 0.2,
         cropperCircleOverlay: true,
+        mediaType: "photo",
       })
         .then((image) => {
           if (image !== undefined && image !== null) {
-            UPdatedImage(image);
-            setFilePath(image.path);
             setCameraModal(false);
+
+            setTimeout(async () => {
+              setLoading(true);
+              // Add delay before making API call
+              const filePath = image.path.startsWith("file://")
+                ? image.path
+                : `file://${image.path}`;
+
+              const response = await checkImageNudity(filePath);
+              console.log(
+                "Nudity Check Response:",
+                response?.data?.is_nude_file
+              );
+              if (response?.data?.is_nude_file == true) {
+                setLoading(false);
+                setCameraModal(false);
+                const reason = `The user attempted to upload a inappropriate image as the group profile picture.`;
+                const result = await updateViolationAttempt(reason);
+                console.log(
+                  "result?.data?.suspended_remove_date====================================",
+                  result
+                );
+                if (result.success) {
+                  const remainingDays = getRemainingSuspensionDays(
+                    result?.data?.suspended_remove_date
+                  );
+
+                  if (result.data.violation_attempt == 1) {
+                    banType = "Warning";
+                    setWarningModalVisible(true);
+                  } else if (
+                    result.data.violation_attempt > 1 &&
+                    result.data.violation_attempt <= 4
+                  ) {
+                    banType = "Ban";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt == 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                    banTitle = "Account Suspended!";
+                    dispatch(setUserSuspendedDays(remainingDays));
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(result.data.is_ban));
+                  } else if (result.data.violation_attempt > 5) {
+                    banType = "Ban";
+                    banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                    banTitle = "Account Permanently Suspended!";
+                    setWarningModalVisible(true);
+                    dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                  } else {
+                    globalThis.errorMessage =
+                      "This channel profile photo violates our guidelines as it contains inappropriate content. Please upload a suitable image.";
+                    setErrorAlertModel(true);
+                  }
+                }
+              } else {
+                setLoading(false);
+                UPdatedImage(image);
+                setFilePath(image.path);
+                setCameraModal(false);
+              }
+            }, 500);
           }
+          // if (image !== undefined && image !== null) {
+          //   UPdatedImage(image);
+          //   setFilePath(image.path);
+          //   setCameraModal(false);
+          // }
         })
         .catch((e) => {
           setCameraModal(false);
@@ -475,12 +624,77 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         cropping: true,
         compressImageQuality: 0.2,
         cropperCircleOverlay: true,
+        mediaType: "photo",
       }).then((image: any) => {
-        if (image !== undefined) {
-          UPdatedImage(image);
-          setFilePath(image.path);
+        if (image !== undefined && image !== null) {
           setCameraModal(false);
+
+          setTimeout(async () => {
+            setLoading(true);
+            // Add delay before making API call
+            const filePath = image.path.startsWith("file://")
+              ? image.path
+              : `file://${image.path}`;
+
+            const response = await checkImageNudity(filePath);
+            console.log("Nudity Check Response:", response?.data?.is_nude_file);
+            if (response?.data?.is_nude_file == true) {
+              setLoading(false);
+              setCameraModal(false);
+              const reason = `The user attempted to upload a inappropriate image as the group profile picture.`;
+              const result = await updateViolationAttempt(reason);
+              console.log(
+                "result?.data?.suspended_remove_date====================================",
+                result
+              );
+              if (result.success) {
+                const remainingDays = getRemainingSuspensionDays(
+                  result?.data?.suspended_remove_date
+                );
+
+                if (result.data.violation_attempt == 1) {
+                  banType = "Warning";
+                  setWarningModalVisible(true);
+                } else if (
+                  result.data.violation_attempt > 1 &&
+                  result.data.violation_attempt <= 4
+                ) {
+                  banType = "Ban";
+                  dispatch(setUserSuspendedDays(remainingDays));
+                  setWarningModalVisible(true);
+                  dispatch(setUserBanned(result.data.is_ban));
+                } else if (result.data.violation_attempt == 5) {
+                  banType = "Ban";
+                  banMessage = `Your account has been suspended for ${remainingDays} days due to repeated violations of our community guidelines. Please adhere to our policies to avoid permanent suspension.`;
+                  banTitle = "Account Suspended!";
+                  dispatch(setUserSuspendedDays(remainingDays));
+                  setWarningModalVisible(true);
+                  dispatch(setUserBanned(result.data.is_ban));
+                } else if (result.data.violation_attempt > 5) {
+                  banType = "Ban";
+                  banMessage = `Your account has been permanently suspended due to multiple violations of our community guidelines. This decision is final, and you will no longer be able to access your account.`;
+                  banTitle = "Account Permanently Suspended!";
+                  setWarningModalVisible(true);
+                  dispatch(setUserBanned(true)); // Ensure the user is marked as permanently banned
+                } else {
+                  globalThis.errorMessage =
+                    "This channel profile photo violates our guidelines as it contains inappropriate content. Please upload a suitable image.";
+                  setErrorAlertModel(true);
+                }
+              }
+            } else {
+              setLoading(false);
+              UPdatedImage(image);
+              setFilePath(image.path);
+              setCameraModal(false);
+            }
+          }, 500);
         }
+        // if (image !== undefined) {
+        //   UPdatedImage(image);
+        //   setFilePath(image.path);
+        //   setCameraModal(false);
+        // }
       });
     }
   };
@@ -489,10 +703,12 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     /////////////////////// ********** Internet Permission   ********** ////////////////////
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
         setloaderMoedl(false);
+        setNoInternetModel(true);
+
         return;
       } else {
         let uploaddata = {
@@ -515,7 +731,9 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   const apiSuccess = (ResponseData: any, ErrorStr: any) => {
     // Custom logic to execute on success
     if (ErrorStr) {
-      Alert.alert(t(t("error")), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t(t("error")), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
     }
   };
@@ -566,9 +784,13 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
 
   var count = 1;
 
+  const [newmembersfromemit, setnewmembersfromemit] = useState([]);
+
   useEffect(() => {
     const handleUpdateGroupDetails = (data: any) => {
+      console.log("datadatadata", data);
       if (data.roomId && newroomID && data.roomId == newroomID) {
+        setnewmembersfromemit(data.remaningMembers);
         setGroupName(data.new_group_name);
         setGroupImage(data.new_group_image);
         setIsPublic(data.isPublic);
@@ -582,6 +804,8 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
             phone_number: d.phone_number,
             isAdmin: d.isAdmin,
             userName: d.name,
+            owner: currentUserData?.owner,
+            isPublic: data.isPublic,
           };
         });
 
@@ -595,24 +819,23 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         addMembersToRoomMembersSqlnew(data.remaningMembers, data.roomId, () => {
           count = count + 1;
           dispatch(updateAppState({ updatemediauseeeffect: count + 1 }));
-         
-          dispatch(updatedmembersall(membersupdated))
-  
+
+          dispatch(updatedmembersall(membersupdated));
         });
-        
 
         updateroominfo(
           data.new_group_name,
           data.new_group_image,
           newroomID,
           data.new_group_allow,
-          data?.owner,
+          currentUserData?.owner,
           data.isPublic
         );
 
         const currentUserIdx = data.remaningMembers.findIndex(
           (m: any) => m.chat_user_id == globalThis?.userChatId
         );
+
         if (currentUserIdx >= 0) {
           dispatch(setisnewBlock(false));
           blockRoom(newroomID, true);
@@ -629,107 +852,140 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     };
   });
 
+  useEffect(() => {
+    if (newmembersfromemit.length > 0) {
+      const member = newmembersfromemit.find(
+        (member) => member.chat_user_id === globalThis.userChatId
+      );
+      if (member) {
+        // Check if the user exists
+        console.log("datadatadata");
+        setCurrentUserData((prevData) => ({
+          ...prevData,
+          isAdmin: member.isAdmin, // Update only the isAdmin key
+        }));
+      } else {
+        console.error("User not found in remaining members");
+      }
+    }
+  }, [newmembersfromemit]);
+
   const [offset, setOffset] = useState(0);
   const [loadingmembers, setloadingmembers] = useState(false);
   const limit = 10;
 
-  const fetchMembers = async () => {
+  const fetchMembers = async () => {};
 
-  };
-
-
-  const [fetchmemberloader,setfetchmemberloader] = useState(true)
+  const [fetchmemberloader, setfetchmemberloader] = useState(true);
 
   const handleScroll = (event) => {
     const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
-  
+    const isCloseToBottom =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
+
     if (isCloseToBottom) {
       handleLoadMore();
     }
   };
 
+  const handleLoadMore = async () => {
+    if (!loadingmembers) {
+      setloadingmembers(true);
+      if (offset < TotalMembersCount) {
+        await getMembersFromRoomMembersSql(
+          newroomID,
+          limit,
+          offset,
+          (res, totalCount) => {
+            if (res) {
+              // Update total members count
+              // setTotalMembersCount(totalCount);
 
-  
-  const handleLoadMore = async() => {
-    if(!loadingmembers){
-      setloadingmembers(true)
-    if (offset < TotalMembersCount) {
-    await  getMembersFromRoomMembersSql(newroomID, limit, offset, (res, totalCount) => {
+              // Check for existing members to avoid duplicates
+              const existingIds = new Set(
+                groupDetailData.map((member) => member.userId)
+              );
+              const newMembers = res.filter(
+                (member) => !existingIds.has(member.userId)
+              );
+              setOffset((prevOffset) => prevOffset + newMembers.length);
+              console.log("Current offset:", offset);
+              console.log("Fetched members:", res);
+              console.log("New members to add:", newMembers);
 
-      if(res){
-        
-      // Update total members count
-        // setTotalMembersCount(totalCount);
-  
-        // Check for existing members to avoid duplicates
-        const existingIds = new Set(groupDetailData.map(member => member.userId));
-        const newMembers = res.filter(member => !existingIds.has(member.userId));
-        setOffset(prevOffset => prevOffset + newMembers.length);
-        console.log('Current offset:', offset);
-        console.log('Fetched members:', res);
-        console.log('New members to add:', newMembers);
-  
-        if (newMembers.length > 0) {
-          // Update the offset
-          
-          // Update the group detail data
-          setGroupDetailData(prevData => [...prevData, ...newMembers]);
-          setloadingmembers(false)
-         
-        } else {
-          console.log("No new members found!");
-        }
+              if (newMembers.length > 0) {
+                // Update the offset
+
+                // Update the group detail data
+                setGroupDetailData((prevData) => [...prevData, ...newMembers]);
+                setloadingmembers(false);
+              } else {
+                console.log("No new members found!");
+              }
+            }
+          }
+        );
+      } else {
+        console.log("No more members to load.");
       }
-  
-      });
-    } else {
-      console.log("No more members to load.");
-    }
     }
   };
-  
-  
+
   const GroupDetailApiFunc = async () => {
-    setloadingmembers(true)
+    setloadingmembers(true);
     const urlStr = chatBaseUrl + groupDetailApi + "?roomId=" + newroomID;
-    const chatProfileUrl = chatBaseUrl + chatUserDetailApi + route.params.friendId;
-  
+    const chatProfileUrl =
+      chatBaseUrl + chatUserDetailApi + route.params.friendId;
+
     try {
       // Fetch initial members
-      await getMembersFromRoomMembersSql(newroomID, limit, 0, (res, totalCount) => {
-        console.log('Initial members:', res);
-        console.log('Total members count:', totalCount);
-        setOffset(res.length);
-        // Set total members count
-        setTotalMembersCount(totalCount);
-  
-        // Initialize group members
-        setGroupDetailData(res);
-  
-        // Logic for setting current user data and group info
-        const idx = res.findIndex(f => f.userId === globalThis.userChatId);
-        if (idx >= 0) {
-          setCurrentUserData(res[idx]);
-          setloadingmembers(false)
-          if (newroomType === "single") {
-            setGroupName(res[idx].name || res[idx].phone_number);
-            setIsPublic(res[idx].isPublic);
-            setAllow(res[idx].allow);
-          } else {
-            setGroupName(res[idx].groupName);
-            setIsPublic(res[idx].isPublic);
-            setAllow(res[idx].allow);
-          }
-          setGroupImage(res[idx].roomImage);
+      await getMembersFromRoomMembersSql(
+        newroomID,
+        limit,
+        0,
+        (res, totalCount) => {
+          console.log("Initial members:", res);
+          console.log("Total members count:", totalCount);
+          setOffset(res.length);
+          // Set total members count
 
+          setTotalMembersCount(totalCount);
+
+          // if(newroomType == "single"){
+          //   const idx = res.findIndex(f => f.userId != globalThis.userChatId)
+          //   if(idx >= 0){
+
+          //   //  setIsUserPremium(res[idx]?.premium)
+          //   }
+          // }
+          // setIsUserPremium(res[1]?.premium);
+          // Initialize group members
+          setGroupDetailData(res);
+          // Logic for setting current user data and group info
+          const idx = res.findIndex((f) => f.userId === globalThis.userChatId);
+          if (idx >= 0) {
+            setCurrentUserData(res[idx]);
+            setloadingmembers(false);
+            if (newroomType === "single") {
+              setGroupName(res[idx].name || res[idx].phone_number);
+
+              setIsPublic(res[idx].isPublic);
+              setAllow(res[idx].allow);
+            } else {
+              setGroupName(res[idx].groupName);
+
+              setIsPublic(res[idx].isPublic);
+              setAllow(res[idx].allow);
+            }
+            setGroupImage(res[idx].roomImage);
+          }
+
+          // Count admins
+          const adminCount = res.filter((f) => f.isAdmin === 1).length;
+          setAdminCount(adminCount);
         }
-  
-        // Count admins
-        const adminCount = res.filter(f => f.isAdmin === 1).length;
-        setAdminCount(adminCount);
-      });
-  
+      );
+
       // Fetch additional group details
       await axios({
         method: "get",
@@ -740,11 +996,13 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
           Authorization: "Bearer " + globalThis.token,
           localization: globalThis.selectLanguage,
         },
-      }).then(response => {
+      }).then((response) => {
         if (response.data.status) {
           setuserstatus(response?.data?.data?.bio);
         } else {
-          Alert.alert(response.data.message);
+          // Alert.alert(response.data.message);
+          globalThis.errorMessage = response.data.message;
+          setErrorAlertModel(true);
         }
       });
     } catch (error) {
@@ -752,10 +1010,6 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       setloaderMoedl(false);
     }
   };
-  
-  
-  
-  
 
   const styles = StyleSheet.create({
     groupContainer: {
@@ -854,8 +1108,10 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     contactContainer: {
       position: "absolute",
       flexDirection: "row",
-      bottom: 5,
+      alignItems: "center",
+      bottom: 20,
       height: 100,
+      // backgroundColor:"red",
       width: "100%",
     },
 
@@ -867,19 +1123,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       alignItems: "center",
       justifyContent: "space-around",
       flexDirection: "row",
-      backgroundColor:
-        globalThis.selectTheme === "newYearTheme"
-          ? "#CE9D59" 
-          : globalThis.selectTheme === "newYear" || 
-            globalThis.selectTheme === "mongoliaTheme"
-          ? COLORS.black 
-          : globalThis.selectTheme === "christmas"
-          ? COLORS.primary_light_green 
-          : globalThis.selectTheme == "third"
-          ? COLORS.light_green 
-          : globalThis.selectTheme == "second"
-          ? COLORS.primary_blue
-          : COLORS.purple,
+      backgroundColor: themeModule().premiumBackIcon,
     },
     EditTExt: {
       position: "absolute",
@@ -913,7 +1157,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       fontSize: DeviceInfo.isTablet() ? 25 : 18,
       fontFamily: font.bold(),
       color: COLORS.white,
-      left: 15,
+      marginLeft: 15,
     },
     name2conText: {
       fontSize: DeviceInfo.isTablet() ? 22 : 15,
@@ -991,11 +1235,10 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         method: "post",
         url: urlStr,
         headers: {
-          Accept: "application/json", 
+          Accept: "application/json",
           Authorization: `Bearer ${globalThis.token}`,
         },
         data: {
-         
           from: globalThis.chatUserId,
           to: route.params.friendId,
           opt: opt,
@@ -1006,7 +1249,6 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
           if (response.data.status == true) {
             updateblockuser(
               {
-                
                 fromuser: globalThis.chatUserId,
                 touser: route.params.friendId,
               },
@@ -1022,14 +1264,13 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
               }
             );
 
-            
             socket.emit("leaveRoom", {
-              roomId: newroomID, 
+              roomId: newroomID,
               userId: globalThis.userChatId,
             });
 
             socket.emit("blockusers", {
-              touser: route.params.friendId, 
+              touser: route.params.friendId,
               fromuser: globalThis.chatUserId,
               isBlock: opt == "block",
             });
@@ -1037,7 +1278,9 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
             dispatch(setisnewBlock(!isnewblock));
             setloaderMoedl(false);
           } else {
-            Alert.alert(response.data.message);
+            // Alert.alert(response.data.message);
+            globalThis.errorMessage = response.data.message;
+            setErrorAlertModel(true);
           }
         })
         .catch((error) => {
@@ -1072,16 +1315,24 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
             showToast(isnewmute ? "Chat muted" : "Chat unmuted");
             muteroom(newroomID, isnewmute);
           } else {
-            Alert.alert(response.data.message);
+            // Alert.alert(response.data.message);
+            globalThis.errorMessage = response.data.message;
+            setErrorAlertModel(true);
           }
         })
         .catch((error) => {
           setloaderMoedl(false);
-          Alert.alert(error);
+          console.log("sdfdsfdsfdsf", error);
+          // Alert.alert(error);
+          globalThis.errorMessage = error;
+          setErrorAlertModel(true);
         });
     } catch (error: any) {
       setloaderMoedl(false);
-      Alert.alert(error);
+      console.log("sdfdsfdsfdsf", error);
+      // Alert.alert(error);
+      globalThis.errorMessage = error;
+      setErrorAlertModel(true);
     }
   };
 
@@ -1109,44 +1360,63 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
             archiveRoom(newroomID, !isnewarchiveroom);
           } else {
             setloaderMoedl(false);
-            Alert.alert(response.data.message);
+            // Alert.alert(response.data.message);
+            globalThis.errorMessage = response.data.message;
+            setErrorAlertModel(true);
           }
         })
         .catch((error) => {
           setloaderMoedl(false);
-          Alert.alert(error);
+          console.log("sdfdsfdsfdsf", error);
+          // Alert.alert(error);
+          globalThis.errorMessage = error;
+          setErrorAlertModel(true);
         });
     } catch (error: any) {
       setloaderMoedl(false);
-      Alert.alert(error);
+      console.log("sdfdsfdsfdsf", error);
+      // Alert.alert(error);
+      globalThis.errorMessage = error;
+      setErrorAlertModel(true);
     }
   };
 
   const deleteAlert = () => {
-    Alert.alert(
-      t("confirm"),
-      `${
-        newroomType == "single"
-          ? t("do_you_want_to_delete_this_chat")
-          : newroomType == "multiple"
-          ? t("do_you_want_to_delete_this_group_all_chats")
-          : t("do_you_want_to_delete_this_broadcast_all_chats")
-      }.`,
-      [{ text: t("cancel") }, { text: t("yes"), onPress: () => deleteChat() }]
-    );
+    globalThis.confirmAction = "deleteChat";
+    globalThis.confirmAlertMessage =
+      newroomType == "single"
+        ? t("do_you_want_to_delete_this_chat")
+        : newroomType == "multiple"
+        ? t("do_you_want_to_delete_this_group_all_chats")
+        : t("do_you_want_to_delete_this_broadcast_all_chats");
+    setConfirmAlertModel(true);
+    // Alert.alert(
+    //   t("confirm"),
+    //   `${
+    //     newroomType == "single"
+    //       ? t("do_you_want_to_delete_this_chat")
+    //       : newroomType == "multiple"
+    //       ? t("do_you_want_to_delete_this_group_all_chats")
+    //       : t("do_you_want_to_delete_this_broadcast_all_chats")
+    //   }.`,
+    //   [{ text: t("cancel") }, { text: t("yes"), onPress: () => deleteChat() }]
+    // );
   };
 
   const exitAlert = () => {
-    Alert.alert(t("confirm"), t("do_you_want_exit_this_group"), [
-      { text: t("cancel") },
-      { text: t("yes"), onPress: () => exitgroupChat() },
-    ]);
+    globalThis.confirmAction = "exitgroupChat";
+    globalThis.confirmAlertMessage = t("do_you_want_exit_this_group");
+    setConfirmAlertModel(true);
+    // Alert.alert(t("confirm"), t("do_you_want_exit_this_group"), [
+    //   { text: t("cancel") },
+    //   { text: t("yes"), onPress: () => exitgroupChat() },
+    // ]);
   };
 
   const exitNotify = () => {
     // const finalString =
     //   globalThis.phone_number + " has left this conversation.";
-  
+
     const finalString = globalThis.displayName + " has left this conversation.";
 
     const paramsOfSendlive = {
@@ -1156,13 +1426,13 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       roomId: newroomID,
       roomName: groupDetailData[0]?.groupName,
       roomImage: groupDetailData[0]?.roomImage,
-      roomType: "multiple", 
+      roomType: "multiple",
       roomOwnerId: globalThis.userChatId,
-      message: CryptoJS.AES.encrypt(finalString, EncryptionKey).toString(),
+      message: encryptMessage(newroomID, finalString), //CryptoJS.AES.encrypt(finalString, EncryptionKey).toString(),
       message_type: "notify",
       roomMembers: [],
       isForwarded: false,
-      attachment: [], 
+      attachment: [],
       from: globalThis.userChatId,
       resId: Date.now(),
       status: "",
@@ -1170,12 +1440,10 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       createdAt: new Date(),
       isDeletedForAll: false,
       mId: mId,
-      phoneNumber: Number(
-        globalThis.phone_number.substr(-10)
-      ),
+      phoneNumber: Number(globalThis.phone_number.substr(-10)),
       currentUserPhoneNumber: globalThis.phone_number,
       shouldDisappear: 0,
-      disappearTime:  0,
+      disappearTime: 0,
     };
 
     socket.emit("sendmessage", paramsOfSendlive);
@@ -1211,13 +1479,12 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
 
       if (response.data.status === true) {
         socket.emit("leaveRoom", {
-          roomId: newroomID, 
+          roomId: newroomID,
           userId: globalThis.userChatId,
         });
 
         const remaningMembers: object[] = [] as object[];
         groupDetailData.forEach((d: any) => {
-          
           if (d.userId != globalThis.userChatId) {
             remaningMembers.push({
               chat_user_id: d.userId,
@@ -1228,7 +1495,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
             });
           }
         });
-        const chatIds: string[] = [] as string[]; 
+        const chatIds: string[] = [] as string[];
         groupDetailData.forEach((d) => {
           chatIds.push(d.userId);
         });
@@ -1241,6 +1508,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
           membersList: chatIds,
           roomId: newroomID,
           isPublic: currentUserData?.isPublic,
+          owner: currentUserData?.owner,
         });
 
         setloaderMoedl(false);
@@ -1277,19 +1545,24 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         navigation.navigate("ChatScreen");
       } else {
         setloaderMoedl(false);
-        Alert.alert(response.data.message);
+        // Alert.alert(response.data.message);
+        globalThis.errorMessage = response.data.message;
+        setErrorAlertModel(true);
       }
     } catch (error: any) {
       setloaderMoedl(false);
-      Alert.alert(error);
+      console.log("sdfdsfdsfdsf", error);
+      // Alert.alert(error);
+      globalThis.errorMessage = error;
+      setErrorAlertModel(true);
     }
   };
 
   const BucketUpload = async (newwwwdata: any) => {
     setloaderMoedl(true);
     const s3 = new AWS.S3({
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
+      accessKeyId: globalThis.accessKey,
+      secretAccessKey: globalThis.awsSecretAccessKey,
       region: "us-east-2",
       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com",
@@ -1360,13 +1633,14 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
               membersList: chatIds,
               roomId: newroomID,
               isPublic: response.data.data.isPublic,
+              owner: currentUserData?.owner,
             });
             setGroupImage(response.data.data.image);
             updateroominfo(
               response.data.data.name,
               response.data.data.image,
               newroomID,
-              currentUserData?.allow, 
+              currentUserData?.allow,
               globalThis.chatUserId,
               response.data.data.isPublic
             );
@@ -1393,7 +1667,6 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     }
   };
 
-
   const sendMemberNotify = (username: any, type: any) => {
     let finalString = "";
     if (type == "add") {
@@ -1403,19 +1676,19 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     }
 
     const paramsOfSendlive = {
-      isNotificationAllowed: true, 
-      userName: globalThis.displayName, 
+      isNotificationAllowed: true,
+      userName: globalThis.displayName,
       userImage: globalThis.image,
       roomId: newroomID,
       roomName: groupName,
       roomImage: groupImage,
       roomType: newroomType,
       roomOwnerId: globalThis.userChatId,
-      message: CryptoJS.AES.encrypt(finalString, EncryptionKey).toString(),
+      message: encryptMessage(newroomID, finalString), //CryptoJS.AES.encrypt(finalString, EncryptionKey).toString(),
       message_type: newroomType == "broadcast" ? "broadcast_notify" : "notify",
       roomMembers: [],
       isForwarded: false,
-      attachment: [], 
+      attachment: [],
       from: globalThis.userChatId,
       resId: Date.now(),
       status: "",
@@ -1423,20 +1696,17 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       createdAt: new Date(),
       isDeletedForAll: false,
       mId: mId,
-      phoneNumber: Number(
-        globalThis.phone_number.substr(-10)
-      ),
+      phoneNumber: Number(globalThis.phone_number.substr(-10)),
       currentUserPhoneNumber: globalThis.phone_number,
       shouldDisappear: 0,
-      disappearTime:  0,
+      disappearTime: 0,
     };
-
-    
 
     socket.emit("sendmessage", paramsOfSendlive);
   };
 
   const removeMember = async (roomID: any, UserID: any, username: any) => {
+    console.log("STEP 1 IN REMOVE MEMBER >>");
     setLoading(true);
 
     const myHeaders = new Headers();
@@ -1448,6 +1718,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       operation: "REMOVE",
       removeBy: isPublic == 1 ? "admin" : "",
     });
+    console.log("STEP 2 IN REMOVE MEMBER >>");
     const requestOptions = {
       method: "POST",
       headers: myHeaders,
@@ -1455,7 +1726,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     };
     const response = await fetch(chatBaseUrl + addMemberApi, requestOptions);
     const data = await response.json();
-
+    console.log("STEP 3 IN REMOVE MEMBER >>");
     if (data.status === true) {
       sendMemberNotify(username, "remove");
       const chatIds = groupDetailData.map((m: any) => m.userId);
@@ -1463,6 +1734,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
       let remaningMembers = groupDetailData.filter(
         (m: any) => m.userId != UserID
       );
+      console.log("STEP 4 IN REMOVE MEMBER >>");
       remaningMembers = remaningMembers.map((m: any) => {
         return {
           chat_user_id: m.userId,
@@ -1472,8 +1744,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
           isAdmin: m.isAdmin,
         };
       });
-      
-
+      console.log("STEP 5 IN REMOVE MEMBER >>");
       socket.emit("updateGroupDetails", {
         new_group_name: groupName,
         new_group_description: userstatus,
@@ -1481,14 +1752,15 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         new_group_image: groupImage,
         remaningMembers: remaningMembers,
         membersList: chatIds,
-        roomId: newroomID, 
+        roomId: newroomID,
         owner: data.data?.owner,
         isPublic: data.data.isPublic ? 1 : 0,
       });
-
+      console.log("STEP 6 IN REMOVE MEMBER >>");
       setGroupDetailData((prevMembers: any) => {
         return prevMembers.filter((m: any) => m.userId != UserID);
       });
+      console.log("STEP 7 IN REMOVE MEMBER >>");
       setLoading(false);
     } else {
       setLoading(false);
@@ -1527,21 +1799,22 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   let headers = {
     Accept: "application/json",
     "Content-Type": "application/x-www-form-urlencoded",
-   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     "Content-Type": "multipart/form-data",
-    Authorization: "Bearer " + globalThis.Authtoken, 
+    Authorization: "Bearer " + globalThis.Authtoken,
     localization: globalThis.selectLanguage,
   };
 
   const ReportuserChat = (reason: string) => {
     ////i///////////////////////// ********** InterNet Permission    ********** ///////////////////////////////////
+    console.log("headers0", headers);
 
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
-
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
+        setNoInternetModel(true);
         return;
       } else {
         let data = {
@@ -1565,12 +1838,18 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   //////////////////////////// **********  Method for return the api Response   ********** ///////////////////////////////////////////
   const apiSuccessVerify = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("ok") }]);
+      console.log("API CALLING ", ErrorStr);
+
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("ok") }]);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
       // setReportUser(false);
     } else {
+      globalThis.successMessage = ResponseData.message;
       setReportUser(false);
       setReportUserID("");
-      Alert.alert(t("success"), ResponseData.message, [{ text: t("done") }]);
+      setSuccessAlertModel(true);
+      // Alert.alert(t("success"), ResponseData.message, [{ text: t("done") }]);
     }
   };
 
@@ -1589,7 +1868,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     let headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
-      Authorization: "Bearer " + globalThis.Authtoken, 
+      Authorization: "Bearer " + globalThis.Authtoken,
       localization: globalThis.selectLanguage,
     };
     let data = {
@@ -1608,6 +1887,125 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     );
   };
 
+  const getAllPostByuser = (ResponseData: any, ErrorStr: any) => {
+    if (ErrorStr) {
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+      // setloaderMoedl(false);
+    } else {
+      dispatch(setStorylist(ResponseData.data));
+    }
+  };
+
+  const AllPostsListApi = async (chatid: any) => {
+    return new Promise((resolve, reject) => {
+      dispatch(
+        setProfileData({
+          Image_text: "",
+          sticker_position: "",
+          chat_user_id: chatid,
+        })
+      );
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: "Bearer " + globalThis.Authtoken,
+        localization: globalThis.selectLanguage,
+      };
+      const data = {
+        chat_user_id: chatid,
+      };
+
+      PostApiCall(
+        get_by_User_allposts,
+        data,
+        headers,
+        navigation,
+        (ResponseData, ErrorStr) => {
+          if (ErrorStr) {
+            reject(ErrorStr);
+          } else {
+            getAllPostByuser(ResponseData, ErrorStr);
+            resolve(ResponseData);
+          }
+        }
+      );
+    });
+  };
+
+  const AllChaneelListApi = async (chatid: any) => {
+    if (chatid == globalThis.chatUserId) {
+      getMyChannelInfo((channels, count) => {
+        const reversedData = channels.reverse();
+        console.log("reversedData", reversedData);
+        dispatch(setChannelSliceData(reversedData));
+      });
+    } else {
+      const urlStr = chatBaseUrl + getChannels + "?userId=" + chatid;
+
+      return new Promise((resolve, reject) => {
+        axios({
+          method: "get",
+          url: urlStr,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => {
+            if (response.data.status === true) {
+              console.log("response.data.data >>>> ", response.data.data);
+
+              dispatch(setChannelSliceData(response.data.data));
+              resolve(response.data.data);
+            } else {
+              // Alert.alert(response.data.message);
+              globalThis.errorMessage = response.data.message;
+              setErrorAlertModel(true);
+              reject(response.data.message);
+            }
+          })
+          .catch((error) => {
+            console.error("Error in AllChaneelListApi:", error);
+            reject(error);
+          });
+      });
+    }
+  };
+
+  function AfterChoosingChannelType(value) {
+    setChannelTypeModal(false);
+
+    if (value == "public") {
+      navigation.navigate("NewChannelScreen", { type: "public" });
+    } else {
+      navigation.navigate("NewChannelScreen", { type: "private" });
+    }
+
+    //newGroupPress(value);
+  }
+
+  const handleApiCalls = async (chatid: any, username: any, userimage: any) => {
+    // setloaderMoedl(true); // Start loader
+
+    try {
+      // Use Promise.all to wait for all API calls to complete
+      await Promise.all([
+        getProfileApi(chatid, username, userimage),
+        AllPostsListApi(chatid),
+        AllChaneelListApi(chatid),
+      ]);
+      console.log("All API calls completed successfully.");
+    } catch (error) {
+      console.error("Error in one of the API calls:", error);
+      // Alert.alert("Error", "An error occurred while fetching data.");
+      globalThis.errorMessage = "An error occurred while fetching data.";
+      setErrorAlertModel(true);
+    } finally {
+      // setloaderMoedl(false); // Stop loader after all API calls are done
+    }
+  };
+
   const getapiSuccess = (
     ResponseData: any,
     ErrorStr: any,
@@ -1615,8 +2013,10 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
     userimage: any
   ) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setIsLoading(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
       // Navigate to another screen or handle the error in some way
     } else {
       const userData = ResponseData.data.user;
@@ -1629,6 +2029,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
           sticker_position: stickerPosition,
           display_name: username,
           profile_image: userimage,
+          userProfile: userimage,
         })
       );
 
@@ -1677,7 +2078,6 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
 
   const [isModalVisible, setModalVisible] = useState(false);
 
-
   const handleImagePress = () => {
     setModalVisible(true); // Show the modal when the image is clicked
   };
@@ -1685,7 +2085,56 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
   const handleCloseModal = () => {
     setModalVisible(false); // Hide the modal
   };
-  
+
+  const handleRemoveMemberPress = (
+    isPublic: any,
+    newroomType: any,
+    newroomID: any,
+    item: any
+  ) => {
+    globalThis.confirmAction = "removeMember";
+    globalThis.confirmAlertMessage = isPublic
+      ? t("After_beithis_individual_is_longereligiblegroup")
+      : newroomType !== "broadcast"
+      ? t("delete_from_group")
+      : t("delete_from_broadcast");
+
+    // Store required parameters for `removeMember` in `confirmParams`
+    globalThis.confirmParams = {
+      newroomID,
+      userId: item.userId,
+      userName: item.userName || item.name || item.roomName,
+    };
+
+    // Set the action for `ConfirmAlertModel`
+    // globalThis.removeMember = () => removeMember(newroomID, item.userId, item.userName || item.name || item.roomName);
+
+    setConfirmAlertModel(true); // Show confirmation model
+  };
+
+  const confirmActionPressed = (actionPerformed) => {
+    console.log("actionPerformed", actionPerformed);
+
+    switch (actionPerformed) {
+      case "deleteChat":
+        deleteChat();
+        break;
+      case "exitgroupChat":
+        exitgroupChat();
+        break;
+      case "DeleteGroupApi":
+        DeleteGroupApi();
+        break;
+      case "removeMember":
+        // Retrieve parameters from `confirmParams`
+        const { newroomID, userId, userName } = globalThis.confirmParams;
+        removeMember(newroomID, userId, userName);
+        break;
+      // Add more cases as needed
+      default:
+        console.warn("No action found for:", actionPerformed);
+    }
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -1693,51 +2142,54 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         visible={isModalVisible}
         // transparent={true}
         onRequestClose={handleCloseModal}
-        presentationStyle='overFullScreen'
+        presentationStyle="overFullScreen"
       >
         <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "#000",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  width: "100%",
-                }}
-              >
-
-            <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: "#000",
+            justifyContent: "center",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              position: "absolute",
+              left: 3,
+              zIndex: 20,
+              top: isNotch ? 60 : 60,
+            }}
+            onPress={() => {
+              handleCloseModal();
+            }}
+          >
+            <Image
+              source={require("../../Assets/Icons/Back_Arrow.png")}
               style={{
-                position: "absolute",
-                left: 3,
-                zIndex: 20,
-                top: isNotch ? 60 : 60,
+                height: 25,
+                width: 25,
+                marginLeft: 10,
+                tintColor: iconTheme().iconColorNew,
               }}
-              onPress={() => {
-                handleCloseModal();
-              }}
-            >
-              <Image
-                source={require("../../Assets/Icons/Back_Arrow.png")}
-                style={{
-                  height: 25,
-                  width: 25,
-                  marginLeft: 10,
-                  tintColor: iconTheme().iconColorNew,
-                }}
-              />
-            </TouchableOpacity>
-                <ImageViewer
-                  renderIndicator={() => null}
-                  style={{
-                    height: windowHeight,
-                    width: windowWidth - 20,
-                  }}
-                  imageUrls={[{
-                    url:  roominfo.aliasImage || (groupImage == null ? roominfo.roomImage : groupImage)
-                  }]}
-                  loadingRender={() => <ActivityIndicator size="large" />}
-                  onSwipeDown={handleCloseModal} // Optionally allow swipe down to close
-                />
+            />
+          </TouchableOpacity>
+          <ImageViewer
+            renderIndicator={() => null}
+            style={{
+              height: windowHeight,
+              width: windowWidth - 20,
+            }}
+            imageUrls={[
+              {
+                url:
+                  roominfo.aliasImage ||
+                  (groupImage == null ? roominfo.roomImage : groupImage),
+              },
+            ]}
+            loadingRender={() => <ActivityIndicator size="large" />}
+            onSwipeDown={handleCloseModal} // Optionally allow swipe down to close
+          />
         </View>
       </Modal>
 
@@ -1747,6 +2199,71 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
           backgroundColor={"rgba(52, 52, 52, 0.0)"}
         />
       )}
+
+      <ConfirmAlertModel
+        visible={confirmAlertModel}
+        onRequestClose={() => setConfirmAlertModel(false)}
+        confirmText={globalThis.confirmAlertMessage}
+        cancel={() => setConfirmAlertModel(false)}
+        confirmButton={() => {
+          console.log("CONFIRM BUTTON PRESED", globalThis.confirmAction);
+          setConfirmAlertModel(false); // Close the alert
+          if (globalThis.confirmAction) {
+            confirmActionPressed(globalThis.confirmAction); // Execute the specific action
+          }
+        }}
+      />
+      <SuccessModel
+        visible={successAlertModel}
+        onRequestClose={() => setSuccessAlertModel(false)}
+        succesText={globalThis.successMessage}
+        doneButton={() => {
+          setSuccessAlertModel(false), navigation.navigate("BottomBar");
+        }}
+      />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
+
+      <WarningModal
+        visible={warningModalVisible}
+        type={banType}
+        onClose={() => {
+          if (
+            banTitle === "Account Suspended!" ||
+            banTitle === "Account Permanently Suspended!"
+          ) {
+            setWarningModalVisible(false);
+            banType = "Warning";
+            banMessage = "";
+            banTitle = "";
+
+            dispatch(setUserSuspendedDays(0));
+            navigation.push("Login");
+          } else {
+            setWarningModalVisible(false);
+          }
+        }}
+        message={banMessage}
+        title={banTitle}
+      />
+
+      <ChannelTypeModal
+        visible={isChannelTypeModal}
+        isPublicSelected={publicSelected}
+        onRequestClose={() => setChannelTypeModal(false)}
+        onNextClick={AfterChoosingChannelType}
+      />
 
       <PinModal
         isVisible={isGeneratePinModalVisible}
@@ -1796,6 +2313,9 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
         navigation={navigation}
         newChattingPress={newChattingPress}
+        openChannelModal={() => {
+          setChannelTypeModal(true);
+        }}
       />
 
       <LoaderModel
@@ -1819,20 +2339,32 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
 
           <View style={styles.plusImageContainer}>
             <TouchableOpacity
-              style={styles.backArrowContainer}
+              style={[
+                styles.backArrowContainer,
+                {
+                  width: 25,
+                  height: 25,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
               onPress={() => {
                 navigation.pop();
               }}
             >
               <Image
-                source={require("../../Assets/Icons/Back.png")}
-                style={styles.backIcon}
+                source={require("../../Assets/Icons/back2.png")}
+                style={[
+                  styles.backIcon,
+                  { width: "100%", height: 13, resizeMode: "contain" },
+                ]}
                 resizeMode="contain"
               />
             </TouchableOpacity>
           </View>
 
-          {newroomType !== "single" && 
+          {newroomType !== "single" &&
             (currentUserData?.owner == globalThis.userChatId ||
               currentUserData?.isAdmin == true) &&
             newroomType !== "broadcast" && (
@@ -1846,6 +2378,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                       userstatus,
                       allow: allow,
                       isPublic: isPublic,
+                      owner: currentUserData?.owner,
                     });
                   }}
                 >
@@ -1888,26 +2421,61 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
           )}
 
           <View style={styles.contactContainer}>
-            <Text style={styles.name1conText}>
-              {roominfo.aliasName
-                ? roominfo.aliasName
-                : roominfo.contactName
-                ? roominfo.contactName
-                : typeof roominfo.roomName == "number"
-                ? "+" + roominfo.roomName
-                : roominfo.roomName}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={styles.name1conText}>
+                {roominfo.aliasName
+                  ? roominfo.aliasName
+                  : roominfo.contactName
+                  ? roominfo.contactName
+                  : typeof roominfo.roomName == "number"
+                  ? "+" + roominfo.roomName
+                  : roominfo.roomName}
+              </Text>
+
+              {
+                // @ts-ignore
+                (isUserPremium == 1 || isUserPremium == true) && (
+                  <Image
+                    source={require("../../Assets/Image/PremiumBadge.png")}
+                    style={{
+                      height: 15,
+                      width: 15,
+                      marginLeft: Platform.OS === "ios" ? 5 : 10,
+                      //  alignSelf:"center",
+                      marginTop: Platform.OS === "ios" ? 2 : 2,
+                      tintColor: iconTheme().iconColorNew,
+                      resizeMode: "contain",
+                    }}
+                  />
+                )
+              }
+
+              {(isDiamonds == 1 || isDiamonds == true) && (
+                <Image
+                  source={require("../../Assets/Icons/diamond.png")}
+                  style={{
+                    height: 15,
+                    width: 15,
+                    marginLeft: Platform.OS === "ios" ? 2 : 5,
+                    //  alignSelf:"center",
+                    marginTop: Platform.OS === "ios" ? 2 : 2,
+                    tintColor: iconTheme().iconColorNew,
+                    resizeMode: "contain",
+                  }}
+                />
+              )}
+            </View>
           </View>
         </View>
 
         <View style={styles.themeContainer}>
           <ScrollView
-          onScroll={(e) => {
-            if(fetchmemberloader){
-                handleScroll(e)
+            onScroll={(e) => {
+              if (fetchmemberloader) {
+                handleScroll(e);
               }
-          }}
-          scrollEventThrottle={16}
+            }}
+            scrollEventThrottle={16}
             showsVerticalScrollIndicator={false}
             style={{
               height: "auto",
@@ -1917,7 +2485,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
               <>
                 {newroomType == "single" && (
                   <View style={styles.chooseContainer}>
-                    <Text style={styles.nText}>{t("status")}</Text>
+                    <Text style={styles.nText}>{t("Bio")}</Text>
                     <Text style={styles.statusText}>
                       {userstatus ? userstatus : "--"}
                     </Text>
@@ -1964,8 +2532,8 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                   </TouchableOpacity>
                 )}
 
-                <TouchableOpacity 
-                // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                <TouchableOpacity
+                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                   onPress={() => lockChatfunction(!isLock)}
                   style={styles.Container}
                 >
@@ -2008,56 +2576,50 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                         resizeMode="contain"
                       />
                       <Text style={styles.sText}>
-                        {isnewblock ? t("unblockChat") : t("blockChat")}
+                        {isnewblock ? t("unblockUser") : t("blockChat")}
                       </Text>
                     </TouchableOpacity>
                   </React.Fragment>
                 )}
 
-                {
-                  
-                  newroomType !== "single" &&
-                    newroomType !== "broadcast" && 
-                    (currentUserData?.owner == globalThis.userChatId ||
-                      currentUserData?.isAdmin == true) && (
-                      <TouchableOpacity
-                        style={styles.Container}
-                        onPress={() => setCameraModal(true)}
-                      >
-                        <Image
-                          source={require("../../Assets/Icons/Set_Profile.png")}
-                          style={styles.circleImageLayout}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.sText}>{t("setGroupImage")}</Text>
-                      </TouchableOpacity>
-                    )
-                }
-                {
-                 
-                  newroomType !== "single" &&
-                    newroomType !== "broadcast" && 
-                    (currentUserData?.owner == globalThis.userChatId ||
-                      currentUserData?.isAdmin == true) &&
-                    roominfo.roomImage !==
-                      "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Document/1717401343823_36FA5C33-D2AD-40F0-AC1B-E35C078FCFFE.jpg" && (
-                      <TouchableOpacity
-                        style={styles.Container}
-                        onPress={removeImage}
-                      >
-                        <Image
-                          source={require("../../Assets/Icons/delete_image.png")}
-                          style={{
-                            width: 22,
-                            height: 25,
-                            tintColor: iconTheme().iconColor,
-                          }}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.sText}>{"Remove Image"}</Text>
-                      </TouchableOpacity>
-                    )
-                }
+                {newroomType !== "single" &&
+                  newroomType !== "broadcast" &&
+                  (currentUserData?.owner == globalThis.userChatId ||
+                    currentUserData?.isAdmin == true) && (
+                    <TouchableOpacity
+                      style={styles.Container}
+                      onPress={() => setCameraModal(true)}
+                    >
+                      <Image
+                        source={require("../../Assets/Icons/Set_Profile.png")}
+                        style={styles.circleImageLayout}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.sText}>{t("setGroupImage")}</Text>
+                    </TouchableOpacity>
+                  )}
+                {newroomType !== "single" &&
+                  newroomType !== "broadcast" &&
+                  (currentUserData?.owner == globalThis.userChatId ||
+                    currentUserData?.isAdmin == true) &&
+                  roominfo.roomImage !==
+                    "https://tokee-chat-staging.s3.us-east-2.amazonaws.com/Document/1717401343823_36FA5C33-D2AD-40F0-AC1B-E35C078FCFFE.jpg" && (
+                    <TouchableOpacity
+                      style={styles.Container}
+                      onPress={removeImage}
+                    >
+                      <Image
+                        source={require("../../Assets/Icons/delete_image.png")}
+                        style={{
+                          width: 22,
+                          height: 25,
+                          tintColor: iconTheme().iconColor,
+                        }}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.sText}>{t("Remove_Image")}</Text>
+                    </TouchableOpacity>
+                  )}
 
                 {newroomType == "single" && (
                   <TouchableOpacity
@@ -2084,7 +2646,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                   />
                   <Text style={styles.reportText}>{t("deleteChat")}</Text>
                 </TouchableOpacity>
-                {((newroomType !== "single" && 
+                {((newroomType !== "single" &&
                   currentUserData?.owner !== globalThis.userChatId &&
                   currentUserData?.isAdmin !== 1 &&
                   isnewblock == 0) ||
@@ -2106,25 +2668,31 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
 
                 {newroomType !== "single" &&
                   (globalThis.userChatId == currentUserData?.owner ||
-                    currentUserData?.isAdmin == 1) && isPublic == 0 &&
+                    currentUserData?.isAdmin == 1) &&
+                  isPublic == 0 &&
                   newroomType != "broadcast" && (
                     <TouchableOpacity
                       onPress={() => {
-                        Alert.alert(
-                          "Confirm",
-                          "Are you sure you want to detele this group permanently",
-                          [
-                            {
-                              text: "Cancel",
-                              onPress: () => console.log("No Pressed"),
-                              style: "cancel",
-                            },
-                            {
-                              text: "Yes",
-                              onPress: () => DeleteGroupApi(),
-                            },
-                          ]
+                        globalThis.confirmAction = "DeleteGroupApi";
+                        globalThis.confirmAlertMessage = t(
+                          "Are_you_sure_you_want_to_detele_this_group_permanently"
                         );
+                        setConfirmAlertModel(true);
+                        // Alert.alert(
+                        //   t("confirm"),
+                        //   t("Are_you_sure_you_want_to_detele_this_group_permanently"),
+                        //   [
+                        //     {
+                        //       text: t("cancel"),
+                        //       onPress: () => console.log("No Pressed"),
+                        //       style: "cancel",
+                        //     },
+                        //     {
+                        //       text: "Yes",
+                        //       onPress: () => DeleteGroupApi(),
+                        //     },
+                        //   ]
+                        // );
                       }}
                       style={styles.reportContainer}
                     >
@@ -2137,27 +2705,33 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                     </TouchableOpacity>
                   )}
 
-              {newroomType !== "single" &&
-                  (globalThis.userChatId == currentUserData?.owner &&
-                    currentUserData?.isAdmin == 1) && isPublic == 1 &&
+                {newroomType !== "single" &&
+                  globalThis.userChatId == currentUserData?.owner &&
+                  currentUserData?.isAdmin == 1 &&
+                  isPublic == 1 &&
                   newroomType != "broadcast" && (
                     <TouchableOpacity
                       onPress={() => {
-                        Alert.alert(
-                          "Confirm",
-                          "Are you sure you want to detele this group permanently",
-                          [
-                            {
-                              text: "Cancel",
-                              onPress: () => console.log("No Pressed"),
-                              style: "cancel",
-                            },
-                            {
-                              text: "Yes",
-                              onPress: () => DeleteGroupApi(),
-                            },
-                          ]
+                        globalThis.confirmAction = "DeleteGroupApi";
+                        globalThis.confirmAlertMessage = t(
+                          "Are_you_sure_you_want_to_detele_this_group_permanently"
                         );
+                        setConfirmAlertModel(true);
+                        // Alert.alert(
+                        //   t("confirm"),
+                        //   t("Are_you_sure_you_want_to_detele_this_group_permanently"),
+                        //   [
+                        //     {
+                        //       text: t("cancel"),
+                        //       onPress: () => console.log("No Pressed"),
+                        //       style: "cancel",
+                        //     },
+                        //     {
+                        //       text: "Yes",
+                        //       onPress: () => DeleteGroupApi(),
+                        //     },
+                        //   ]
+                        // );
                       }}
                       style={styles.reportContainer}
                     >
@@ -2195,7 +2769,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                       color={iconTheme().iconColorNew}
                     />
                     <Text style={{ marginTop: 10 }}>
-                      Fetching members. Please wait...
+                      {t("Fetching_members_Pleasewait")}
                     </Text>
                   </View>
                 )}
@@ -2207,8 +2781,6 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                     (a: any, b: any) => b.isAdmin - a.isAdmin
                   )}
                   renderItem={({ item, index }: any) => {
-                    console.log("item",item);
-                    
                     return (
                       <TouchableOpacity
                         key={index}
@@ -2216,7 +2788,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                       >
                         {renderIf(
                           makeAdminModel == true &&
-                          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                            // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                             item.userId == clickedUser.userId,
                           <TouchableOpacity
                             style={{
@@ -2240,7 +2812,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                           >
                             <Text style={{ color: "#000" }}>
                               {
-                               // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                                // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                                 clickedUser && clickedUser?.isAdmin == 0
                                   ? t("make_admin")
                                   : t("remove_admin")
@@ -2251,22 +2823,22 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
 
                         <TouchableOpacity
                           onPress={() => {
-                            if (
-                              item.userId != globalThis.globalThis.chatUserId
-                            ) {
-                              getProfileApi(
-                                item.userId,
-                                item.userName,
-                                item.image ||
-                                  "https://tokeecorp.com/backend/public/images/user-avatar.png"
-                              );
-                            }
+                            // if (
+                            //   item.userId != globalThis.globalThis.chatUserId
+                            // ) {
+                            handleApiCalls(
+                              item.userId,
+                              item.userName,
+                              item.image ||
+                                "https://tokeecorp.com/backend/public/images/user-avatar.png"
+                            );
+                            // }
                           }}
                           style={styles.Container2}
                         >
                           {item?.owner !== item?.userId &&
                             currentUserData?.isAdmin == 1 &&
-                            item?.userId != currentUserData?.owner && 
+                            item?.userId != currentUserData?.owner &&
                             item?.userId != globalThis?.chatUserId &&
                             newroomType !== "single" && (
                               <TouchableOpacity
@@ -2282,37 +2854,49 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                                   borderRadius: 50,
                                   backgroundColor: searchBar().back_ground,
                                 }}
-                                onPress={() => {
-                                  Alert.alert(
-                                    "Confirm?",
-                                    isPublic
-                                      ? "After being removed, this individual is no longer eligible for rejoining this group."
-                                      : `Do you want to remove this member from ${
-                                          newroomType != "broadcast"
-                                            ? "group"
-                                            : "broadcast"
-                                        }?`,
-                                    [
-                                      {
-                                        text: "Cancel",
-                                        onPress: () =>
-                                          console.log("No Pressed"),
-                                        style: "cancel",
-                                      },
-                                      {
-                                        text: "Yes",
-                                        onPress: () =>
-                                          removeMember(
-                                            newroomID,
-                                            item.userId,
-                                            item.userName ||
-                                              item.name ||
-                                              item.roomName
-                                          ),
-                                      },
-                                    ]
-                                  );
-                                }}
+                                onPress={() =>
+                                  handleRemoveMemberPress(
+                                    isPublic,
+                                    newroomType,
+                                    newroomID,
+                                    item
+                                  )
+                                }
+
+                                // onPress={() => {
+                                //   globalThis.confirmAction = "removeMember"
+                                //   globalThis.confirmAlertMessage = t("Are_you_sure_you_want_to_detele_this_group_permanently");
+                                //   setConfirmAlertModel(true);
+                                //   Alert.alert(
+                                //     t("confirm"),
+                                //     isPublic
+                                //       ? t("After_beithis_individual_is_longereligiblegroup")
+                                //       :
+                                //           newroomType != "broadcast"
+                                //             ? t("delete_from_group")
+                                //             : t("delete_from_broadcast")
+                                //         ,
+                                //     [
+                                //       {
+                                //         text: t("cancel"),
+                                //         onPress: () =>
+                                //           console.log("No Pressed"),
+                                //         style: "cancel",
+                                //       },
+                                //       {
+                                //         text: t("yes"),
+                                //         onPress: () =>
+                                //           removeMember(
+                                //             newroomID,
+                                //             item.userId,
+                                //             item.userName ||
+                                //               item.name ||
+                                //               item.roomName
+                                //           ),
+                                //       },
+                                //     ]
+                                //   );
+                                // }}
                               >
                                 <Image
                                   source={require("../../Assets/Icons/Cross.png")}
@@ -2341,7 +2925,7 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                             if (
                               item.userId != globalThis.globalThis.chatUserId
                             ) {
-                              getProfileApi(
+                              handleApiCalls(
                                 item.userId,
                                 item.userName,
                                 item.image ||
@@ -2359,38 +2943,29 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                           ]}
                         >
                           <Text style={styles.nameconText}>
-                            {
-                              item.userId == globalThis.chatUserId
-                                ? t("you")
-                                : item.name || item.userName || item.roomName
-                            }
+                            {item.userId == globalThis.chatUserId
+                              ? t("you")
+                              : item.name || item.userName || item.roomName}
                           </Text>
-                          { item?.premium == "1"  &&
-          <Image
-                source={require("../../Assets/Icons/bx_star_dark.png")}
-                style={{height:15, width:15,marginTop:2, tintColor:iconTheme().iconColorNew}}
-              />
-              }
-                          {
-                            item.userId != globalThis.chatUserId && (
-                              <TouchableOpacity
-                                onPress={() => {
-                                  setReportUserID(item.userId);
-                                  setReportUser(true);
+
+                          {item.userId != globalThis.chatUserId && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setReportUserID(item.userId);
+                                setReportUser(true);
+                              }}
+                            >
+                              <Image
+                                source={require("../../Assets/Icons/Report.png")}
+                                style={{
+                                  height: 20,
+                                  width: 20,
+                                  marginHorizontal: 5,
                                 }}
-                              >
-                                <Image
-                                  source={require("../../Assets/Icons/Report.png")}
-                                  style={{
-                                    height: 20,
-                                    width: 20,
-                                    marginHorizontal: 5,
-                                  }}
-                                  resizeMode="contain"
-                                />
-                              </TouchableOpacity>
-                            )
-                          }
+                                resizeMode="contain"
+                              />
+                            </TouchableOpacity>
+                          )}
                         </TouchableOpacity>
 
                         {newroomType !== "single" &&
@@ -2423,7 +2998,9 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                             </View>
                           )}
                         {newroomType !== "single" &&
-                          item.isAdmin == "0" &&
+                          (item.isAdmin == "0" ||
+                            item.isAdmin == 0 ||
+                            item.isAdmin == false) &&
                           item.userId != item?.owner &&
                           item.userId != globalThis.chatUserId &&
                           newroomType != "broadcast" &&
@@ -2459,7 +3036,9 @@ export default function ContactPageScreen({ props, navigation, route }: any) {
                           )}
                         {newroomType !== "single" &&
                           item.userId !== currentUserData?.owner &&
-                          item.isAdmin == true &&
+                          (item.isAdmin == "1" ||
+                            item.isAdmin == 1 ||
+                            item.isAdmin == true) &&
                           item.userId == globalThis.chatUserId &&
                           currentUserData?.isAdmin == true && (
                             <View style={[styles.editProfile3, {}]}>

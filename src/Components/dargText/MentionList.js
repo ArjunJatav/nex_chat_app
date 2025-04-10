@@ -60,11 +60,12 @@ const styles = StyleSheet.create({
    // textAlign:'center'
   },
   mentionContainer: {
-    height: 300,
+    maxHeight:300,
     width: 270,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 5,
+    overflow:"hidden"
    
   },
 });

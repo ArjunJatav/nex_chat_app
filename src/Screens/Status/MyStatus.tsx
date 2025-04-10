@@ -27,17 +27,24 @@ import { font } from "../../Components/Fonts/Font";
 import MainComponent from "../../Components/MainComponent/MainComponent";
 import ThemeContext from "../../Components/ThemeContext/ThemeContext";
 import TopBar from "../../Components/TopBar/TopBar";
-import { delete_story, get_story_count, get_user_story } from "../../Constant/Api";
-import { statusTop } from "../../Navigation/Icons";
+import {
+  delete_story,
+  get_story_count,
+  get_user_story,
+} from "../../Constant/Api";
+import { chatTop, statusTop } from "../../Navigation/Icons";
 import { LoaderModel } from "../Modals/LoaderModel";
 import { useSelector } from "react-redux";
 import PremiumAlert from "../../Components/CustomAlert/PremiumAlert";
+import { ConfirmAlertModel } from "../Modals/ConfirmAlertModel";
+import { SuccessModel } from "../Modals/SuccessModel";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
 const isDarkMode = true;
 let premiumAlertHeading = "";
 let premiumAlertSubHeading = "";
 let premiumAlertFirstButtonText = "";
 let premiumAlertSecondButtonText = "";
-
 
 // eslint-disable-next-line
 export default function MyStatusScreen({ navigation }: any) {
@@ -48,10 +55,18 @@ export default function MyStatusScreen({ navigation }: any) {
   const [content, setContent] = useState([]);
   const { t } = useTranslation();
   const userPremium = useSelector(
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     (state) => state?.friendListSlice.userPremium
   );
   const [loaderModel, setloaderModel] = useState(false);
+  const [confirmAlertModel, setConfirmAlertModel] = useState(false);
+  const [successAlertModel, setSuccessAlertModel] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
+
+  const nonPremiumStoryLimit = useSelector(
+    (state: any) => state?.premiumLimitSlice?.nonPremiumStoryLimit
+  );
 
   // **********   Focus on screen  ********** ///
   useEffect(() => {
@@ -61,9 +76,10 @@ export default function MyStatusScreen({ navigation }: any) {
       NetInfo.fetch().then((state) => {
         if (state.isConnected === false) {
           setloaderModel(false);
-          Alert.alert(t("noInternet"), t("please_check_internet"), [
-            { text: t("ok") },
-          ]);
+          setNoInternetModel(true);
+          // Alert.alert(t("noInternet"), t("please_check_internet"), [
+          //   { text: t("ok") },
+          // ]);
 
           return;
         } else {
@@ -97,14 +113,21 @@ export default function MyStatusScreen({ navigation }: any) {
   // eslint-disable-next-line
   const profileApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
-
       setloaderModel(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+      
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+
+      // setloaderModel(false);
     } else {
+      setloaderModel(false);
       setContent(ResponseData.data);
+
       if (ResponseData.data == "") {
+        globalThis.allDelete = true;
         // navigation.navigate("StatusScreen");
-        navigation.navigate("BottomBar", { screen: "chatScreen" });
+        // navigation.navigate("BottomBar", { screen: "chatScreen" });
       }
     }
     setloaderModel(false);
@@ -116,15 +139,16 @@ export default function MyStatusScreen({ navigation }: any) {
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
+        setNoInternetModel(true);
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
 
         return;
       } else {
         const headers = {
           "Content-Type": "application/json",
-          Accept: "application/json", 
+          Accept: "application/json",
           localization: globalThis.selectLanguage,
           Authorization: "Bearer " + globalThis.Authtoken,
         };
@@ -145,11 +169,17 @@ export default function MyStatusScreen({ navigation }: any) {
   // eslint-disable-next-line
   const deleteApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
     } else {
-      Alert.alert(t("success"), ResponseData.message, [
-        { text: t("ok"), onPress: () => getStoryApi() },
-      ]);
+      getStoryApi();
+      globalThis.successMessage = ResponseData.message;
+      setSuccessAlertModel(true);
+
+      // Alert.alert(t("success"), ResponseData.message, [
+      //   { text: t("ok"), onPress: () => getStoryApi() },
+      // ]);
     }
   };
 
@@ -164,82 +194,81 @@ export default function MyStatusScreen({ navigation }: any) {
 
   // eslint-disable-next-line
   const deleteConfirmation = (id: any) => {
-    Alert.alert(t("confirm"), t("do_you_want_delete_story"), [
-      { text: t("cancel") },
-      { text: t("yes"), onPress: () => deleteStatusApi(id) },
-    ]);
+    globalThis.selectedId = id;
+    setConfirmAlertModel(true);
+    // Alert.alert(t("confirm"), t("do_you_want_delete_story"), [
+    //   { text: t("cancel") },
+    //   { text: t("yes"), onPress: () => deleteStatusApi(id) },
+    // ]);
   };
 
   const addTextStory = () => {
     const paramToSend = "TextStory";
-    OnStoryUpload(paramToSend)
+    OnStoryUpload(paramToSend);
     //navigation.navigate("AddTextStatusScreen");
   };
-
-
-
-
-
 
   function OnStoryUpload(value) {
     const headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
-      Authorization: "Bearer " + globalThis.Authtoken, 
+      Authorization: "Bearer " + globalThis.Authtoken,
       localization: globalThis.selectLanguage,
     };
-
 
     GetApiCall(
       get_story_count,
       headers,
       navigation,
       (ResponseData, ErrorStr) => {
-        countApiSuccess(ResponseData, ErrorStr,value)
+        countApiSuccess(ResponseData, ErrorStr, value);
       }
     );
   }
 
-
-
-     // eslint-disable-next-line
-     const countApiSuccess = (ResponseData: any, ErrorStr: any,value : String) => {
-      if (ErrorStr) {
-        Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
-     //   setloaderMoedl(false);
-      }else{
-        console.log("count api response >>>>",ResponseData)
-        if (userPremium) {
+  // eslint-disable-next-line
+  const countApiSuccess = (ResponseData: any, ErrorStr: any, value: String) => {
+    if (ErrorStr) {
+      setloaderModel(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+    } else {
+      console.log("count api response >>>>", ResponseData);
+      if (userPremium) {
+        if (value == "cameraStory") {
+          navigation.navigate("AddCameraStoryScreen");
+        } else {
+          navigation.navigate("AddTextStatusScreen");
+        }
+      } else {
+        if (
+          ResponseData?.data?.total_stories == nonPremiumStoryLimit ||
+          ResponseData?.data?.total_stories > nonPremiumStoryLimit
+        ) {
+          premiumAlertHeading = t("You_can_add_a_maximum_o_stories");
+          premiumAlertSubHeading = t(
+            "Upgrade_to_Premium_for_unlimited_stories"
+          );
+          premiumAlertFirstButtonText = "Continue with Free Plan";
+          premiumAlertSecondButtonText = "Go To Premium";
+          setShowPremiumAlert(true);
+          // Alert.alert("Oops!","You have exceed your stories limit.")
+        } else {
           if (value == "cameraStory") {
             navigation.navigate("AddCameraStoryScreen");
           } else {
             navigation.navigate("AddTextStatusScreen");
           }
-         
-        } else {
-          if (ResponseData?.data?.total_stories == 30 || ResponseData?.data?.total_stories > 30) {
-            premiumAlertHeading = "You can add a maximum of 30 stories.";
-          premiumAlertSubHeading = "Upgrade to Premium for unlimited stories. If you prefer to stay on the FREE plan, we will remove your first story to maintain the 30-story limit.";
-          premiumAlertFirstButtonText = "Continue with Free Plan";
-          premiumAlertSecondButtonText = "Go To Premium";
-          setShowPremiumAlert(true);
-            // Alert.alert("Oops!","You have exceed your stories limit.")
-          } else {
-            if (value == "cameraStory") {
-              navigation.navigate("AddCameraStoryScreen");
-            } else {
-              navigation.navigate("AddTextStatusScreen");
-            }
-          }
         }
       }
     }
-
+  };
 
   const addCameraStory = async () => {
     const paramToSend = "cameraStory";
-  
-    OnStoryUpload(paramToSend)
+
+    OnStoryUpload(paramToSend);
   };
 
   const styles = StyleSheet.create({
@@ -286,7 +315,7 @@ export default function MyStatusScreen({ navigation }: any) {
       fontFamily: font.bold(),
       color: COLORS.grey,
       paddingLeft: 3,
-      height: 20,
+      // height: 20,
     },
     name1conText: {
       marginBottom: 0,
@@ -382,19 +411,60 @@ export default function MyStatusScreen({ navigation }: any) {
       safeAreaColr={themeModule().theme_background}
     >
       <LoaderModel visible={loaderModel} />
+      <ConfirmAlertModel
+        visible={confirmAlertModel}
+        onRequestClose={() => setConfirmAlertModel(false)}
+        confirmText={t("do_you_want_delete_story")}
+        cancel={() => setConfirmAlertModel(false)}
+        confirmButton={() => {
+          setConfirmAlertModel(false), deleteStatusApi(globalThis.selectedId);
+        }}
+      />
+
+      <SuccessModel
+        visible={successAlertModel}
+        onRequestClose={() => setSuccessAlertModel(false)}
+        succesText={globalThis.successMessage}
+        doneButton={() => {
+          setSuccessAlertModel(false) ;
+          if (globalThis.allDelete) {
+            navigation.navigate("BottomBar", { screen: "chatScreen" });
+          }
+        
+        }}
+      />
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
 
       <PremiumAlert
-          visible={showPremiumAlert}
-          onRequestClose={() => setShowPremiumAlert(false)}
-          cancel={() => setShowPremiumAlert(false)}
-          Heading={premiumAlertHeading}
-          SubHeading={premiumAlertSubHeading}
-          FirstButton={premiumAlertFirstButtonText}
-          SecondButton={premiumAlertSecondButtonText}
-          firstButtonClick={()=>setShowPremiumAlert(false)}
-          secondButtonClick={()=>navigation.navigate("TokeePremium")}
-        />
-
+        visible={showPremiumAlert}
+        onRequestClose={() => setShowPremiumAlert(false)}
+        cancel={() => setShowPremiumAlert(false)}
+        Heading={premiumAlertHeading}
+        SubHeading={premiumAlertSubHeading}
+        FirstButton={premiumAlertFirstButtonText}
+        SecondButton={premiumAlertSecondButtonText}
+        firstButtonClick={() => setShowPremiumAlert(false)}
+        secondButtonClick={() => {
+          if (premiumAlertSecondButtonText == "Cancel") {
+            setShowPremiumAlert(false);
+          } else {
+            setShowPremiumAlert(false);
+            navigation.navigate("PremiumFeaturesScreen");
+          }
+        }}
+      />
 
       <View
         style={{
@@ -413,37 +483,36 @@ export default function MyStatusScreen({ navigation }: any) {
           title={t("my_status")}
           backArrow={true}
           navState={navigation}
-          checked={
-            globalThis.selectTheme
-          }
+          checked={globalThis.selectTheme}
         />
 
         <View style={styles.topContainer}>
           <View style={styles.groupContainer}></View>
         </View>
 
-        {
-          
-          globalThis.selectTheme === "christmas" || 
-          globalThis.selectTheme === "newYear" || 
-          globalThis.selectTheme === "newYearTheme" || 
-          globalThis.selectTheme === "mongoliaTheme" ||
-          globalThis.selectTheme === "mexicoTheme" || 
-          globalThis.selectTheme === "usindepTheme" ? (
-            <ImageBackground
-              source={statusTop().BackGroundImage}
-              resizeMode="cover" // Update the path or use a URL
-              style={{
-                height: "100%",
-                width: windowWidth,
-                marginTop: 0,
-                position: "absolute",
-                bottom: 0,
-                zIndex: 0,
-              }}
-            ></ImageBackground>
-          ) : null
-        }
+        {globalThis.selectTheme === "christmas" ||
+        globalThis.selectTheme === "newYear" ||
+        globalThis.selectTheme === "newYearTheme" ||
+        globalThis.selectTheme === "mongoliaTheme" ||
+        globalThis.selectTheme === "indiaTheme" ||
+        globalThis.selectTheme === "englandTheme" ||
+        globalThis.selectTheme === "americaTheme" ||
+        globalThis.selectTheme === "mexicoTheme" ||
+        globalThis.selectTheme === "usindepTheme" ? (
+          <ImageBackground
+            source={statusTop().BackGroundImage}
+            resizeMode="cover" // Update the path or use a URL
+            style={{
+              height: "100%",
+              width: windowWidth,
+              marginTop: 0,
+              position: "absolute",
+              bottom: 0,
+              zIndex: 0,
+              top: chatTop().top,
+            }}
+          ></ImageBackground>
+        ) : null}
       </View>
       <View style={styles.statusContainer}>
         <FlatList
@@ -456,9 +525,9 @@ export default function MyStatusScreen({ navigation }: any) {
             return (
               <View style={[styles.profile2Container, {}]}>
                 <TouchableOpacity style={styles.Container2}>
-                  {item.file_type === "image" ? (
+                  {item.file_type === "image" || item.file_type === "video" ? (
                     <Image
-                      source={{ uri: item.file }}
+                      source={{ uri: item.thumbnail }}
                       style={styles.circleImageLayout}
                       resizeMode="cover"
                     />

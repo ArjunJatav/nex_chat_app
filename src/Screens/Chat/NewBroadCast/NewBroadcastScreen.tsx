@@ -38,6 +38,7 @@ import { insertContact, insertContactIOS } from "../../../sqliteStore";
 import { ContactLoaderModel } from "../../Modals/ContactLoaderModel";
 import { LoaderModel } from "../../Modals/LoaderModel";
 import ToShowContactName from "../../calling/components/ContactShow";
+import { ErrorAlertModel } from "../../Modals/ErrorAlertModel";
 const isDarkMode = true;
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
@@ -52,6 +53,7 @@ export default function NewBroadcastScreen({ navigation }: any) {
   const { t, i18n } = useTranslation();
   const [conatctLoaderModel, setContactLoaderModel] = useState(true);
   const [selected, setSelected] = React.useState(data);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
 
   // **********   Method for Navigation ********** ///
   const buttonPress = () => {
@@ -126,10 +128,9 @@ export default function NewBroadcastScreen({ navigation }: any) {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
         {
-          title: "Contacts",
-          message: "This app would like to view your contacts.",
-          buttonNegative: "Cancel",
-          buttonPositive: "OK",
+          title: t("tokee_would_like_to_access_your_contact"),
+          message: t("this_permission_is_requried_for_app_to_funcation_well "),
+          buttonPositive: "Ok",
         }
       );
       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
@@ -211,7 +212,6 @@ export default function NewBroadcastScreen({ navigation }: any) {
                     country_code: "",
                     phone_number: result,
                     contact_name: ToShowContactName(item),
-
                   };
 
                   contactArr.push(contactDict);
@@ -258,8 +258,10 @@ export default function NewBroadcastScreen({ navigation }: any) {
   // **********  Method for return the api Response   ********** ///
   const apiSuccess = async (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       setContactLoaderModel(false);
+      globalThis.errorMessage = ErrorStr;
+      setErrorAlertModel(true);
     } else {
       await AsyncStorage.setItem("isContactUploaded", "true");
       //@ts-ignore
@@ -298,10 +300,12 @@ export default function NewBroadcastScreen({ navigation }: any) {
     if (selected.length > 0) {
       navigation.navigate("CreateBroadcastScreen", { selected_data: selected });
     } else {
-      Alert.alert(
-        "Members required!",
-        "Please select at least one or more members."
-      );
+      // Alert.alert(
+      //   t("member_required"),
+      //   t("Please_select_at_least_one_or_mor_members")
+      // );
+      globalThis.errorMessage = t("member_required") + ", "+t("Please_select_at_least_one_or_mor_members");
+      setErrorAlertModel(true);
     }
   };
 
@@ -440,11 +444,11 @@ export default function NewBroadcastScreen({ navigation }: any) {
     },
 
     profile1Container: {
-      marginTop: 10,
+      paddingVertical: Platform.OS == "ios" ? 10 : 5,
       flexDirection: "row",
-      height: 60,
-      borderBottomWidth: 0.5,
-      borderBottomColor: "#F6EBF3",
+      // height: 60,
+      borderBottomWidth: 1,
+      borderBottomColor: "#EAEAEA",
     },
     profile1Container2: {
       marginTop: 10,
@@ -537,6 +541,12 @@ export default function NewBroadcastScreen({ navigation }: any) {
     >
       <ContactLoaderModel visible={conatctLoaderModel} />
 
+      <ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
       <View
         style={{
           position: "relative",
@@ -585,6 +595,9 @@ export default function NewBroadcastScreen({ navigation }: any) {
           globalThis.selectTheme === "newYear" || //@ts-ignore
           globalThis.selectTheme === "newYearTheme" || //@ts-ignore
           globalThis.selectTheme === "mongoliaTheme" || //@ts-ignore
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "mexicoTheme" || //@ts-ignore
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
@@ -597,6 +610,7 @@ export default function NewBroadcastScreen({ navigation }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null
@@ -609,7 +623,7 @@ export default function NewBroadcastScreen({ navigation }: any) {
           search={searchableData}
           value={searchValue}
           clickCross={clearInput}
-          placeHolder= {t("search")}  
+          placeHolder={t("search")}
         />
         {/* <SearchBar  />  */}
         <View style={{ marginBottom: 10 }}>

@@ -7,6 +7,12 @@ const friendListSlice = createSlice({
     bottomSheetStory:'',
     userPremium : false,
     storyList: [],
+    userGalleryVideos:[],
+    enableNotification:true,
+    stealthMode:true,
+    showLastSeen:true,
+    dimonds:0,
+    uniqueFriendsData: []
   },
   reducers: {
     setFriends: (state, action) => {
@@ -23,9 +29,34 @@ const friendListSlice = createSlice({
     setPremium : (state, action) => {
       state.userPremium = action.payload;
     },
+
+    setUserGalleryVideos : (state, action) => {
+      state.userGalleryVideos = action.payload;
+    },
+
+    setEnableNotification : (state, action) => {
+      state.enableNotification = action.payload;
+    },
+
+    setStealthMode : (state, action) => {
+      state.stealthMode = action.payload;
+    },
+
+    setShowLastSeen : (state, action) => {
+      state.showLastSeen = action.payload;
+    },
+
+    setDaimonds : (state, action) => {
+      state.dimonds = action.payload;
+    },
+
+    setUniqueFriendsData: (state, action) => {
+      state.uniqueFriendsData = action.payload;
+    },
+ 
   },
 });
 
-export const { setFriends,setBottomSheetStory,setPremium,setStorylist} = friendListSlice.actions;
+export const { setFriends,setBottomSheetStory,setPremium,setStorylist,setUserGalleryVideos,setEnableNotification,setStealthMode,setShowLastSeen,setDaimonds,setUniqueFriendsData} = friendListSlice.actions;
 
 export default friendListSlice.reducer;

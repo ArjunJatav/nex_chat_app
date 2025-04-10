@@ -1,5 +1,4 @@
 import React, { useContext, useState } from "react";
-import { useTranslation } from "react-i18next";
 import {
   Image,
   Keyboard,
@@ -10,12 +9,8 @@ import {
 } from "react-native";
 import { COLORS, searchBar } from "../Colors/Colors";
 import { font } from "../Fonts/Font";
-import ThemeContext from "../ThemeContext/ThemeContext";
 
 export default function SearchBar({ search, value, clickCross, placeHolder }: any) {
-  const { colorTheme } = useContext(ThemeContext);
-  const [searchValue, setvalue] = useState(value);
-  const { t, i18n } = useTranslation();
 
   const styles = StyleSheet.create({
     seachContainer: {

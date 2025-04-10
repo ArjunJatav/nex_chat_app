@@ -1,10 +1,10 @@
 import { io } from "socket.io-client";
-import { chatBaseUrl } from "./Constant/Api";
+import { socketUrl } from "./Constant/Api";
 
 let socketInstance = null;
 export const socketInit = () => {
   if (!socketInstance) {
-    socketInstance = io(chatBaseUrl, {
+    socketInstance = io(socketUrl, {
       autoConnect: true,
       reconnection: true,
       serveClient: true,
@@ -28,9 +28,11 @@ export const socketInit = () => {
 export const socketDisconnect = () => {
   try {
     if (socketInstance) {
+      console.log("yes disconnect 1")
       socketInstance = null;
     }
   } catch (error) {
+    console.log("yes disconnect")
     return;
   }
 };

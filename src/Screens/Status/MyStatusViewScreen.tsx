@@ -24,7 +24,7 @@ import FastImage from "react-native-fast-image";
 import LinearGradient from "react-native-linear-gradient";
 import Video from "react-native-video";
 import { GetApiCall } from "../../Components/ApiServices/GetApi";
-import { COLORS, iconTheme } from "../../Components/Colors/Colors";
+import { COLORS } from "../../Components/Colors/Colors";
 import { StoryTimeConverter } from "../../Components/DateTimeFormat/TimeConverter";
 import { font } from "../../Components/Fonts/Font";
 import ThemeContext from "../../Components/ThemeContext/ThemeContext";
@@ -41,8 +41,20 @@ import { setProfileData } from "../../Redux/MessageSlice";
 import { PostApiCall } from "../../Components/ApiServices/PostApi";
 import CustomBottomSheetModal from "../../Components/CustomBottomSheetModal";
 import { setBottomSheetStory } from "../../reducers/friendListSlice";
-import { setMainprovider, setisnewArchiveroom, setisnewBlock, setisnewmMute, setnewroomID, setnewroomType, setroominfo, setyesstart } from "../../Redux/ChatHistory";
+import {
+  setMainprovider,
+  setisnewArchiveroom,
+  setisnewBlock,
+  setisnewmMute,
+  setnewroomID,
+  setnewroomType,
+  setroominfo,
+  setyesstart,
+} from "../../Redux/ChatHistory";
 import PremiumAlert from "../../Components/CustomAlert/PremiumAlert";
+import { ChannelTypeModal } from "../Modals/ChannelTypeModal";
+import { ErrorAlertModel } from "../Modals/ErrorAlertModel";
+import { NoInternetModal } from "../Modals/NoInternetModel";
 const { width, height } = Dimensions.get("screen");
 
 interface Content {
@@ -64,7 +76,8 @@ export default function MyStatusViewScreen({ route, navigation }: any) {
   const [content, setContent] = useState<Content[]>([]);
   const videoPlayer = useRef(null);
   const isNotch = DeviceInfo.hasNotch();
-
+  const [isChannelTypeModal, setChannelTypeModal] = useState(false);
+  const publicSelected = true;
   const [images, setImages] = useState([
     { src: require("../../Assets/Image/Home.png") },
     { src: require("../../Assets/Image/girl_profile.png") },
@@ -76,32 +89,31 @@ export default function MyStatusViewScreen({ route, navigation }: any) {
   const [stickerLoadStates, setStickerLoadStates] = useState([]);
   const [expanded, setExpanded] = useState(false);
   const [loaderMoedl, setloaderMoedl] = useState(false);
-  const friends = useSelector((state) => state.friendListSlice.friends);
 
+  let premiumAlertHeading = t("Premium_Feature");
+  let premiumAlertSubHeading = t(
+    "Upgrade_to_Premium_to_see_who_watched_your_status"
+  );
+  let premiumAlertFirstButtonText = "Ok";
+  let premiumAlertSecondButtonText = "Go To Premium";
 
-
-  let premiumAlertHeading =
-  "";
-let premiumAlertSubHeading = "Upgrade to Premium to see who watched your status.";
-let premiumAlertFirstButtonText = "Ok";
-let premiumAlertSecondButtonText = "Go To Premium";
-
-const [showPremiumAlert, setShowPremiumAlert] = useState(false);
+  const [showPremiumAlert, setShowPremiumAlert] = useState(false);
+  const [errorAlertModel, setErrorAlertModel] = useState(false);
+  const [noInternetModel, setNoInternetModel] = useState(false);
 
   const bottomsheetFrom = useSelector(
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     (state) => state?.friendListSlice.bottomSheetStory
   );
 
   const userPremium = useSelector(
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     (state) => state?.friendListSlice.userPremium
   );
 
-
-
-
-
   const dispatch = useDispatch();
   const bottomSheetRef = React.useRef(null);
+  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
   const handlePresentModalPress = () => bottomSheetRef?.current?.present();
 
   useEffect(() => {
@@ -109,10 +121,24 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
     setStickerLoadStates([]);
   }, [current]);
 
+
+
+  function AfterChoosingChannelType(value) {
+    setChannelTypeModal(false);
+
+    if (value == "public") {
+    navigation.navigate("NewChannelScreen", { type: "public" });
+    } else {
+      navigation.navigate("NewChannelScreen", { type: "private" });
+    }
+
+    //newGroupPress(value);
+  }
+
+  
   useEffect(() => {
     if (bottomsheetFrom == "close for story") {
-      console.log("in story start====================================");
-
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       start();
     }
   }, [bottomsheetFrom]);
@@ -120,16 +146,16 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
   const handleStickerLoad = (index) => {
     setStickerLoadStates((prevState) => {
       const newState = [...prevState];
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       newState[index] = true;
       return newState;
     });
   };
 
   const allStickersLoaded =
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     stickerLoadStates.length === content[current]?.sticker_postion?.length &&
     stickerLoadStates.every(Boolean);
-
-
 
   const chooseFont = (fontName) => {
     if (fontName.includes("IBM")) {
@@ -162,18 +188,17 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
 
   useEffect(() => {
     const unsubscribe2 = navigation.addListener("focus", () => {
-
-      
-      route?.params?.fromScreen == "settingScreen" ? AllPostsListApi(globalThis.chatUserId) :  getStoryApi();
-     // getStoryApi();
+      route?.params?.fromScreen == "settingScreen"
+        ? AllPostsListApi(globalThis.chatUserId)
+        : getStoryApi();
+      // getStoryApi();
     });
     return unsubscribe2;
   }, []);
 
-
-    ////  
-    const AllPostsListApi = async (chatid: any, ) => {
-      console.log("AllPostsListApi.data",);
+  ////
+  const AllPostsListApi = async (chatid: any) => {
+    console.log("AllPostsListApi.data");
     const headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -190,7 +215,7 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
       headers,
       navigation,
       (ResponseData, ErrorStr) => {
-        profileApiSuccess(ResponseData, ErrorStr,);
+        profileApiSuccess(ResponseData, ErrorStr);
       }
     );
   };
@@ -221,7 +246,10 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
   // **********  Method for return the get profilr api Response   ********** ///
   const profileApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      // setloaderModel(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
     } else {
       let tempData = ResponseData?.data?.map((item: any) => {
         item.sticker_postion = JSON.parse(item.sticker_postion);
@@ -230,10 +258,9 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
         return item;
       });
       setContent(tempData);
-      console.log("tempData",tempData);
+      console.log("tempData", tempData);
     }
   };
-
 
   const parseCaption = (text) => {
     const mentionRegex = /@([\w\s]+)/g;
@@ -242,13 +269,16 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
 
     text?.replace(mentionRegex, (match, p1, index) => {
       if (index > lastIndex) {
+        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
         parts.push({ text: text.slice(lastIndex, index), isMention: false });
       }
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       parts.push({ text: match, isMention: true });
       lastIndex = index + match.length;
     });
 
     if (lastIndex < text?.length) {
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       parts.push({ text: text?.slice(lastIndex), isMention: false });
     }
 
@@ -287,8 +317,11 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
     );
 
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
-        setloaderMoedl(false);
+      // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+
       // Navigate to another screen or handle the error in some way
     } else {
       const userData = ResponseData.data.user;
@@ -301,23 +334,22 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
           sticker_position: stickerPosition,
           display_name: userData.first_name,
           profile_image: ResponseData?.data?.user?.profile_image,
+          userProfile: ResponseData?.data?.user?.profile_image,
         })
       );
       stopAnimation();
       handlePresentModalPress();
       dispatch(setBottomSheetStory("open from story"));
-       setloaderMoedl(false);
+      setloaderMoedl(false);
     }
   };
-
 
   // Usage
 
   const renderCaption = (inputText) => {
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
     const mentionsList = content[current]?.mention || [];
-    console.log("inputText====================================", inputText);
-    console.log("mentionsList====================================", mentionsList);
-  
+
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const mentionRegex = new RegExp(
       `(@(${mentionsList
@@ -325,29 +357,31 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
         .join("|")})\\b)`,
       "gi"
     );
-  
+
     const combinedRegex = new RegExp(
       `(${urlRegex.source})|(${mentionRegex.source})`,
       "g"
     );
     const parts = inputText.match(combinedRegex) || [];
-  
+
     let lastIndex = 0;
     const elements = [];
-  
+
     parts.forEach((part, index) => {
       const partIndex = inputText.indexOf(part, lastIndex);
-  
+
       if (partIndex > lastIndex) {
         elements.push(
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
           <Text key={`${lastIndex}-text`}>
             {inputText.slice(lastIndex, partIndex)}
           </Text>
         );
       }
-  
+
       if (userPremium && urlRegex.test(part)) {
         elements.push(
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
           <Text
             key={`${index}-url`}
             onPress={() => Linking.openURL(part)}
@@ -360,12 +394,13 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
         const match = part.match(mentionRegex);
         if (match) {
           const mentionName = match[0].replace("@", "").trim();
-  
+
           const mention = mentionsList.find(
             (m) => m.name.toLowerCase() === mentionName.toLowerCase()
           );
           if (mention) {
             elements.push(
+              // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
               <Text
                 key={`${index}-mention`}
                 onPress={() => getProfileApi(mention.chat_user_id)}
@@ -375,26 +410,30 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
               </Text>
             );
           } else {
+            // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
             elements.push(<Text key={`${index}-mention`}>{part}</Text>);
           }
         }
       } else {
         // For non-premium users, simply display the text without any formatting
-        elements.push(<Text key={`${index}-plain`}>{part}</Text>);
+        elements.push(
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+          <Text key={`${index}-plain`}>{part}</Text>
+        );
       }
-  
+
       lastIndex = partIndex + part.length;
     });
-  
+
     if (lastIndex < inputText.length) {
       elements.push(
+        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
         <Text key={`${lastIndex}-end`}>{inputText.slice(lastIndex)}</Text>
       );
     }
-  
+
     return elements;
   };
-  
 
   // **********   status start method   ********** ///
 
@@ -423,6 +462,7 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
         duration: 5000,
         useNativeDriver: false,
       }).start(({ finished }) => {
+        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
         parseCaption(content[current]?.caption);
         if (finished) {
           next();
@@ -466,9 +506,10 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
     // ********** InterNet Permission    ********** ///
     NetInfo.fetch().then((state) => {
       if (state.isConnected === false) {
-        Alert.alert(t("noInternet"), t("please_check_internet"), [
-          { text: t("ok") },
-        ]);
+        setNoInternetModel(true);
+        // Alert.alert(t("noInternet"), t("please_check_internet"), [
+        //   { text: t("ok") },
+        // ]);
         return;
       } else {
         stopAnimation();
@@ -498,19 +539,19 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
   // **********  Method for return the get profilr api Response   ********** ///
   const getStoryViewListApiSuccess = (ResponseData: any, ErrorStr: any) => {
     if (ErrorStr) {
-      Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
+      setloaderMoedl(false);
+      globalThis.errorMessage = ErrorStr; 
+      setErrorAlertModel(true);
+     // Alert.alert(t("error"), ErrorStr, [{ text: t("cancel") }]);
       // Navigate to another screen or handle the error in some way
     } else {
-      console.log("ResponseData.data",ResponseData.data);
-      
-      if (ResponseData.data.length > 0 ) {
+      if (ResponseData.data.length > 0) {
         setActiveStory(ResponseData.data);
-      if (globalThis.isUserPremium ) {
-        setStoryViewListModel(true);
-      }else{
-        setShowPremiumAlert(true);
-      }
-       
+        if (globalThis.isUserPremium) {
+          setStoryViewListModel(true);
+        } else {
+          setShowPremiumAlert(true);
+        }
       }
     }
   };
@@ -579,11 +620,11 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
       right: 0,
     },
     eyeIcon: {
-      marginTop: 5,
+      // marginTop: 5,
       height: 18,
       width: 18,
       tintColor: COLORS.white,
-      marginRight: 2,
+      marginRight: 5,
     },
     background: {
       flex: 1,
@@ -597,12 +638,12 @@ const [showPremiumAlert, setShowPremiumAlert] = useState(false);
       //backgroundColor:"red",
       padding: 10,
       paddingHorizontal: 15,
-     
-     borderTopLeftRadius:15,
-     borderTopRightRadius:15,
+
+      borderTopLeftRadius: 15,
+      borderTopRightRadius: 15,
       // borderRadius: 15,
-width:'100%',
-     // flex: 1,
+      width: "100%",
+      // flex: 1,
     },
     text: {
       color: "#fff",
@@ -626,6 +667,7 @@ width:'100%',
       <StoryListModel
         visible={storyViewList}
         storyViewList={getActiveStory}
+        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
         likedCount={content[current]?.likes_count}
         cancel={() => {
           //@ts-ignore
@@ -636,7 +678,21 @@ width:'100%',
           setStoryViewListModel(false), start();
         }}
       />
-       <PremiumAlert
+
+<ErrorAlertModel
+        visible={errorAlertModel}
+        onRequestClose={() => setErrorAlertModel(false)}
+        errorText={globalThis.errorMessage}
+        cancelButton={() => setErrorAlertModel(false)}
+      />
+      <NoInternetModal
+        visible={noInternetModel}
+        onRequestClose={() => setNoInternetModel(false)}
+        headingTaxt={t("noInternet")}
+        NoInternetText={t("please_check_internet")}
+        cancelButton={() => setNoInternetModel(false)}
+      />
+      <PremiumAlert
         visible={showPremiumAlert}
         onRequestClose={() => setShowPremiumAlert(false)}
         cancel={() => setShowPremiumAlert(false)}
@@ -645,7 +701,14 @@ width:'100%',
         FirstButton={premiumAlertFirstButtonText}
         SecondButton={premiumAlertSecondButtonText}
         firstButtonClick={() => setShowPremiumAlert(false)}
-        secondButtonClick={() => navigation.navigate("TokeePremium")}
+        secondButtonClick={() => {
+          if (premiumAlertSecondButtonText == "Cancel") {
+            setShowPremiumAlert(false);
+          } else {
+            setShowPremiumAlert(false);
+            navigation.navigate("PremiumFeaturesScreen");
+          }
+        }}
       />
       <StatusBar hidden />
 
@@ -729,14 +792,14 @@ width:'100%',
                     </View>
                   </FastImage>
                 ) : (
-                  <ColorMatrix
+                  <View
                     //@ts-ignore
-                    matrix={
-                      //@ts-ignore
-                      content[current].background_color == null
-                        ? filters[0].matrix //@ts-ignore
-                        : filters[content[current].background_color].matrix
-                    }
+                    // matrix={
+                    //   //@ts-ignore
+                    //   content[current].background_color == null
+                    //     ? filters[0].matrix //@ts-ignore
+                    //     : filters[content[current].background_color].matrix
+                    // }
                     style={{ flex: 1 }}
                   >
                     {isPreLoading && (
@@ -753,8 +816,8 @@ width:'100%',
                       />
                     )}
 
-                    <ImageBackground
-                      source={require("../../Assets/Image/whiteBackground.jpeg")}
+                    <View
+                     // source={require("../../Assets/Image/whiteBackground.jpeg")}
                       style={styles.background}
                     >
                       <ColorMatrix
@@ -783,11 +846,13 @@ width:'100%',
                           style={{
                             height: height,
                             width: width,
+                            // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                             resizeMode: "contain",
                             transform: [
                               {
                                 //@ts-ignore
                                 scale:
+                                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                                   content[current].scale == null
                                     ? 0 //@ts-ignore
                                     : parseFloat(content[current].scale),
@@ -795,6 +860,7 @@ width:'100%',
                               {
                                 //@ts-ignore
                                 rotate:
+                                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                                   content[current].rotation == null
                                     ? `${0}deg` //@ts-ignore
                                     : `${content[current].rotation}deg`,
@@ -803,12 +869,13 @@ width:'100%',
                           }}
                         />
                       </ColorMatrix>
-                    </ImageBackground>
-                  </ColorMatrix>
+                    </View>
+                  </View>
                 )
               }
 
               {isMainImageLoaded &&
+                // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                 content[current]?.sticker_postion?.map((item, index) => (
                   <FastImage
                     key={index}
@@ -858,6 +925,7 @@ width:'100%',
               )}
 
               {isMainImageLoaded &&
+                // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                 content[current]?.image_text?.map((item, index) => (
                   <View
                     style={{
@@ -1055,18 +1123,29 @@ width:'100%',
             <View style={{ flex: 1 }} />
           </TouchableWithoutFeedback>
         </View>
-        {content[current]?.caption?.length > 0 && (
-        <View style={styles.textView}>
-          <Text style={styles.text}>
-            {renderCaption(content[current]?.caption)}
-            {!expanded && content[current]?.caption?.length > 200 ? "..." : ""}
-          </Text>
-                        {/* <Text style={styles.text}>
+
+        {
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+          content[current]?.caption?.length > 0 && (
+            <View style={styles.textView}>
+              <Text style={styles.text}>
+                {
+                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                  renderCaption(content[current]?.caption)
+                }
+                {
+                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                  !expanded && content[current]?.caption?.length > 200
+                    ? "..."
+                    : ""
+                }
+              </Text>
+              {/* <Text style={styles.text}>
                 {expanded
                   ? renderCaption(content[current]?.caption)
                   : renderCaption(content[current]?.caption?.slice(0, 150))}
               </Text> */}
-          {/* {content[current]?.caption?.length > 100 && (
+              {/* {content[current]?.caption?.length > 100 && (
             <TouchableOpacity
             onPress={() => setExpanded(!expanded)}
             >
@@ -1075,8 +1154,9 @@ width:'100%',
               </Text>
             </TouchableOpacity>
           )} */}
-        </View>
-      )}
+            </View>
+          )
+        }
         <TouchableOpacity
           style={{
             flex: 1,
@@ -1086,9 +1166,9 @@ width:'100%',
             alignSelf: "center",
             flexDirection: "row",
             justifyContent: "center",
-           // backgroundColor: "rgba(0,0,0,0.8)",
-           backgroundColor: "rgba(12,12,12,0.5)",
-          // alignItems:"center",
+            // backgroundColor: "rgba(0,0,0,0.8)",
+            backgroundColor: "rgba(12,12,12,0.5)",
+            // alignItems:"center",
             height: 60,
             paddingRight: 5,
             zIndex: 1001,
@@ -1098,59 +1178,80 @@ width:'100%',
           activeOpacity={0.7} //@ts-ignore
           disabled={content[current]?.viewers_count == 0 ? true : false}
         >
-          <Image
-            source={require("../../Assets/Icons/Eye.png")}
-            style={styles.eyeIcon}
-            resizeMode="contain"
-          />
-
-          <Text
+          <View
             style={{
-              color: COLORS.white,
-              marginTop: 3,
-              fontFamily: font.bold(),
-              lineHeight: 18,
-              height: 18,
+              height: 40,
+              flexDirection: "row",
+              alignSelf: "flex-start",
+              alignItems: "center",
             }}
           >
-            {
-              //@ts-ignore
-              content[current]?.viewers_count
-            }
-          </Text>
-          <Image
-            source={require("../../Assets/Image//like.png")}
-            style={{   marginTop: 5,
-              height: 18,
-              width: 18,
-              tintColor:"red",
-              marginRight: 0,marginLeft:20}}
-            resizeMode="contain"
-          />
+            <Image
+              source={require("../../Assets/Icons/Eye.png")}
+              style={styles.eyeIcon}
+              // resizeMode="contain"
+            />
 
-          <Text
-            style={{
-              color: COLORS.white,
-              marginTop: 3,
-              fontFamily: font.bold(),
-              lineHeight: 18,
-              height: 18,
-            }}
-          >
-            {
-              //@ts-ignore
-              content[current]?.likes_count
-            }
-          </Text>
+            <Text
+              style={{
+                color: COLORS.white,
+                // marginTop: 3,
+                fontSize: 13,
+                fontFamily: font.bold(),
+                // lineHeight: 18,
+                // height: 18,
+              }}
+            >
+              {
+                //@ts-ignore
+                content[current]?.viewers_count
+              }
+            </Text>
+            <Image
+              source={require("../../Assets/Image//like.png")}
+              style={{
+                marginRight: 2,
+                marginTop: 1.5,
+                height: 18,
+                width: 18,
+                tintColor: "red",
+                marginLeft: 20,
+              }}
+              resizeMode="contain"
+            />
+
+            <Text
+              style={{
+                color: COLORS.white,
+                fontSize: 13,
+                fontFamily: font.semibold(),
+                // lineHeight: 18,
+                // height: 18,
+              }}
+            >
+              {
+                //@ts-ignore
+                content[current]?.likes_count
+              }
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
-  
 
       <CustomBottomSheetModal
         ref={bottomSheetRef} //@ts-ignore
         navigation={navigation}
-         newChattingPress={newChattingPress}
+        newChattingPress={newChattingPress}
+        openChannelModal={()=>{
+          setChannelTypeModal(true);
+        }}
       />
+       <ChannelTypeModal
+          visible={isChannelTypeModal}
+      isPublicSelected={publicSelected}
+          onRequestClose={() => setChannelTypeModal(false)}
+          onNextClick={AfterChoosingChannelType}
+        />
     </View>
   );
 }

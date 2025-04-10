@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Tokee</string>
+    <string name="facebook_app_id">948181074033418</string>
+    <string name="facebook_client_token">42cbf8e4d83fee028bd04411ea1b25ec</string>
 </resources>

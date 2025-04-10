@@ -43,9 +43,9 @@ export const LocalContactModel = (props: any) => {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
         {
-          title: "Contacts",
-          message: "This app would like to view your contacts.",
-          buttonPositive: "Please accept bare mortal",
+          title: t("tokee_would_like_to_access_your_contact"),
+          message: t("this_permission_is_requried_for_app_to_funcation_well "),
+          buttonPositive: "Ok",
         }
       );
       if (granted === PermissionsAndroid.RESULTS.GRANTED) {

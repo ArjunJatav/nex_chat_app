@@ -27,7 +27,7 @@ import ThemeContext from "../../Components/ThemeContext/ThemeContext";
 import TopBar from "../../Components/TopBar/TopBar";
 import renderIf from "../../Components/renderIf";
 import { theme_purchase, theme_purchase_list } from "../../Constant/Api";
-import { settingTop } from "../../Navigation/Icons";
+import { chatTop, settingTop } from "../../Navigation/Icons";
 import { LoaderModel } from "../Modals/LoaderModel";
 
 const isDarkMode = true;
@@ -1095,6 +1095,7 @@ export default function ThemeScreen({ navigation }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null

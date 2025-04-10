@@ -259,7 +259,7 @@ export default function GroupChatScreen({ navigation, route }: any) {
             </TouchableOpacity>
             <View style={styles.editProfile}>
               <Image
-                source={require("../../../Assets/Icons/Video.png")}
+                source={require("../../../Assets/Icons/videonewicon.png")}
                 style={styles.newChatIcon}
                 resizeMode="contain"
               />

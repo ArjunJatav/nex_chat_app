@@ -24,8 +24,10 @@ import { colors } from "../../utils/constants/colors";
 import { COLORS, iconTheme } from "../../Components/Colors/Colors";
 import { blurImage, blurVideo } from "../../Constant/Key";
 import AudioMessage from "./AudioMessage";
+import { t } from "i18next";
+import { font } from "../../Components/Fonts/Font";
 
- // eslint-disable-next-line
+// eslint-disable-next-line
 export default function ShowAllMedia({ navigation, route }: any) {
   const [loaderMoedl, setloaderMoedl] = useState(false);
   const [activeTab, setActiveTab] = useState(route.params.FromTab);
@@ -89,31 +91,31 @@ export default function ShowAllMedia({ navigation, route }: any) {
 
   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
   useEffect(async () => {
-    const routeData = route.params.MediaType; 
+    const routeData = route.params.MediaType;
     const combinedData = [];
 
     if (routeData != null && routeData != undefined) {
       const sortedData = routeData.sort(
-         // eslint-disable-next-line
+        // eslint-disable-next-line
         (a: any, b: any) => b.createdAt - a.createdAt
       );
-       // eslint-disable-next-line
+      // eslint-disable-next-line
       sortedData.forEach((item: any) => {
         // Combine item.attachment and item.localpath into a single array
         const combinedAttachments = [];
         if (item.attachment && Array.isArray(item.attachment)) {
-           // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
           combinedAttachments.push(...item.attachment);
         }
         if (item.localpath && Array.isArray(item.localpath)) {
-           // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
           combinedAttachments.push(...item.localpath);
         }
         // Process the combined array
         combinedAttachments.forEach((url) => {
           const type = item.message_type;
           if (type === "video" || type === "image") {
-             // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+            // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
             combinedData.push({
               url,
               createdAt: item.createdAt,
@@ -123,16 +125,16 @@ export default function ShowAllMedia({ navigation, route }: any) {
           }
         });
       });
-       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       combinedData.sort((a, b) => b.createdAt - a.createdAt);
       const processedObjects = await processObjects(combinedData);
-       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+      // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       setImageUrls(processedObjects);
     }
   }, []);
 
   useEffect(() => {
-    const routeData = route.params.FileType; 
+    const routeData = route.params.FileType;
     const filteredData = routeData.map((item) => {
       const newItem = {
         attachment: item.attachment,
@@ -140,7 +142,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
       };
 
       if (item.localPath.length > 0) {
-         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
         newItem.localPath = item.localPath;
       }
 
@@ -196,7 +198,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
     },
   });
 
-   // eslint-disable-next-line
+  // eslint-disable-next-line
   const photoAndVideoView = ({ item }: any) => (
     <View style={{ width: "30%", height: 120, margin: 5, alignSelf: "center" }}>
       {item.type === "video" ? (
@@ -227,7 +229,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
             }}
             resizeMode="contain"
           />
-          <Text style={{ color: "light-grey", textAlign: "center" }}>
+          <Text style={{ color: "light-grey", textAlign: "center", fontFamily:font.semibold() }}>
             {moment(item?.createdAt).format("MMM DD,YYYY")}
           </Text>
         </Pressable>
@@ -236,7 +238,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
           style={{ flexDirection: "column", flex: 1 }}
           onPress={() => {
             if (item.url == blurImage) {
-            null;
+              null;
             } else {
               setmylocaldata({
                 attachment: [item.url],
@@ -259,7 +261,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
             }}
             resizeMode="cover"
           />
-          <Text style={{ color: "light-grey", textAlign: "center" }}>
+          <Text style={{ color: "light-grey", textAlign: "center", fontFamily:font.semibold() }}>
             {moment(item?.createdAt).format("MMM DD,YYYY")}
           </Text>
         </Pressable>
@@ -267,7 +269,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
     </View>
   );
 
-   // eslint-disable-next-line
+  // eslint-disable-next-line
   const filesAudioView = ({ item }: any) => (
     <View style={{ width: "30%", height: 120, margin: 5, alignSelf: "center" }}>
       {item.message_type === "document" ? (
@@ -284,7 +286,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
             style={{ flex: 1, height: 100, marginBottom: 5, width: "100%" }}
             resizeMode="contain"
           />
-          <Text style={{ color: "light-grey", textAlign: "center" }}>
+          <Text style={{ color: "light-grey", textAlign: "center", fontFamily:font.semibold() }}>
             {moment(item?.createdAt).format("MMM DD,YYYY")}
           </Text>
         </Pressable>
@@ -314,7 +316,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
             }}
             resizeMode="contain"
           />
-          <Text style={{ color: "light-grey", textAlign: "center" }}>
+          <Text style={{ color: "light-grey", textAlign: "center", fontFamily:font.semibold() }}>
             {moment(item?.createdAt).format("MMM DD,YYYY")}
           </Text>
         </Pressable>
@@ -383,27 +385,20 @@ export default function ShowAllMedia({ navigation, route }: any) {
     }
   };
 
- 
-
-  
- 
-
- 
-
   const pagerAllMediaRef = useRef(null);
 
-   // eslint-disable-next-line
-  const onPageSelected = (event:any) => {
+  // eslint-disable-next-line
+  const onPageSelected = (event: any) => {
     setActiveTab(event.nativeEvent.position);
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-    pagerAllMediaRef?.current?.setPage(event.nativeEvent.position); 
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    pagerAllMediaRef?.current?.setPage(event.nativeEvent.position);
   };
 
-   // eslint-disable-next-line
-  const handleTabPress = (tabIndex:any) => {
-    setActiveTab(tabIndex); 
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-    pagerAllMediaRef?.current?.setPage(tabIndex); 
+  // eslint-disable-next-line
+  const handleTabPress = (tabIndex: any) => {
+    setActiveTab(tabIndex);
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    pagerAllMediaRef?.current?.setPage(tabIndex);
   };
 
   return (
@@ -438,22 +433,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
                 borderRadius: 5,
                 zIndex: 1001,
                 top: Platform.OS === "ios" ? 60 : 20,
-                
-                backgroundColor:globalThis.selectTheme === "mongoliaTheme"
-                    ? "#8D3E2D" 
-                    : globalThis.selectTheme === "newYearTheme"
-                    ? "#CE9D59"
-                    : 
-                    globalThis.selectTheme === "newYear"
-                    ? COLORS.black
-                    : 
-                    globalThis.selectTheme === "christmas"
-                    ? COLORS.primary_light_green 
-                    : globalThis.selectTheme == "third"
-                    ? COLORS.light_green 
-                    : globalThis.selectTheme == "second"
-                    ? COLORS.primary_blue
-                    : COLORS.purple,
+
                 width: 30,
                 height: 30,
                 alignItems: "center",
@@ -464,14 +444,11 @@ export default function ShowAllMedia({ navigation, route }: any) {
               }}
             >
               <Image
-                source={require("../../Assets/Icons/Back.png")}
+                source={require("../../Assets/Icons/Back_Arrow.png")}
                 style={{
                   height: 25,
                   width: 25,
-                  tintColor:
-                    globalThis.selectTheme == "third"
-                      ? COLORS.dark_pink
-                      : COLORS.white,
+                  tintColor: iconTheme().iconColorNew,
                 }}
                 resizeMode="contain"
               />
@@ -480,7 +457,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
             {mylocaldata && (
               <View>
                 {
-                   // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                  // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                   mylocaldata?.type === "image" ? (
                     <View
                       style={{
@@ -489,14 +466,14 @@ export default function ShowAllMedia({ navigation, route }: any) {
                       }}
                     >
                       <ImageViewer
-                        saveToLocalByLongPress={false} 
-                         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                        saveToLocalByLongPress={false}
+                        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                         renderIndicator={() => null}
                         style={{
                           height: windowHeight,
                           width: windowWidth - 20,
-                        }} 
-                         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                        }}
+                        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                         imageUrls={mylocaldata?.attachment?.map((url) => ({
                           url,
                         }))}
@@ -504,9 +481,9 @@ export default function ShowAllMedia({ navigation, route }: any) {
                           <ActivityIndicator size={"large"} />
                         )}
                       />
-                    </View> 
-                     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-                  ) : mylocaldata?.type === "video" ? (
+                    </View>
+                  ) : // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                  mylocaldata?.type === "video" ? (
                     <View>
                       {isLoading && <ActivityIndicator size="large" />}
                       <Video
@@ -516,16 +493,16 @@ export default function ShowAllMedia({ navigation, route }: any) {
                           padding: 20,
                         }}
                         onLoadStart={() => setIsLoading(true)}
-                        onLoad={() => setIsLoading(false)} 
-                         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                        onLoad={() => setIsLoading(false)}
+                        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                         source={{ uri: mylocaldata?.attachment }}
                         resizeMode="contain"
                         controls={true}
                         paused={isPlaying}
                       />
-                    </View> 
-                     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-                  ) : mylocaldata?.type === "audio" ? (
+                    </View>
+                  ) : // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                  mylocaldata?.type === "audio" ? (
                     <View
                       style={{
                         height: 64,
@@ -541,9 +518,8 @@ export default function ShowAllMedia({ navigation, route }: any) {
                           backgroundColor: "#fff",
                         }}
                       >
-                        
                         <AudioMessage
-                         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                           currentMessage={mylocaldata?.attachment[0]}
                         />
                       </View>
@@ -597,9 +573,10 @@ export default function ShowAllMedia({ navigation, route }: any) {
                   fontSize: 18,
                   textAlign: "center",
                   color: colors.black,
+                  fontFamily:font.semibold()
                 }}
               >
-                All Media
+                {t("All_Media")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -614,9 +591,10 @@ export default function ShowAllMedia({ navigation, route }: any) {
                   style={{
                     color: colors.black,
                     fontSize: activeTab === 0 ? 15 : 13,
+                    fontFamily:font.semibold()
                   }}
                 >
-                  Photos/Videos
+                  {t("Photos/Videos")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -627,9 +605,10 @@ export default function ShowAllMedia({ navigation, route }: any) {
                   style={{
                     color: colors.black,
                     fontSize: activeTab === 1 ? 15 : 13,
+                    fontFamily:font.semibold()
                   }}
                 >
-                  Files
+                  {t("Files")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -641,7 +620,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
               useNext={false}
             >
               <View
-               key="photos"
+                key="photos"
                 style={{
                   width: "100%",
                   height: "100%",
@@ -669,15 +648,15 @@ export default function ShowAllMedia({ navigation, route }: any) {
                       }}
                       resizeMode="contain"
                     />
-                    <Text style={{ color: colors.black }}>
-                      No Photos/Video found!
+                    <Text style={{ color: colors.black , fontFamily:font.semibold()}}>
+                      {t("No_Photos/Video_found")}
                     </Text>
                   </View>
                 ) : (
                   <FlatList
                     showsHorizontalScrollIndicator={false}
                     data={imageUrls}
-                     // eslint-disable-next-line
+                    // eslint-disable-next-line
                     keyExtractor={(item: any) => item.id}
                     renderItem={photoAndVideoView}
                     numColumns={3} // Adjust to show three items per row
@@ -693,7 +672,7 @@ export default function ShowAllMedia({ navigation, route }: any) {
                   marginTop: 145,
                   paddingHorizontal: 10,
                 }}
-               key="files"
+                key="files"
               >
                 {filesUrls.length === 0 ? (
                   <View
@@ -714,16 +693,16 @@ export default function ShowAllMedia({ navigation, route }: any) {
                       }}
                       resizeMode="contain"
                     />
-                    <Text style={{ color: colors.black }}>
+                    <Text style={{ color: colors.black, fontFamily:font.semibold() }}>
                       {" "}
-                      No Files found!
+                      {t("No_fliler_ound")}
                     </Text>
                   </View>
                 ) : (
                   <FlatList
                     showsHorizontalScrollIndicator={false}
                     data={filesUrls}
-                     // eslint-disable-next-line
+                    // eslint-disable-next-line
                     keyExtractor={(item: any) => item.id}
                     renderItem={filesAudioView}
                     numColumns={3} // Adjust to show three items per row
@@ -733,7 +712,6 @@ export default function ShowAllMedia({ navigation, route }: any) {
               </View>
             </PagerView>
           </View>
-  
         </View>
       </View>
     </View>

@@ -1,13 +1,14 @@
-import React from 'react';
-import {StyleSheet, View, ViewStyle} from 'react-native';
-import {dimensions} from '../../../utils/globalFunctions';
-import CallDuration from './CallDuration';
-import { STRING_CONSTANTS } from '../../../utils/constants/stringConstants';
-import { fonts } from '../../../utils/constants/fonts';
-import { colors } from '../../../utils/constants/colors';
-import { images } from '../../../utils/constants/assets';
-import { AppImageIcon } from '../../../Components/Calling/AppImageIcon';
-import { AppText } from '../../../Components/Calling/AppText';
+import React from "react";
+import { StyleSheet, View, ViewStyle } from "react-native";
+import { dimensions } from "../../../utils/globalFunctions";
+import CallDuration from "./CallDuration";
+import { STRING_CONSTANTS } from "../../../utils/constants/stringConstants";
+import { fonts } from "../../../utils/constants/fonts";
+import { colors } from "../../../utils/constants/colors";
+import { images } from "../../../utils/constants/assets";
+import { AppImageIcon } from "../../../Components/Calling/AppImageIcon";
+import { AppText } from "../../../Components/Calling/AppText";
+import { useSelector } from "react-redux";
 
 type propTypes = {
   isVideo?: boolean;
@@ -17,6 +18,7 @@ type propTypes = {
   onIcon2Press?: () => void;
   onIcon3Press?: () => void;
   onIcon4Press?: () => void;
+  onAddUserPress?: () => void;
   isVideoEnabled?: boolean;
   isAudioEnabled?: boolean;
   isSpeakerEnabled?: boolean;
@@ -24,18 +26,32 @@ type propTypes = {
   callDurationRef?: any;
 };
 const CallBar = (props: propTypes) => {
+  const guestUserUids = useSelector(
+    (state) => state?.VoipReducer?.call_data?.guestVideoUids || []
+  );
+
+  
+
+  const checkGroupCall = useSelector((state) => {
+    return state?.callerIDReducers?.userData?.groupCall;
+  });
+
+  const uniqueGuestUserUids = Array.from(new Set(guestUserUids));
   return (
     <View style={[styles.container, props?.containerStyle]}>
       <AppImageIcon
         onPress={props?.onIcon1Press}
-        wrapperStyle={[styles.wrapper, {backgroundColor: colors.rockt_orange}]}
+        wrapperStyle={[
+          styles.wrapper,
+          { backgroundColor: colors.rockt_orange },
+        ]}
         image={props?.isVideo ? null : images.mic_on}
         iconStyle={styles.icon}
       />
-      <View style={{flex: 1, marginLeft: props?.isVideo ? 16 : 0}}>
+      <View style={{ flex: 1, marginLeft: props?.isVideo ? 16 : 0 }}>
         <AppText style={styles.title}>
           {props?.isVideo
-            ? STRING_CONSTANTS.video_call
+            ? "Video"
             : STRING_CONSTANTS.audio_call}
         </AppText>
         <CallDuration style={styles.desc} />
@@ -44,43 +60,59 @@ const CallBar = (props: propTypes) => {
         onPress={props?.onIcon2Press}
         wrapperStyle={[
           styles.wrapper,
-          !props?.isVideoEnabled && {backgroundColor: colors.white},
+          !props?.isVideoEnabled && { backgroundColor: colors.white },
         ]}
         image={images.video}
         iconStyle={[
           styles.icon,
-          !props?.isVideoEnabled && {tintColor: colors.black},
+          !props?.isVideoEnabled && { tintColor: colors.black },
         ]}
       />
       <AppImageIcon
         onPress={props?.onIcon3Press}
         wrapperStyle={[
           styles.wrapper,
-          props?.isAudioEnabled && {backgroundColor: colors.white},
+          props?.isAudioEnabled && { backgroundColor: colors.white },
         ]}
         image={props?.isAudioEnabled ? images.mic_on : images.mic_off}
         iconStyle={[
           styles.icon,
-          props?.isAudioEnabled && {tintColor: colors.black},
+          props?.isAudioEnabled && { tintColor: colors.black },
         ]}
       />
       <AppImageIcon
         onPress={props?.onIcon4Press}
         wrapperStyle={[
           styles.wrapper,
-          props?.isSpeakerEnabled && {backgroundColor: colors.white},
+          props?.isSpeakerEnabled && { backgroundColor: colors.white },
         ]}
         image={images.speaker_on}
         iconStyle={[
           styles.icon,
-          props?.isSpeakerEnabled && {tintColor: colors.black},
+          props?.isSpeakerEnabled && { tintColor: colors.black },
         ]}
       />
+
+      {uniqueGuestUserUids.length < 9 && checkGroupCall != true && (
+        <AppImageIcon
+          onPress={props?.onAddUserPress}
+          wrapperStyle={[
+            styles.wrapper,
+            uniqueGuestUserUids.length < 9 && { backgroundColor: colors.white },
+          ]}
+          image={images.AddUser_inCall}
+          iconStyle={{
+            height: 28,
+            width: 28,
+            tintColor: uniqueGuestUserUids.length < 9 ? "#000000" : "#ffffff",
+          }}
+        />
+      )}
       <AppImageIcon
         onPress={props?.onEndCallPress}
-        wrapperStyle={[styles.wrapper, {marginRight: 0}]}
+        wrapperStyle={[styles.wrapper, { marginRight: 0 }]}
         image={images.end_call}
-        iconStyle={{height: 48, width: 48}}
+        iconStyle={{ height: 48, width: 48 }}
       />
     </View>
   );
@@ -88,19 +120,19 @@ const CallBar = (props: propTypes) => {
 export default CallBar;
 const styles = StyleSheet.create({
   container: {
-    height: 72,
-    width: dimensions().screen_width - 32,
-    backgroundColor: colors.black_rgba(0.44),
-    alignSelf: 'center',
+    height: 60,
+    width: dimensions().screen_width - 5,
+    backgroundColor: colors.black_rgba(1),
+    alignSelf: "center",
     borderRadius: 100,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
   },
   wrapper: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
+    height: 40,
+    width: 40,
+    borderRadius: 20,
     marginRight: 12,
     backgroundColor: colors.whiteOpacity(0.12),
   },

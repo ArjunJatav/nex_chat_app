@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import {useState} from 'react';
 import { loginthemeModule } from '../Colors/Colors';
+import { t } from 'i18next';
 
 const BUTTON_WIDTH = 230;
 const BUTTON_HEIGHT = 45;
@@ -123,7 +124,7 @@ const SlideButtonScreen = ({onToggle, reset}) => {
   };
 
   return (
-    <View style={{flex: 1}}>
+    <View>
       <Animated.View style={[styles.swipeCont, AnimatedStyles.swipeCont]}>
         <AnimatedLinearGradient
           style={[AnimatedStyles.colorWave, styles.colorWave]}
@@ -139,7 +140,7 @@ const SlideButtonScreen = ({onToggle, reset}) => {
           <Animated.View style={[styles.swipeable, AnimatedStyles.swipeable]} />
         </PanGestureHandler>
         <Animated.Text style={[styles.swipeText, AnimatedStyles.swipeText]}>
-          Swipe to verify
+         {t("Swipe_to_verify")} 
         </Animated.Text>
       </Animated.View>
     </View>

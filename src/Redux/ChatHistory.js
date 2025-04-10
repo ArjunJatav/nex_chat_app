@@ -27,6 +27,7 @@ const ChatHistory = createSlice({
     deleteRoom: {},
     hideRoom: {},
     syncchatlist: false,
+    syncchatpn: false,
     myrequestdata:[],
     otherrequestdata:[],
 
@@ -96,6 +97,9 @@ const ChatHistory = createSlice({
     setsyncchatlist: (state, action) => {
       state.syncchatlist = action.payload;
     },
+    setsyncchatpn: (state, action) => {
+      state.syncchatpn = action.payload;
+    },
     setMessages: (state, action) => {
       const newMessages = action.payload.filter((message) => {
         return !state.messages.some(
@@ -140,6 +144,7 @@ export const {
   setmessagesupdate,
   setsyncloader,
   setsyncchatlist,
+  setsyncchatpn,
   setChatHistory,
   setisnewBlock,
   setisnewArchiveroom,

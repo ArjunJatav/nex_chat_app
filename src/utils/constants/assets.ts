@@ -14,4 +14,7 @@ export const images = {
   maximize_icon : require("../../Assets/Icons/maximizeIcon.png"),
   speaker_on: require('../../Assets/Icons/speaker_on.png'),
   speaker_off: require('../../Assets/Icons/speaker_off.png'),
+  AddUser_inCall: require('../../Assets/Icons/AddUserCall.png'),
+  groupCallImage : require('../../Assets/Image/groupcallimage.png'),
+  gudda: require('../../Assets/Image/gudda.jpg')
 };

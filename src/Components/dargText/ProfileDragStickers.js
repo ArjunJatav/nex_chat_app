@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Image, TouchableOpacity, View } from "react-native";
+import {  Image, TouchableOpacity, View } from "react-native";
 import Gestures from "react-native-easy-gestures";
 import FastImage from "react-native-fast-image";
 
@@ -7,15 +7,12 @@ const ProfileDraggableImage = ({
   id,
   source,
   position,
-  color,
   onEdit,
-
   deleteImage,
   activeImageId,
   onStart,
   onEnd,
   onChange,
-  zIndex,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
 
@@ -81,10 +78,10 @@ const ProfileDraggableImage = ({
           />
           <View
             style={{
-              position: "absolute", // Position the text absolutely within the TouchableOpacity
-              top: -15, // Place it at the top
-              right: -10, // Place it at the end
-              backgroundColor: "transparent", // Background color for better visibility
+              position: "absolute", 
+              top: -15, 
+              right: -10, 
+              backgroundColor: "transparent", 
             }}
           >
             <TouchableOpacity

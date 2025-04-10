@@ -4,6 +4,7 @@ import SQLite from "react-native-sqlite-storage";
 import { EncryptionKey } from "./Constant/Key";
 import { socket } from "./socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { decryptMessage, encryptMessage } from "./utils/CryptoHelper";
 
 const db = SQLite.openDatabase({ name: "chatDB", location: "default" });
 
@@ -27,7 +28,7 @@ export const updateroominfo = (name, image, roomId, allow, owner, isPublic) => {
               [name, image, roomAllow, isPublic, roomId],
               null, // You can pass null or undefined if you want to explicitly indicate no callback.
               (error) => {
-                console.log("error : ", error);
+                console.log("updateroominfo error : ", error);
               }
             );
           } else {
@@ -39,10 +40,11 @@ export const updateroominfo = (name, image, roomId, allow, owner, isPublic) => {
                 image,
                 "multiple",
                 0,
-                CryptoJS.AES.encrypt(
-                  "Admin Added You",
-                  EncryptionKey
-                ).toString(),
+                // CryptoJS.AES.encrypt(
+                //   "Admin Added You",
+                //   EncryptionKey
+                // ).toString(),
+                encryptMessage(roomId, "Admin Added You"),
                 "notify",
                 0,
                 new Date().toISOString(),
@@ -59,16 +61,16 @@ export const updateroominfo = (name, image, roomId, allow, owner, isPublic) => {
                 getRoomMembers(roomId);
               },
               (err) => {
-                console.log("error : ", err);
+                console.log("updateroominfo error : ", err);
               }
             );
           }
         } catch (error) {
-          console.log("error :", error);
+          console.log("updateroominfo error :", error);
         }
       },
       (err) => {
-        console.log("error : ", err);
+        console.log("updateroominfo error : ", err);
       }
     );
   });
@@ -87,6 +89,7 @@ export const getTableData = async (tablename, callback) => {
           var temp = [];
           for (let i = 0; i < results.rows.length; ++i) {
             let contactName = results.rows.item(i).contactName;
+            // console.log("romifooo",results.rows.item(i))
             let roomName = results.rows.item(i).roomName?.replace(".0", "");
             temp.push({
               ...results.rows.item(i),
@@ -95,7 +98,6 @@ export const getTableData = async (tablename, callback) => {
             });
             // }
           }
-          /// console.log("temp>>>.",temp);
 
           callback(temp);
         } catch (error) {
@@ -120,7 +122,7 @@ export const getCurrentMemberData = async (userId, roomId, callback) => {
         callback(res.rows.item(0));
       },
       (err) => {
-        console.log("error : ", err);
+        console.log("getCurrentMemberData error : ", err);
       }
     );
   });
@@ -175,12 +177,18 @@ export const deleteRoomId = async (selectedRoomId) => {
   });
 };
 
-export const blockRoom = (selectedRoomId, isblock) => {
+export const blockRoom = async (selectedRoomId, isblock, callback) => {
   db.transaction((tx) => {
     tx.executeSql(
       "UPDATE RoomSql SET isUserExitedFromGroup = ? WHERE roomId = ?",
       [!isblock, selectedRoomId],
-      null, // You can pass null or undefined if you want to explicitly indicate no callback.
+      (_, results) => {
+        if (results.rows.length > 0) {
+          callback(true); //
+        } else {
+          callback(false); //
+        }
+      },
       (error) => {
         console.error("Error updating isblock:", error);
       }
@@ -284,7 +292,7 @@ export const newMessageInsertList = (
       if (globalThis.userChatId == insertdata.fromUser) {
         isupdate = false;
       }
-
+      //  console.log("insertdata========", insertdata);
       tx.executeSql(
         `UPDATE RoomSql SET roomId = ?, archive = ?, lastMessage = ?, messageType = ?, time = ?, lastMessageId = ?, isUserExitedFromGroup = ? WHERE roomId = ?`,
         [
@@ -317,7 +325,7 @@ export const newMessageInsertList = (
       }
 
       tx.executeSql(
-        `INSERT OR REPLACE INTO RoomSql (roomId, roomName, roomImage, roomType, archive, lastMessage, messageType, unseenMessageCount, time, lastMessageId, isUserExitedFromGroup, friendId, isNotificationAllowed, owner, sId, allow, isPublic) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?,?,?)`,
+        `INSERT OR REPLACE INTO RoomSql (roomId, roomName, roomImage, roomType, archive, lastMessage, messageType, unseenMessageCount, time, lastMessageId, isUserExitedFromGroup, friendId, isNotificationAllowed, owner, sId, allow, isPublic,premium) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?,?,?,?)`,
         [
           insertdata?.roomId,
           insertdata?.roomName
@@ -340,6 +348,7 @@ export const newMessageInsertList = (
           sId,
           insertdata?.allow ? insertdata?.allow : "public",
           insertdata?.isPublic ? insertdata?.isPublic : 0,
+          insertdata?.premium ? 1 : 0,
         ],
         (tx, results) => {
           callback(results);
@@ -643,7 +652,234 @@ export const insertDataIntoTables = (dataBackup) => {
   });
 };
 
+// isExclusive:userPremium ? true : false,
+// isPaid : false
+export const insertChannelInfo = (paramsOfSend, callback) => {
+  console.log("params in insert channel info:", paramsOfSend);
+  db.transaction((tx) => {
+    try {
+      let obj = { ...paramsOfSend };
+     // console.log("sql obj====================================", obj);
+
+      const unseenCount = 0;
+      tx.executeSql(
+        "INSERT OR REPLACE INTO ChannelInformation (owner,channelName,channelDescription,channelImage,channelType,channelLink,Subcribers,NotificationAllowed,channelId,lastMessage,lastMessageId,lastMessageType,lastMessageTime,time,unseenMessageCount,isExclusive,isPaid,isHide) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+          obj.ownerId,
+          obj.channelName,
+          obj.channelDes,
+          obj.image,
+          obj.type,
+          obj.link,
+          obj.subs,
+          obj.notifiAllow,
+          obj.channelId,
+          obj.lastMessage,
+          obj.lastMessageId,
+          obj.lastMessageType,
+          obj.lastMessageTime,
+          obj.time,
+          unseenCount,
+          obj.isExclusive,
+          obj.isPaid,
+          obj.isHide || 0,
+        ],
+        (res) => {
+         // console.log("Channel Data inserted successfully.", res);
+          callback(true);
+        }
+      );
+    } catch (error) {
+      console.log("errr", error);
+    }
+  });
+};
+
+// `SELECT *,
+//               (SELECT COUNT(*)
+//                FROM ChannelInformation
+//                WHERE owner = ?) AS ownerCount
+//        FROM ChannelInformation
+//        ORDER BY lastMessageTime DESC`
+// `ID INTEGER PRIMARY KEY AUTOINCREMENT,owner VARCHAR,channelName VARCHAR,channelDescription VARCHAR,channelImage STRING,channelType STRING,channelLink STRING,Subcribers INTEGER,NotificationAllowed BOOLEAN,channelId VARCHAR UNIQUE,lastMessage STRING,lastMessageId VARCHAR, lastMessageType VARCHAR, lastMessageTime VARCHAR,time VARCHAR,unseenMessageCount INTEGER,isExclusive BOOLEAN ,isPaid BOOLEAN
+
+// id INTEGER PRIMARY KEY AUTOINCREMENT, mId VARCHAR UNIQUE,channelId VARCHAR,fromUser VARCHAR,userName VARCHAR,phoneNumber VARCHAR,message VARCHAR,message_type VARCHAR,attachment VARCHAR,parent_message VARCHAR,isForwarded INTEGER,createdAt INTEGER,updatedAt INTEGER,localPath VARCHAR DEFAULT '[]',reactions VARCHAR DEFAULT '[]'
+
+//  DISTINCT rl.id, rl.*, ct.name AS contactName, latestMessage.message as lastMessage, latestMessage.createdAt as lastMessageTime, latestMessage.message_type as lastMessageType, latestMessage.mId as lastMessageId, latestMessage.isDeletedForAll as isLatestMessageDeleted
+// `
+export const getChannelInfo = (callback) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      `SELECT 
+        ci.*, 
+        latestMessage.message as lastMessage, 
+        latestMessage.createdAt as lastMessageTime, 
+        latestMessage.message_type as lastMessageType,
+        (SELECT COUNT(*) 
+         FROM ChannelInformation 
+         WHERE owner = ?) as ownerCount
+      FROM 
+        ChannelInformation as ci
+      LEFT JOIN 
+        (SELECT 
+           cm.channelId, 
+           cm.message, 
+           cm.message_type, 
+           cm.createdAt 
+         FROM 
+           ChannelMessages cm
+         WHERE 
+           cm.isDeletedForAll = 0 
+           AND cm.createdAt = (
+             SELECT MAX(createdAt) 
+             FROM ChannelMessages 
+             WHERE channelId = cm.channelId 
+               AND isDeletedForAll = 0
+           )
+         GROUP BY 
+           cm.channelId
+        ) as latestMessage 
+      ON 
+        ci.channelId = latestMessage.channelId
+      WHERE 
+        ci.isHide = 0`,
+      [globalThis.chatUserId], // Pass the globalThis.chatUserId as a parameter to the query
+      (tx, results) => {
+        const rows = results.rows;
+        let channels = [];
+        let count = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+          channels.push({ ...rows.item(i), canJoin: false });
+        }
+
+        if (rows.length > 0) {
+          count = rows.item(0).ownerCount; // Get the ownerCount from the first row
+        }
+
+        callback(channels, count); // Pass the retrieved data and count to the callback function
+      },
+      (tx, error) => {
+        console.log("Failed to retrieve channel data:", error);
+        callback([], 0); // Pass an empty array and 0 count to the callback function in case of error
+      }
+    );
+  });
+};
+
+export const getMyChannelInfo = (callback) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      `SELECT * 
+       FROM ChannelInformation 
+       WHERE owner = ? 
+       ORDER BY lastMessageTime ASC`, // Filter channels by owner ID and sort by lastMessageTime
+      [globalThis.chatUserId], // Pass the globalThis.chatUserId as a parameter to the query
+      (tx, results) => {
+        const rows = results.rows;
+        let channels = [];
+
+        for (let i = 0; i < rows.length; i++) {
+          channels.push(rows.item(i));
+        }
+        callback(channels); // Pass the retrieved data to the callback function
+      },
+      (tx, error) => {
+        console.error("Failed to retrieve channel data:", error);
+        callback([]); // Pass an empty array to the callback function in case of error
+      }
+    );
+  });
+};
+
+export const getChannelInfoById = (channelId, callback) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      `SELECT * 
+       FROM ChannelInformation 
+       WHERE channelId = ?`, // Query to fetch data for the given channelId
+      [channelId], // Pass the channelId as a parameter to the query
+      (tx, results) => {
+        const rows = results.rows;
+        let channelInfo = null;
+
+        if (rows.length > 0) {
+          // Extract the first (and likely only) result
+          channelInfo = rows.item(0);
+        }
+
+        console.log("Retrieved Channel Data:", channelInfo);
+        callback(channelInfo); // Pass the retrieved data to the callback function
+      },
+      (tx, error) => {
+        console.error("Failed to retrieve channel data:", error);
+        callback(null); // Pass null in case of error
+      }
+    );
+  });
+};
+
+export const checkChannelExists = (channelId, callback) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      `SELECT EXISTS(SELECT 1 FROM ChannelInformation WHERE channelId = ?) AS channelExists`, // Query to check if channelId exists
+      [channelId], // Pass the channelId as a parameter to the query
+      (tx, results) => {
+        const exists = results.rows.item(0).channelExists === 1; // Check if the result is 1 (exists) or 0 (does not exist)
+        console.log(`Channel with ID ${channelId} exists: `, exists);
+        callback(exists); // Pass the result to the callback function
+      },
+      (tx, error) => {
+        console.error("Failed to check channel existence:", error);
+        callback(false); // Pass false to the callback function in case of error
+      }
+    );
+  });
+};
+
+export const updateChannelInfo = (channelId, paramsOfSend, callback) => {
+  console.log("in updateChannelInfo", channelId, paramsOfSend);
+  db.transaction((tx) => {
+    try {
+      let obj = { ...paramsOfSend };
+
+      tx.executeSql(
+        "UPDATE ChannelInformation SET owner = ?, channelName = ?, channelDescription = ?, channelImage = ?, channelType = ?, channelLink = ?, Subcribers = ?, NotificationAllowed = ?, isExclusive = ? WHERE channelId = ?",
+        [
+          obj.ownerId,
+          obj.channelName,
+          obj.channelDes,
+          obj.image,
+          obj.type,
+          obj.link,
+          obj.subs,
+          obj.notifiAllow,
+          obj.isExclusive,
+          channelId, // Use the provided channelId for the WHERE clause
+        ],
+        (tx, res) => {
+          if (res.rowsAffected > 0) {
+            console.log("Updated Channel Information:", res.rows.item(0));
+            callback(true);
+          } else {
+            console.log("No channel found with the given channelId.");
+            callback(false);
+          }
+        },
+        (tx, error) => {
+          console.error("Failed to update channel data:", error);
+          callback(false);
+        }
+      );
+    } catch (error) {
+      console.error("Update transaction error:", error);
+      callback(false);
+    }
+  });
+};
+
 export const insertChatList = ({ paramsOfSend }) => {
+  // console.log("paramsOfSend====================================", paramsOfSend);
   db.transaction((tx) => {
     try {
       let checkMid = paramsOfSend.mId;
@@ -678,7 +914,7 @@ export const insertChatList = ({ paramsOfSend }) => {
               }
 
               tx.executeSql(
-                "INSERT OR REPLACE INTO Chatmessages (mId,roomId,fromUser,userName, phoneNumber,message,message_type,attachment,isBroadcastMessage,isDeletedForAll,parent_message,isForwarded,storyId,isStoryRemoved,resId,broadcastMessageId,seenCount,deliveredCount,status,createdAt,updatedAt,unreadCount,shouldDisappear, disappearTime, disappearMsgTime, localPath) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO Chatmessages (mId,roomId,fromUser,userName, phoneNumber,message,message_type,attachment,isBroadcastMessage,isDeletedForAll,parent_message,isForwarded,storyId,isStoryRemoved,resId,broadcastMessageId,seenCount,deliveredCount,status,createdAt,updatedAt,unreadCount,shouldDisappear, disappearTime, disappearMsgTime, localPath,reactions) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [
                   obj?.mId,
                   obj?.roomId,
@@ -708,6 +944,7 @@ export const insertChatList = ({ paramsOfSend }) => {
                   obj?.disappearTime || 0,
                   disappearMsgTime || 0,
                   localPaths,
+                  JSON?.stringify(obj?.reactions) || "[]",
                 ],
                 (_, results) => {
                   tx.executeSql(
@@ -724,28 +961,36 @@ export const insertChatList = ({ paramsOfSend }) => {
                   }
                   let isupdate = 1;
                   if (obj.roomId) {
+                    console.log(
+                      "obj.roomId====================================",
+                      obj
+                    );
+
                     if (obj.fromUser == globalThis.userChatId) {
                       isupdate = 0;
                     }
+
                     tx.executeSql(
-                      `UPDATE RoomSql 
-                   SET lastMessage = ?, 
-                       messageType = ?, 
-                       time = ?, 
-                       lastMessageId = ?, 
+                      `UPDATE RoomSql
+                   SET lastMessage = ?,
+                       messageType = ?,
+                       time = ?,
+                       lastMessageId = ?,
                        unseenMessageCount = COALESCE(unseenMessageCount, 0) ${
                          isupdate && obj.message_type !== "notify" ? "+ 1" : ""
-                       } 
+                       } ,
+                       premium = ?
                    WHERE roomId = ?`,
                       [
                         obj.message,
                         obj.message_type,
                         new Date(obj.createdAt || obj.messageTime),
                         obj._id,
+                        obj.premium,
                         obj.roomId,
                       ],
                       (tx, res) => {
-                        console.log("Update successful");
+                        console.log("Update successful", res);
                       },
                       (err) => {
                         console.log("Error updating RoomSql:", err);
@@ -765,6 +1010,616 @@ export const insertChatList = ({ paramsOfSend }) => {
       console.log("Insert Chat List error : ", error);
     }
   });
+};
+
+// export const insertChatList = ({ paramsOfSend }) => {
+//   console.log("paramsOfSend====================================", paramsOfSend);
+
+//   db.transaction((tx) => {
+//     try {
+//       let checkMid = paramsOfSend.mId || paramsOfSend._id;
+//       let obj = { ...paramsOfSend };
+
+//       if (!checkMid) {
+//         obj["mId"] = Math.floor(Math.random() * 9000) + 1000; // Generate a fallback ID
+//       }
+
+//       tx.executeSql(
+//         "SELECT COUNT(id) as count FROM Chatmessages WHERE mId = ?",
+//         [String(obj.mId)],
+//         (tx, res) => {
+//           if (res.rows.item(0).count > 0) {
+//             console.log("Duplicate mId detected, skipping insert.");
+//             // obj.mId = obj._id;
+
+//             tx.executeSql("UPDATE Chatmessages SET mId = ? WHERE mId = ?", [obj._id, obj.mId], ()=>{
+//               console.log("updated mId")
+//             })
+
+//           }
+//           else {
+//             let disappearMsgTime = null;
+//             if (obj.disappearTime) {
+//               disappearMsgTime = Date.now() + obj.disappearTime * 60000;
+//             }
+
+//             tx.executeSql(
+//               "INSERT OR REPLACE INTO Chatmessages " +
+//                 "(mId, roomId, fromUser, userName, phoneNumber, message, message_type, attachment, isBroadcastMessage, " +
+//                 "isDeletedForAll, parent_message, isForwarded, storyId, isStoryRemoved, resId, broadcastMessageId, " +
+//                 "seenCount, deliveredCount, status, createdAt, updatedAt, unreadCount, shouldDisappear, disappearTime, " +
+//                 "disappearMsgTime, localPath, reactions) " +
+//                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+//               [
+//                 obj.mId,
+//                 obj.roomId,
+//                 obj.fromUser || "unknownUser",
+//                 obj.userName || "Unknown",
+//                 String(obj.phoneNumber || obj.currentUserPhoneNumber)
+//                   .replace(" ", "")
+//                   .substr(-10),
+//                 obj.message,
+//                 obj.message_type,
+//                 JSON.stringify(obj.attachment || []),
+//                 obj.isBroadcastMessage ? 1 : 0,
+//                 obj.isDeletedForAll ? 1 : 0,
+//                 JSON.stringify(obj.parent_message || {}),
+//                 obj.isForwarded ? 1 : 0,
+//                 obj.storyId || "",
+//                 obj.isStoryRemoved ? 1 : 0,
+//                 obj.resId,
+//                 obj.broadcastMessageId || "",
+//                 obj.seenCount || 0,
+//                 obj.deliveredCount || 0,
+//                 "sent",
+//                 new Date(obj.createdAt || Date.now()).getTime(),
+//                 new Date(obj.updatedAt || Date.now()).getTime(),
+//                 obj.unreadCount || 0,
+//                 obj.shouldDisappear ? 1 : 0,
+//                 obj.disappearTime || 0,
+//                 disappearMsgTime || 0,
+//                 obj.localPath || "[]",
+//                 JSON.stringify(obj.reactions || []),
+//               ],
+//               (_, results) => {
+//                 console.log("Insert successful, ID:", results.insertId);
+//                 getChats(obj.roomId)
+
+//                 if (obj.roomId) {
+//                   let isUpdate = obj.fromUser !== globalThis.userChatId;
+//                   tx.executeSql(
+//                     `UPDATE RoomSql
+//                      SET lastMessage = ?,
+//                          messageType = ?,
+//                          time = ?,
+//                          lastMessageId = ?,
+//                          unseenMessageCount = COALESCE(unseenMessageCount, 0) ${
+//                            isUpdate && obj.message_type !== "notify" ? "+ 1" : ""
+//                          }
+//                      WHERE roomId = ?`,
+//                     [
+//                       obj.message,
+//                       obj.message_type,
+//                       new Date(obj.createdAt || Date.now()).getTime(),
+//                       obj.mId,
+//                       obj.roomId,
+//                     ],
+//                     (tx, res) => {
+//                       console.log("RoomSql update successful");
+//                     },
+//                     (err) => {
+//                       console.error("RoomSql update error:", err);
+//                     }
+//                   );
+//                 }
+//               },
+//               (error) => {
+//                 console.error("Failed to insert Chatmessages:", error);
+//               }
+//             );
+//           }
+
+//         },
+//         (error) => {
+//           console.error("Failed to execute SELECT query:", error);
+//         }
+//       );
+//     } catch (error) {
+//       console.error("Insert Chat List error:", error);
+//     }
+//   });
+// };
+
+export const updateMessageAndChannelInfo = (mId, updates, callback) => {
+  const { newMId, newAttachment, newLastMessageType } = updates;
+
+  db.transaction((tx) => {
+    // Step 1: Find the row in ChannelMessages where mId matches
+    tx.executeSql(
+      "SELECT * FROM ChannelMessages WHERE mId = ?",
+      [mId],
+      (tx, res) => {
+        if (res.rows.length > 0) {
+          // Step 2: Update the ChannelMessages table with new mId and attachment
+          const query1 = `
+            UPDATE ChannelMessages 
+            SET mId = ?, attachment = ?
+            WHERE mId = ?
+          `;
+          const values1 = [
+            newMId || mId,
+            JSON.stringify(newAttachment || res.rows.item(0).attachment),
+            mId,
+          ];
+
+          tx.executeSql(query1, values1, (tx, res) => {
+            if (res.rowsAffected > 0) {
+              // Step 3: Update the ChannelInformation table where lastMessageId matches the original mId
+              const query2 = `
+                UPDATE ChannelInformation 
+                SET lastMessageId = ?, lastMessageType = ?
+                WHERE lastMessageId = ?
+              `;
+              const values2 = [newMId || mId, newLastMessageType, mId];
+
+              tx.executeSql(query2, values2, (tx, res) => {
+                if (res.rowsAffected > 0) {
+                  callback(true); // Both updates were successful
+                } else {
+                  callback(false); // Failed to update ChannelInformation
+                }
+              });
+            } else {
+              callback(false); // Failed to update ChannelMessages
+            }
+          });
+        } else {
+          callback(false); // No matching mId found in ChannelMessages
+        }
+      }
+    );
+  });
+};
+
+//insert-channel-list
+export const insertChannelList = (paramsOfSend, callback) => {
+  console.log("STEP 1 TO INSERT CHANNEL LIST", paramsOfSend);
+  db.transaction((tx) => {
+    try {
+      console.log("in try", paramsOfSend);
+      let checkMid = paramsOfSend.mId;
+      let obj = { ...paramsOfSend };
+      const id = obj.mId || obj.lastMessageId;
+      if (!checkMid) {
+        obj["mId"] = id;
+      }
+      console.log("STEP 2 TO INSERT CHANNEL LIST");
+      tx.executeSql(
+        "SELECT COUNT(id) as count FROM ChannelMessages WHERE mId = ?",
+        [id],
+        (tx, res) => {
+          if (res.rows.item(0).count > 0) {
+            return;
+          }
+
+          let attachments = "[]";
+
+          if (obj.attachment) {
+            attachments = JSON.stringify(obj.attachment);
+          }
+          console.log(
+            "STEP 3 TO INSERT CHANNEL LIST",
+            obj?.mId || obj.lastMessageId,
+            obj?.channelId,
+            obj?.fromUser || "skdjfksdkfk",
+            obj?.userName || "",
+            String(obj?.currentUserPhoneNumber || obj?.phoneNumber)
+              .replace(" ", "")
+              .substr(-10),
+            obj?.message,
+            obj?.message_type || obj?.lastMessageType,
+            attachments,
+            JSON?.stringify(obj?.parent_message),
+            obj?.isForwarded ? 1 : 0,
+            obj.createdAt || obj.lastMessageTime,
+            new Date(obj.updatedAt || obj.lastMessageTime).getTime()
+            // localPaths,
+          );
+
+          tx.executeSql(
+            "SELECT localPath FROM ChannelMessages WHERE mId = ?",
+            [id],
+            (tx, res) => {
+              console.log("STEP 4 TO INSERT CHANNEL LIST", obj.localPath);
+              let localPaths = "[]";
+              if (res.rows.length > 0) {
+                localPaths = res.rows.item(0).localPath;
+              }
+
+              if (obj.localPath) {
+                localPaths = JSON.stringify(obj.localPath);
+              }
+
+              // let attachments = "[]";
+
+              // if (obj.attachment) {
+              //   attachments = JSON.stringify(obj.attachment);
+              // }
+
+              console.log(
+                "aallll",
+                obj?.mId || obj.lastMessageId,
+                obj?.channelId,
+                obj?.fromUser || "skdjfksdkfk",
+                obj?.userName || "",
+                String(obj?.currentUserPhoneNumber || obj?.phoneNumber)
+                  .replace(" ", "")
+                  .substr(-10),
+                obj?.message,
+                obj?.message_type || obj?.lastMessageType,
+                attachments,
+                JSON?.stringify(obj?.parent_message),
+                obj?.isForwarded ? 1 : 0,
+                obj.createdAt || obj.lastMessageTime,
+                new Date(obj.updatedAt || obj.lastMessageTime).getTime(),
+                localPaths,
+                obj.isDeletedForAll
+              );
+
+              tx.executeSql(
+                "INSERT OR REPLACE INTO ChannelMessages (mId,channelId,fromUser,userName,phoneNumber,message,message_type,attachment,parent_message,isForwarded,createdAt,updatedAt,localPath,isDeletedForAll) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                [
+                  obj?.mId || obj.lastMessageId,
+                  obj?.channelId,
+                  obj?.fromUser || "skdjfksdkfk",
+                  obj?.userName || "",
+                  String(obj?.currentUserPhoneNumber || obj?.phoneNumber)
+                    .replace(" ", "")
+                    .substr(-10),
+                  obj?.message,
+                  obj?.message_type || obj?.lastMessageType,
+                  attachments,
+                  JSON?.stringify(obj?.parent_message),
+                  obj?.isForwarded ? 1 : 0,
+                  obj.createdAt || obj.lastMessageTime,
+                  new Date(obj.updatedAt || obj.lastMessageTime).getTime(),
+                  localPaths,
+                  obj.isDeletedForAll,
+                ],
+                (_, results) => {
+                  // if (checkMid && obj.lastMessageId) {
+                  //   console.log("STEP 6 TO INSERT CHANNEL LIST");
+                  //   // tx.executeSql(
+                  //   //   "UPDATE ChannelMessages SET mId = ? WHERE mId = ?",
+                  //   //   [obj.lastMessageId, obj.mId],
+                  //   //   (tx, res) => {}
+                  //   // );
+                  // }
+                  let isupdate = 1;
+                  if (obj.channelId) {
+                    console.log("first if of sqlite");
+                    if (
+                      obj.fromUser == globalThis.userChatId ||
+                      globalThis.isChannelDetailOpen == "yes"
+                    ) {
+                      console.log("second if of sqlite");
+                      isupdate = 0;
+                    }
+                    console.log("STEP 6 TO INSERT CHANNEL LIST", obj.channelId);
+
+                    tx.executeSql(
+                      "SELECT COUNT(*) as count FROM ChannelInformation WHERE channelId = ?",
+                      [obj.channelId],
+                      (tx, res) => {
+                        console.log("in if ");
+                        console.log(
+                          "STEP 7 TO INSERT CHANNEL LIST",
+                          typeof res.rows.item(0).count
+                        );
+                        const msgType =
+                          obj?.message_type || obj?.lastMessageType;
+                        if (res.rows.item(0).count > 0) {
+                          console.log(
+                            "IF IT AS CHANNEL iD",
+                            obj.message,
+                            obj.lastMessageType || obj.message_type,
+                            new Date(
+                              obj.lastMessageTime || obj.updatedAt
+                            ).getTime(),
+                            obj.time || new Date().getTime(),
+                            obj.lastMessageId || obj.mId,
+                            obj.channelId
+                          );
+                          // ChannelId exists, perform an update
+                          tx.executeSql(
+                            `UPDATE ChannelInformation 
+                               SET lastMessage = ?, 
+                                   lastMessageType = ?, 
+                                   lastMessageTime = ?,
+                                   time = ?, 
+                                   lastMessageId = ?, 
+                                   unseenMessageCount = COALESCE(unseenMessageCount, 0) ${
+                                     isupdate && msgType != "notify"
+                                       ? "+ 1"
+                                       : ""
+                                   } 
+                               WHERE channelId = ?`,
+                            [
+                              obj.message,
+                              obj.lastMessageType || obj.message_type,
+                              new Date(
+                                obj.lastMessageTime || obj.updatedAt
+                              ).getTime(),
+                              obj.time || new Date().getTime(),
+                              obj.lastMessageId || obj.mId,
+                              obj.channelId,
+                            ],
+                            (tx, res) => {
+                              callback(true);
+                              console.log("Update successful");
+                            },
+                            (err) => {
+                              callback(false);
+                              console.log(
+                                "Error updating ChannelInformation:",
+                                err
+                              );
+                            }
+                          );
+                        } else {
+                          console.log("in else ");
+                          // ChannelId does not exist, perform an insert
+                          tx.executeSql(
+                            `INSERT OR REPLACE INTO ChannelInformation 
+                              (owner, channelName, channelDescription, channelImage, channelType, channelLink, 
+                               Subcribers, NotificationAllowed, channelId, lastMessage, lastMessageId, 
+                               lastMessageType, lastMessageTime, time, unseenMessageCount ,isExclusive,isPaid,isHide) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? , ?, ?)`,
+                            [
+                              obj.fromUser,
+                              obj.channelName,
+                              obj.channelDescription,
+                              obj.channelImage,
+                              obj.channelType,
+                              obj.channelLink,
+                              obj.subscribers,
+                              obj.NotificationAllowed,
+                              obj.channelId,
+                              obj.message,
+                              obj.mId || obj.lastMessageId,
+                              obj?.message_type || obj?.lastMessageType,
+                              new Date(
+                                obj.lastMessageTime || obj.updatedAt
+                              ).getTime(),
+                              obj.time || new Date().getTime(),
+                              (isupdate && obj?.message_type) ||
+                              obj?.lastMessageType !== "notify"
+                                ? 1
+                                : 0, // Initial unseenMessageCount
+                              obj.isExclusive,
+                              obj.isPaid,
+                              obj.isHide,
+                            ],
+                            (tx, res) => {
+                              callback(true);
+                              console.log("Insert successful");
+                            },
+                            (err) => {
+                              callback(false);
+                              console.log(
+                                "Error inserting into ChannelInformation:",
+                                err
+                              );
+                            }
+                          );
+                        }
+                      },
+                      (err) => {
+                        callback(false);
+                        console.log("Error checking ChannelInformation:", err);
+                      }
+                    );
+                  }
+                },
+                (error) => {
+                  console.error("Failed to insert data:", error);
+                }
+              );
+            },
+            (tx, error) => {
+              console.log("Error in SELECT localpath query:", error);
+            }
+          );
+        },
+        (tx, error) => {
+          console.log("Error in SELECT COUNT(id) query:", error);
+        }
+      );
+    } catch (error) {
+      console.log("Insert Chat List error : ", error);
+    }
+  });
+};
+
+export const insertChannelMessage = (msgObj, callback) => {
+  try {
+    db.transaction((tx) => {
+      // Initialize variables
+      let localPaths = "[]";
+      let attachments = "[]";
+      let reactions = "[]";
+
+      // Prepare data
+      if (msgObj.attachment) {
+        attachments = JSON.stringify(msgObj.attachment);
+      }
+      if (msgObj.reactions) {
+        reactions = JSON.stringify(msgObj.reactions.reactions);
+      }
+
+      //console.log("Reactions >>>>>>>>>!>!>>!>!>!>>", reactions);
+
+      // Debugging output
+      // console.log("msgObj:", msgObj);
+
+      // Check if message already exists
+      tx.executeSql(
+        "SELECT localPath FROM ChannelMessages WHERE mId = ?",
+        [msgObj?.mId || msgObj.lastMessageId],
+        (tx, res) => {
+          if (res.rows.length > 0) {
+            localPaths = res.rows.item(0).localPath;
+          }
+
+          // Handle localPath
+          if (msgObj.localPath) {
+            localPaths = JSON.stringify(msgObj.localPath);
+          }
+
+          // Insert or replace into database
+          tx.executeSql(
+            "INSERT OR REPLACE INTO ChannelMessages (mId, channelId, fromUser, userName, phoneNumber, message, message_type, attachment, parent_message, isForwarded, createdAt, updatedAt, localPath, reactions,isDeletedForAll) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+              msgObj?.mId || msgObj.lastMessageId,
+              msgObj?.channelId,
+              msgObj?.fromUser || "skdjfksdkfk",
+              msgObj?.userName || "",
+              msgObj?.currentUserPhoneNumber || "",
+              msgObj?.message,
+              msgObj?.lastMessageType,
+              attachments,
+              JSON.stringify(msgObj?.parent_message || {}),
+              msgObj?.isForwarded ? 1 : 0,
+              new Date(msgObj.createdAt || Date.now()).getTime(),
+              new Date(msgObj.updatedAt || Date.now()).getTime(),
+              localPaths,
+              reactions,
+              msgObj?.isDeletedForAll,
+            ],
+            (_, results) => {
+              // console.log("Insert/Replace result:", results);
+              callback(true);
+            },
+            (_, error) => {
+              console.error("Insert/Replace error:", error);
+              callback(false);
+            }
+          );
+        },
+        (_, error) => {
+          console.error("Select error:", error);
+          callback(false);
+        }
+      );
+    });
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    callback(false);
+  }
+};
+
+export const insertChannelMessagesAll = (msgObjs, ownername, callback) => {
+  console.log("msgObjsmsgObjs", msgObjs);
+  try {
+    db.transaction(
+      (tx) => {
+        let errorOccurred = false;
+
+        // Map over the messages array
+        const messageInserts = msgObjs.map((msgObj) => {
+          return new Promise((resolve, reject) => {
+            let localPaths = "[]";
+            let attachments = "[]";
+            let reactions = "[]";
+
+            // Prepare data
+            if (msgObj.attachment) {
+              attachments = JSON.stringify(msgObj.attachment);
+            }
+            if (msgObj.reactions) {
+              reactions = JSON.stringify(msgObj.reactions.reactions);
+            }
+
+            // Debugging output
+            // console.log("Inserting msgObj:", msgObj);
+
+            // Check if message already exists
+            tx.executeSql(
+              "SELECT localPath FROM ChannelMessages WHERE mId = ?",
+              [msgObj?.mId || msgObj.lastMessageId],
+              (tx, res) => {
+                if (res.rows.length > 0) {
+                  localPaths = res.rows.item(0).localPath;
+                }
+
+                // Handle localPath
+                if (msgObj.localPath) {
+                  localPaths = JSON.stringify(msgObj.localPath);
+                }
+
+                // Insert or replace into database
+                tx.executeSql(
+                  "INSERT OR REPLACE INTO ChannelMessages (mId, channelId, fromUser, userName, phoneNumber, message, message_type, attachment, parent_message, isForwarded, createdAt, updatedAt, localPath, reactions,isDeletedForAll) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                  [
+                    msgObj?._id,
+                    msgObj?.channelId,
+                    ownername,
+                    msgObj?.userName || "",
+                    msgObj?.currentUserPhoneNumber || "",
+                    msgObj?.message,
+                    msgObj?.message_type,
+                    attachments,
+                    JSON.stringify(msgObj?.parent_message || {}),
+                    msgObj?.isForwarded ? 1 : 0,
+                    new Date(msgObj.createdAt || Date.now()).getTime(),
+                    new Date(msgObj.updatedAt || Date.now()).getTime(),
+                    localPaths,
+                    reactions,
+                    msgObj?.isDeletedForAll,
+                  ],
+                  (_, results) => {
+                    // console.log("Insert/Replace result:", results);
+                    resolve();
+                  },
+                  (_, error) => {
+                    console.error("Insert/Replace error:", error);
+                    errorOccurred = true;
+                    reject(error);
+                  }
+                );
+              },
+              (_, error) => {
+                console.error("Select error:", error);
+                errorOccurred = true;
+                reject(error);
+              }
+            );
+          });
+        });
+
+        // Wait for all promises to resolve
+        Promise.all(messageInserts)
+          .then(() => {
+            if (!errorOccurred) {
+              callback(true);
+            } else {
+              callback(false);
+            }
+          })
+          .catch((error) => {
+            console.error("Transaction error:", error);
+            callback(false);
+          });
+      },
+      (err) => {
+        console.error("Transaction error:", err);
+        callback(false);
+      }
+    );
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    callback(false);
+  }
 };
 
 export const updateMessage = async (data, status) => {
@@ -821,6 +1676,8 @@ export const getAllChatTableData = async (
   roomType,
   callback
 ) => {
+  console.log("roomId sql====================================", roomId);
+
   let pageNumber = page ? page : 0;
   let paginationString = "";
   paginationString += pageNumber ? ` LIMIT ${pageNumber}` : "";
@@ -854,11 +1711,14 @@ export const getAllChatTableData = async (
     );
 
     tx.executeSql(
-      `SELECT DISTINCT  cm.*,rm.*, ct.name as contactName, ct.phone_number as contactPhoneNumber FROM Chatmessages as cm
-        LEFT JOIN ContactTable as ct ON substr(replace(cm.phoneNumber, '.0', ''), -10) = substr(replace(ct.phone_number, '.0', ''), -10) 
-        LEFT JOIN RoomMembers as rm ON rm.userId == cm.fromUser AND rm.roomId = cm.roomId
-        WHERE cm.roomId = ? GROUP BY cm.id
-        ORDER BY cm.createdAt DESC ${paginationString}`,
+      `SELECT DISTINCT  cm.*, COALESCE(rm.roomId, cm.roomId) as roomId, ct.name as contactName, ct.phone_number as contactPhoneNumber
+FROM Chatmessages as cm
+LEFT JOIN ContactTable as ct
+ON substr(replace(cm.phoneNumber, '.0', ''), -10) = substr(replace(ct.phone_number, '.0', ''), -10)
+LEFT JOIN RoomMembers as rm
+ON rm.userId = cm.fromUser AND rm.roomId = cm.roomId
+WHERE cm.roomId = ? GROUP BY cm.id
+ORDER BY cm.createdAt DESC ${paginationString}`,
       [roomId],
       (tx, results) => {
         try {
@@ -871,10 +1731,22 @@ export const getAllChatTableData = async (
               if (results?.rows?.item(i)?.localPath.length > 2) {
                 localPaths = JSON.parse(results.rows.item(i).localPath);
               }
-              const decryptedMessage = CryptoJS.AES.decrypt(
-                results.rows.item(i).message,
-                EncryptionKey
-              ).toString(CryptoJS.enc.Utf8);
+
+              console.log(
+                "results.rows.item(i)====================================",
+                results.rows.item(i)
+              );
+
+              // decryptMessage(newroomID, data?.result?.message),
+              // const decryptedMessage = CryptoJS.AES.decrypt(
+              //   results.rows.item(i).message,
+              //   EncryptionKey
+              // ).toString(CryptoJS.enc.Utf8);
+
+              const decryptedMessage = decryptMessage(
+                results.rows.item(i).roomId,
+                results.rows.item(i).message
+              );
 
               let attach = [];
               if (
@@ -961,6 +1833,7 @@ export const getAllChatTableData = async (
                     results.rows.item(i).image ||
                     "https://tokeecorp.com/backend/public/images/user-avatar.png",
                 },
+                reactions: JSON.parse(results.rows.item(i).reactions || "[]"),
               };
               if (results.rows.item(i).shouldDisappear == 1) {
                 if (results.rows.item(i).disappearMsgTime) {
@@ -991,7 +1864,7 @@ export const getAllChatTableData = async (
           }
           callback({ temp, disapperIds });
         } catch (error) {
-          console.log("error : ", error);
+          console.log("getAllChatTableData error : ", error);
         }
       },
 
@@ -1026,7 +1899,7 @@ export const getAllMembersData = async (callback) => {
 export const createTableUser = async () => {
   db.transaction((tx) => {
     tx.executeSql(
-      "CREATE TABLE IF NOT EXISTS RoomSql (id INTEGER PRIMARY KEY AUTOINCREMENT, roomId VARCHAR UNIQUE, roomName VARCHAR, aliasName VARCHAR, aliasImage VARCHAR, roomImage VARCHAR, roomType VARCHAR, archive INTEGER, lastMessage VARCHAR, messageType VARCHAR, unseenMessageCount INTEGER DEFAULT 0, time VARCHAR, lastMessageId VARCHAR, isUserExitedFromGroup INTEGER, friendId VARCHAR, isNotificationAllowed INTEGER, owner VARCHAR, sId VARCHAR, allow VARCHAR DEFAULT 'public', isLock INTEGER DEFAULT 0, isPublic BOOLEAN DEFAULT 0, isHide INTEGER DEFAULT 0, isChatListDelete INTEGER DEFAULT 0, ispin INTEGER DEFAULT 0)",
+      "CREATE TABLE IF NOT EXISTS RoomSql (id INTEGER PRIMARY KEY AUTOINCREMENT, roomId VARCHAR UNIQUE, roomName VARCHAR, aliasName VARCHAR, aliasImage VARCHAR, roomImage VARCHAR, roomType VARCHAR, archive INTEGER, lastMessage VARCHAR, messageType VARCHAR, unseenMessageCount INTEGER DEFAULT 0, time VARCHAR, lastMessageId VARCHAR, isUserExitedFromGroup INTEGER, friendId VARCHAR, isNotificationAllowed INTEGER, owner VARCHAR, sId VARCHAR, allow VARCHAR DEFAULT 'public', isLock INTEGER DEFAULT 0, isPublic BOOLEAN DEFAULT 0, isHide INTEGER DEFAULT 0, isChatListDelete INTEGER DEFAULT 0, ispin INTEGER DEFAULT 0, premium BOOLEAN, isDiamonds BOOLEAN)",
       [],
       (tx) => {
         // Table created successfully, now create indexes
@@ -1071,7 +1944,7 @@ export const createTableUser = async () => {
     );
 
     tx.executeSql(
-      "CREATE TABLE IF NOT EXISTS Chatmessages (id INTEGER PRIMARY KEY AUTOINCREMENT, mId VARCHAR UNIQUE, roomId VARCHAR, fromUser VARCHAR, userName VARCHAR, phoneNumber VARCHAR, message VARCHAR, message_type VARCHAR, attachment VARCHAR, isBroadcastMessage INTEGER, isDeletedForAll INTEGER, parent_message VARCHAR, isForwarded INTEGER, storyId INTEGER, isStoryRemoved INTEGER, resId INTEGER, broadcastMessageId VARCHAR, seenCount INTEGER, deliveredCount INTEGER, unreadCount INTEGER DEFAULT 0, status VARCHAR DEFAULT '', createdAt INTEGER, updatedAt INTEGER, shouldDisappear INTEGER DEFAULT 0, disappearTime INTEGER DEFAULT NULL, disappearMsgTime INTEGER DEFAULT NULL, localPath VARCHAR DEFAULT '[]')",
+      "CREATE TABLE IF NOT EXISTS Chatmessages (id INTEGER PRIMARY KEY AUTOINCREMENT, mId VARCHAR UNIQUE, roomId VARCHAR, fromUser VARCHAR, userName VARCHAR, phoneNumber VARCHAR, message VARCHAR, message_type VARCHAR, attachment VARCHAR, isBroadcastMessage INTEGER, isDeletedForAll INTEGER, parent_message VARCHAR, isForwarded INTEGER, storyId INTEGER, isStoryRemoved INTEGER, resId INTEGER, broadcastMessageId VARCHAR, seenCount INTEGER, deliveredCount INTEGER, unreadCount INTEGER DEFAULT 0, status VARCHAR DEFAULT '', createdAt INTEGER, updatedAt INTEGER, shouldDisappear INTEGER DEFAULT 0, disappearTime INTEGER DEFAULT NULL, disappearMsgTime INTEGER DEFAULT NULL, localPath VARCHAR DEFAULT '[]',reactions VARCHAR DEFAULT '[]')",
       [],
       (tx) => {
         // Table created successfully, now create indexes
@@ -1171,7 +2044,7 @@ export const createTableUser = async () => {
     );
 
     tx.executeSql(
-      "CREATE TABLE IF NOT EXISTS RoomMembers (member_id INTEGER PRIMARY KEY AUTOINCREMENT, mongoId VARCHAR UNIQUE, userId VARCHAR, name VARCHAR, image VARCHAR, phone_number VARCHAR, roomId VARCHAR, isAdmin BOOLEAN, joinedOn INTEGER, premium BOOLEAN)",
+      "CREATE TABLE IF NOT EXISTS RoomMembers (member_id INTEGER PRIMARY KEY AUTOINCREMENT, mongoId VARCHAR UNIQUE, userId VARCHAR, name VARCHAR, image VARCHAR, phone_number VARCHAR, roomId VARCHAR, isAdmin BOOLEAN, joinedOn INTEGER, premium BOOLEAN, isDiamonds BOOLEAN)",
       [],
       (tx) => {
         // Create indexes for optimization
@@ -1334,6 +2207,68 @@ export const createTableUser = async () => {
         console.error("Failed to create table:", error);
       }
     );
+
+    //by-dinki
+    tx.executeSql(
+      "CREATE TABLE IF NOT EXISTS ChannelInformation (ID INTEGER PRIMARY KEY AUTOINCREMENT,owner VARCHAR,channelName VARCHAR,channelDescription VARCHAR,channelImage STRING,channelType STRING,channelLink STRING,Subcribers INTEGER,NotificationAllowed BOOLEAN,channelId VARCHAR UNIQUE,lastMessage STRING,lastMessageId VARCHAR, lastMessageType VARCHAR, lastMessageTime VARCHAR,time VARCHAR,unseenMessageCount INTEGER,isExclusive BOOLEAN ,isPaid BOOLEAN,isHide INTEGER DEFAULT 0)", // Define your table schema here
+      [],
+      () => {
+        console.log("Channel table created successfully.");
+      },
+      (error) => {
+        console.error("Failed to create channel table:", error);
+      }
+    );
+
+    //by-piyush
+    tx.executeSql(
+      "CREATE TABLE IF NOT EXISTS ChannelRoomMembers (member_id INTEGER PRIMARY KEY AUTOINCREMENT, mongoId VARCHAR UNIQUE, userId VARCHAR, name VARCHAR, image VARCHAR, channelId VARCHAR,joinedOn INTEGER, premium BOOLEAN)",
+      [],
+      (tx) => {
+        // Create indexes for optimization
+        tx.executeSql(
+          "CREATE INDEX IF NOT EXISTS idx_userId ON ChannelRoomMembers(userId)",
+          [],
+          null,
+          (error) => {
+            console.error("Failed to create index on userId:", error);
+          }
+        );
+
+        tx.executeSql(
+          "CREATE INDEX IF NOT EXISTS idx_channelId ON ChannelRoomMembers(channelId)",
+          [],
+          null,
+          (error) => {
+            console.error("Failed to create index on channelId:", error);
+          }
+        );
+
+        tx.executeSql(
+          "CREATE INDEX IF NOT EXISTS idx_joinedOn ON ChannelRoomMembers(joinedOn)",
+          [],
+          null,
+          (error) => {
+            console.error("Failed to create index on joinedOn:", error);
+          }
+        );
+      },
+      (error) => {
+        console.error("Failed to create table:", error);
+      }
+    );
+
+    //by-dinki
+    tx.executeSql(
+      "CREATE TABLE IF NOT EXISTS ChannelMessages (id INTEGER PRIMARY KEY AUTOINCREMENT, mId VARCHAR UNIQUE,channelId VARCHAR,fromUser VARCHAR,userName VARCHAR,phoneNumber VARCHAR,message VARCHAR,message_type VARCHAR,attachment VARCHAR,parent_message VARCHAR,isForwarded INTEGER,createdAt INTEGER,updatedAt INTEGER,localPath VARCHAR DEFAULT '[]',reactions VARCHAR DEFAULT '[]',isDeletedForAll INTEGER)", // Define your table schema here
+      [],
+      () => {
+        console.log("Channel messages table created successfully.");
+      },
+      (error) => {
+        console.error("Failed to create channel table:", error);
+      }
+    );
     tx.executeSql(
       "CREATE TABLE IF NOT EXISTS wokiibotchat (user_id INTEGER PRIMARY KEY AUTOINCREMENT, resId VARCHAR, content VARCHAR, user VARCHAR)",
       [],
@@ -1458,6 +2393,123 @@ export const updateroombackground = (roomId, imageUrl) => {
       },
       (_, error) => {
         console.log("", error);
+      }
+    );
+  });
+};
+
+//member remove from channel
+export const exitChannelFromTable = (channelId, callback) => {
+  db.transaction((tx) => {
+    // First, check if the record exists
+    tx.executeSql(
+      "SELECT * FROM ChannelInformation WHERE channelId = ?",
+      [channelId],
+      (_, result) => {
+        if (result.rows.length > 0) {
+          // If the record exists, delete it
+          tx.executeSql(
+            "DELETE FROM ChannelInformation WHERE channelId = ?",
+            [channelId],
+            () => {
+              console.log(
+                `Record with channelId ${channelId} has been deleted.`
+              );
+              callback(true); // Success callback
+            },
+            (_, deleteError) => {
+              console.error("Failed to delete the record:", deleteError);
+              callback(false); // Failure callback
+            }
+          );
+        } else {
+          console.log("No record found for the provided channelId.");
+          callback(false); // Failure callback since the record doesn't exist
+        }
+      },
+      (_, error) => {
+        console.error("Failed to fetch the channel information:", error);
+        callback(false); // Failure callback due to fetch error
+      }
+    );
+  });
+};
+
+export const decreaseSubscribers = (channelId, callback) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      "SELECT * FROM ChannelInformation WHERE channelId = ?",
+      [channelId],
+      (_, result) => {
+        if (result.rows.length > 0) {
+          const currentSubscribers = result.rows.item(0).Subcribers;
+          if (currentSubscribers > 0) {
+            tx.executeSql(
+              "UPDATE ChannelInformation SET Subcribers = Subcribers - 1 WHERE channelId = ?",
+              [channelId],
+              () => {
+                console.log("Subscribers count decreased by 1");
+                callback(true);
+              },
+              (_, updateError) => {
+                console.error(
+                  "Failed to decrease subscribers count:",
+                  updateError
+                );
+                callback(false);
+              }
+            );
+          } else {
+            console.log("Subscribers count is already at 0.");
+            callback(false);
+          }
+        } else {
+          console.log("No record found for the provided channelId.");
+          callback(false);
+        }
+      },
+      (_, error) => {
+        console.error("Failed to fetch the channel information:", error);
+        callback(false);
+      }
+    );
+  });
+};
+
+export const increaseSubscribers = (channelId, callback) => {
+  console.log("channel id", channelId);
+  db.transaction((tx) => {
+    // Check if the record exists
+    tx.executeSql(
+      "SELECT * FROM ChannelInformation WHERE channelId = ?",
+      [channelId],
+      (_, result) => {
+        if (result.rows.length > 0) {
+          console.log("result.rows.length", result.rows.item(0));
+          // Increase the subscribers count by 1
+          tx.executeSql(
+            "UPDATE ChannelInformation SET Subcribers = Subcribers + 1 WHERE channelId = ?",
+            [channelId],
+            () => {
+              console.log("Subscribers count increased by 1");
+              callback(true);
+            },
+            (_, updateError) => {
+              console.error(
+                "Failed to increase subscribers count:",
+                updateError
+              );
+              callback(false);
+            }
+          );
+        } else {
+          console.log("No record found for the provided channelId.");
+          callback(false);
+        }
+      },
+      (_, error) => {
+        console.error("Failed to fetch the channel information:", error);
+        callback(false);
       }
     );
   });
@@ -1620,6 +2672,295 @@ export const updatedeleteforall = async (message, messageIds, callback) => {
         }
       );
     });
+  });
+};
+
+export const deleteMessagesForAll = async (messageIds, callback) => {
+  db.transaction((tx) => {
+    // Convert array of IDs to a comma-separated string for the SQL query
+    const placeholders = messageIds.map(() => "?").join(", ");
+
+    tx.executeSql(
+      `DELETE FROM ChannelMessages WHERE mId IN (${placeholders})`,
+      messageIds, // Provide the array directly
+      (_, result) => {
+        callback(result); // Invoke the callback with the result of the deletion
+      },
+      (error) => {
+        console.error("Error deleting messages:", error); // Log any errors
+      }
+    );
+  });
+};
+
+export const updatereactions = async (messageId, reactions, callback) => {
+  db.transaction((tx) => {
+    let reactionsstring = JSON.stringify(reactions);
+    tx.executeSql(
+      "UPDATE ChannelMessages SET reactions = ? WHERE mId = ?",
+      [reactionsstring, messageId],
+      (_, result) => {
+        console.log("yesss updatee reaction", reactionsstring, messageId);
+        callback(result);
+      },
+      (error) => {
+        console.error("Error updating message:", error);
+      }
+    );
+  });
+};
+
+export const updatereactionsonnormal = async (
+  messageId,
+  reactions,
+  callback
+) => {
+  db.transaction((tx) => {
+    let reactionsstring = JSON.stringify(reactions);
+    tx.executeSql(
+      "UPDATE Chatmessages SET reactions = ? WHERE mId = ?",
+      [reactionsstring, messageId],
+      (_, result) => {
+        console.log("yesss updatee reaction", reactionsstring, messageId);
+        callback(result);
+      },
+      (error) => {
+        console.error("Error updating message:", error);
+      }
+    );
+  });
+};
+
+export const updatereactionsforother = async (
+  messageId,
+  isAdd,
+  reaction,
+  user,
+  callback
+) => {
+  console.log("piyushhhhh", messageId, isAdd, reaction, user);
+
+  db.transaction((tx) => {
+    // Step 1: Retrieve the current reactions
+    tx.executeSql(
+      "SELECT reactions FROM ChannelMessages WHERE mId = ?",
+      [messageId],
+      (_, result) => {
+        // Log the result to check the output
+        console.log("Query Result:", result);
+
+        // Access result rows
+        const results = result.rows;
+
+        if (results.length === 0) {
+          console.error("Message not found or no reactions exist.");
+          return;
+        }
+
+        let reactions;
+        try {
+          reactions = JSON.parse(results.item(0).reactions);
+        } catch (parseError) {
+          console.error("Error parsing reactions JSON:", parseError);
+          return;
+        }
+
+        console.log("Current Reactions:", reactions);
+
+        // Step 2: Modify the reactions
+        const reactionIndex = reactions.findIndex((r) => r.emoji === reaction);
+
+        if (reactionIndex === -1) {
+          if (isAdd) {
+            // Add new reaction logic
+            reactions.push({
+              emoji: reaction,
+              count: 1,
+              users: [
+                {
+                  userId: user,
+                  reactionTime: new Date().toISOString(),
+                },
+              ],
+            });
+          } else {
+            console.error("Reaction emoji not found, but isAdd is false.");
+            return;
+          }
+        } else {
+          if (isAdd) {
+            // Add reaction logic
+            const reactionItem = reactions[reactionIndex];
+            const userIndex = reactionItem.users.findIndex(
+              (u) => u.userId === user
+            );
+
+            if (userIndex === -1) {
+              reactionItem.users.push({
+                userId: user,
+                reactionTime: new Date().toISOString(),
+              });
+              reactionItem.count = reactionItem.users.length;
+            }
+          } else {
+            // Remove user
+            let updatedUsers = reactions[reactionIndex].users.filter(
+              (u) => u.userId !== user
+            );
+
+            if (updatedUsers.length === 0) {
+              // Remove emoji if no users are left
+              reactions.splice(reactionIndex, 1);
+            } else {
+              reactions[reactionIndex].users = updatedUsers;
+              reactions[reactionIndex].count = updatedUsers.length;
+            }
+          }
+        }
+
+        // Convert the updated reactions back to a JSON string
+        const updatedReactionsString = JSON.stringify(reactions);
+
+        // Log the updated reactions for debugging
+        console.log("Updated Reactions:", updatedReactionsString);
+
+        // Step 3: Update the database
+        tx.executeSql(
+          "UPDATE ChannelMessages SET reactions = ? WHERE mId = ?",
+          [updatedReactionsString, messageId],
+          (_, result) => {
+            console.log(
+              "Successfully updated reaction",
+              updatedReactionsString,
+              messageId
+            );
+            callback(result);
+          },
+          (error) => {
+            console.error("Error updating message:", error);
+          }
+        );
+      },
+      (error) => {
+        console.error("Error retrieving reactions:", error);
+      }
+    );
+  });
+};
+
+export const updatereactionsforothernormal = async (
+  messageId,
+  isAdd,
+  reaction,
+  user,
+  callback
+) => {
+  console.log("piyushhhhh", messageId, isAdd, reaction, user);
+  db.transaction((tx) => {
+    // Step 1: Retrieve the current reactions
+    tx.executeSql(
+      "SELECT reactions FROM Chatmessages WHERE mId = ?",
+      [messageId],
+      (_, result) => {
+        // Log the result to check the output
+        console.log("Query Result:", result);
+
+        // Access result rows
+        const results = result.rows;
+
+        if (results.length === 0) {
+          console.error("Message not found or no reactions exist.");
+          return;
+        }
+
+        let reactions;
+        try {
+          reactions = JSON.parse(results.item(0).reactions);
+        } catch (parseError) {
+          console.error("Error parsing reactions JSON:", parseError);
+          return;
+        }
+
+        console.log("Current Reactions:", reactions);
+
+        // Step 2: Modify the reactions
+        const reactionIndex = reactions.findIndex((r) => r.emoji === reaction);
+
+        if (reactionIndex === -1) {
+          if (isAdd) {
+            // Add new reaction logic
+            reactions.push({
+              emoji: reaction,
+              count: 1,
+              users: [
+                {
+                  userId: user,
+                  reactionTime: new Date().toISOString(),
+                },
+              ],
+            });
+          } else {
+            console.error("Reaction emoji not found, but isAdd is false.");
+            // return;
+          }
+        } else {
+          if (isAdd) {
+            // Add reaction logic
+            const reactionItem = reactions[reactionIndex];
+            const userIndex = reactionItem.users.findIndex(
+              (u) => u.userId === user
+            );
+
+            if (userIndex === -1) {
+              reactionItem.users.push({
+                userId: user,
+                reactionTime: new Date().toISOString(),
+              });
+              reactionItem.count = reactionItem.users.length;
+            }
+          } else {
+            // Remove user
+            let updatedUsers = reactions[reactionIndex].users.filter(
+              (u) => u.userId !== user
+            );
+
+            if (updatedUsers.length === 0) {
+              // Remove emoji if no users are left
+              reactions.splice(reactionIndex, 1);
+            } else {
+              reactions[reactionIndex].users = updatedUsers;
+              reactions[reactionIndex].count = updatedUsers.length;
+            }
+          }
+        }
+
+        // Convert the updated reactions back to a JSON string
+        const updatedReactionsString = JSON.stringify(reactions);
+
+        // Log the updated reactions for debugging
+        console.log("Updated Reactions:", updatedReactionsString);
+
+        // Step 3: Update the database
+        tx.executeSql(
+          "UPDATE Chatmessages SET reactions = ? WHERE mId = ?",
+          [updatedReactionsString, messageId],
+          (_, result) => {
+            console.log(
+              "Successfully updated reaction",
+              updatedReactionsString,
+              messageId
+            );
+            callback(result);
+          },
+          (error) => {
+            console.error("Error updating message:", error);
+          }
+        );
+      },
+      (error) => {
+        console.error("Error retrieving reactions:", error);
+      }
+    );
   });
 };
 
@@ -1812,8 +3153,8 @@ export const insertDataFromCSVToTable = (rows, callback) => {
         mId, roomId, fromUser, userName, phoneNumber, message, message_type, attachment,localPath, 
         isBroadcastMessage, isDeletedForAll, parent_message, isForwarded, storyId, isStoryRemoved, 
         resId, broadcastMessageId, seenCount, deliveredCount, unreadCount, status, createdAt, 
-        updatedAt, shouldDisappear, disappearTime, disappearMsgTime
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        updatedAt, shouldDisappear, disappearTime, disappearMsgTime,reactions
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           mId,
           roomId,
@@ -1841,6 +3182,7 @@ export const insertDataFromCSVToTable = (rows, callback) => {
           shouldDisappear,
           disappearTime,
           disappearMsgTime,
+          [],
         ],
         () => {
           if (i === rows.length - 1) {
@@ -1858,11 +3200,375 @@ export const insertDataFromCSVToTable = (rows, callback) => {
   });
 };
 
-export const insertRoomSql = (insertdata, useridddd, callback) => {
+export const insertRoomSql3 = (insertdata, useridddd, callback) => {
   try {
-    db.transaction((tx) => {
+    db.transaction(async (tx) => {
+      const membersCount = {};
+
+      if (insertdata.rooms) {
+        let roomscount = 0;
+        let totalrooms = insertdata.rooms.length;
+
+        insertdata.rooms.forEach((data, index) => {
+          const newMembers = data.members
+            ? data.members.filter((f) => f.user != null)
+            : [];
+
+          // Handle single rooms with missing members
+          if (data.roomId.type === "single" && newMembers.length < 2) {
+            return;
+          }
+
+          membersCount[data.roomId._id] = newMembers.filter(
+            (m) => m.isRemoved === false
+          ).length;
+
+          const friend = newMembers[Number(friendId)] || {};
+
+          // Extract the most recent name and image
+          const name =
+            data.roomId.type === "single" && friend.user
+              ? friend.user.name || "Tokee user"
+              : data.name?.[data.name.length - 1]?.name || "Tokee group";
+
+          const image =
+            data.roomId.type === "single" && friend.user
+              ? friend.user.image || "https://example.com/default-image.png"
+              : data.image?.[data.image.length - 1]?.image ||
+                "https://example.com/default-group-image.png";
+
+          // Other details
+          const lastMessage = data.lastMessage.message || "";
+          const messageType = data.lastMessage.messageType || "text";
+          const lastMessageId = data.lastMessage._id || "";
+          const lastMessageTime = data.lastMessage.createdAt || "";
+
+          let isHide = false;
+          let isRemoved = false;
+          let isMute = false;
+          let aliasName = "";
+          let aliasImage = "";
+          let isLock = 0;
+          let friendId = 0;
+
+          if (data) {
+            isHide = data.isArchived || false;
+            isRemoved = data.isRemoved || false;
+            isMute = data.isNotificationAllowed || false;
+            aliasName = data.aliasName || "";
+            aliasImage = data.aliasImage || "";
+            isLock = data.isLock || 0;
+            friendId = data.friendId || 0;
+          }
+
+          let ispin = 0;
+          let unseenMessageCount = 0;
+
+          try {
+            tx.executeSql(
+              "SELECT ispin, unseenMessageCount FROM RoomSql WHERE roomId = ?",
+              [data.roomId],
+              (tx, results) => {
+                try {
+                  if (results.rows.length > 0) {
+                    ispin = results.rows.item(0)?.ispin || 0;
+                    unseenMessageCount =
+                      results.rows.item(0)?.unseenMessageCount || 0;
+                  }
+
+                  tx.executeSql(
+                    "INSERT OR REPLACE INTO RoomSql (roomId, roomName, aliasName, aliasImage, roomImage, roomType, archive, lastMessage, messageType, unseenMessageCount, time, lastMessageId, isUserExitedFromGroup, friendId, isNotificationAllowed, owner, allow, isLock, isPublic, isHide, isChatListDelete, ispin, premium, isDiamonds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                      data.roomId,
+                      name,
+                      aliasName,
+                      aliasImage,
+                      image,
+                      data.type,
+                      isHide ? 1 : 0,
+                      lastMessage,
+                      messageType,
+                      unseenMessageCount || 0,
+                      lastMessageTime,
+                      lastMessageId,
+                      isRemoved ? 1 : 0,
+                      friendId,
+                      isMute ? 1 : 0,
+                      data.owner || "",
+                      data.allow || "public",
+                      isLock ? 1 : 0,
+                      data.isPublic ? 1 : 0,
+                      data.isHide ? 1 : 0,
+                      data.isChatListDelete ? 1 : 0,
+                      ispin,
+                      0,
+                      0,
+                    ],
+                    (tx) => {
+                      socket.emit("joinRoom", {
+                        roomId: data.roomId._id,
+                        userId: globalThis.userChatId,
+                      });
+                      ///////////////update sid////////////////
+                      let sId = "";
+                      if (data.type == "single") {
+                        let first = Number.parseInt(
+                          String(data.friendNumber).substr(-10)
+                        );
+                        let second = Number.parseInt(
+                          String(globalThis.phone_number).substr(-10)
+                        );
+                        if (first > second) {
+                          sId = second + "_" + first;
+                        } else {
+                          sId = first + "_" + second;
+                        }
+                        tx.executeSql(
+                          "UPDATE RoomSql SET sId = ? WHERE roomId = ?",
+                          [sId, data.roomId],
+                          () => {
+                            console.log("sID update sucess===================");
+                          },
+                          (err) => {
+                            console.log("", err);
+                          }
+                        );
+                      }
+                      //////////////////////////////////////////
+
+                      if (totalrooms - 1 === index) {
+                        callback(true);
+                      } else {
+                        roomscount++;
+                      }
+
+                      for (let member of newMembers) {
+                        if (
+                          data.roomId.type !== "single" &&
+                          member.isRemoved === true
+                        ) {
+                          continue;
+                        }
+
+                        tx.executeSql(
+                          "INSERT OR REPLACE INTO RoomMembers (mongoId, userId, name, image, phone_number, roomId, isAdmin, joinedOn, premium, isDiamonds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          [
+                            data.roomId._id + "-" + member.user._id,
+                            member.user._id,
+                            member.user.name || "Unknown User",
+                            member.user.image ||
+                              "https://example.com/default-image.png",
+                            Number(member.user.phone_number || 0),
+                            data.roomId._id,
+                            member.isAdmin ? 1 : 0,
+                            new Date(member.addedOn || Date.now()).getTime(),
+                            member.user.premium || 0,
+                          ],
+                          () => {},
+                          (error) => {
+                            console.log("Room Member Insert Error:", error);
+                          }
+                        );
+                      }
+                    },
+                    (error) => {
+                      console.error("Room Insert Error:", error);
+                    }
+                  );
+                } catch (error) {
+                  console.log("SQL Error:", error);
+                }
+              },
+              (err) => {
+                console.log("SQL Select Error:", err);
+              }
+            );
+          } catch (err) {
+            console.log("SQL Transaction Error:", err);
+          }
+        });
+
+        console.log(
+          "Rooms processing completed===================================="
+        );
+      }
+      if (insertdata.chats) {
+        // console.log("yyyyyyyyyyyyyy", insertdata.chats);
+        // eslint-disable-next-line
+        let count = 0;
+        let totalChat = insertdata.chats.length;
+        insertdata.chats.forEach((chat, index) => {
+          const totalMembers = membersCount[chat.roomId];
+          // console.log("chatchatchat", chat);
+          let status = "sent";
+          if (chat.seenCount >= totalMembers - 1) {
+            status = "seen";
+          } else if (chat.deliveredCount >= totalMembers - 1) {
+            status = "delivered";
+          }
+
+          if (totalMembers == 1) {
+            status = "sent";
+          }
+
+          if (chat.from == null) {
+            return;
+          }
+
+          // Code Added by puru
+          tx.executeSql(
+            "SELECT * FROM Chatmessages WHERE mId = ?",
+            [chat._id],
+            (_, results) => {
+              let currentDisappearTime = null;
+              if (results.rows.length > 0) {
+                currentDisappearTime = results.rows.item(0)?.disappearMsgTime;
+
+                tx.executeSql(
+                  "UPDATE Chatmessages SET isDeletedForAll = ?,storyId = ?, isStoryRemoved = ?,seenCount = ?,deliveredCount = ?,updatedAt = ?,shouldDisappear = ?,unreadCount = ?,disappearTime = ?,disappearMsgTime = ?,reactions = ? WHERE mId = ?",
+                  [
+                    chat.isDeletedForAll,
+                    chat.storyId,
+                    chat.isStoryRemoved,
+                    chat.seenCount,
+                    chat.deliveredCount,
+                    chat.updatedAt,
+                    chat.shouldDisappear ? 1 : 0,
+                    chat?.unreadCount ? chat?.unreadCount : 0,
+                    chat?.disappearTime,
+                    currentDisappearTime,
+                    JSON.stringify(chat?.reactions?.reactions || []),
+                    chat._id,
+                  ],
+                  (results) => {
+                    // console.log("myy messageeee", results);
+                    if (totalChat - 1 === index) {
+                      console.log("All chats inserted successfully");
+                      AsyncStorage.setItem("lastsynctime", `${Date.now()}`)
+                        .then(() => {
+                          callback(true);
+                        })
+                        .catch((storageError) => {
+                          console.error(
+                            "Failed to set last sync time in AsyncStorage:",
+                            storageError
+                          );
+                          callback(false);
+                        });
+                    } else {
+                      // console.log(
+                      //   "Insertion or replacement successful for index:",
+                      //   index
+                      // );
+                      count++;
+                    }
+                  },
+                  (error) => {
+                    console.log("", error);
+                  }
+                );
+              } else {
+                tx.executeSql(
+                  "INSERT OR REPLACE INTO Chatmessages (mId, roomId, fromUser, userName, message, message_type, attachment, isBroadcastMessage, isDeletedForAll, parent_message, isForwarded, storyId, isStoryRemoved, resId, broadcastMessageId, seenCount, deliveredCount, status, createdAt, updatedAt, shouldDisappear, unreadCount, disappearTime, disappearMsgTime,reactions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?)",
+                  [
+                    chat._id,
+                    chat.roomId,
+                    chat.from._id,
+                    chat.from.name ?? "Tokee User",
+                    chat.message,
+                    chat.message_type,
+                    JSON.stringify(chat?.attachment || []), // Ensure `attachment` is always an array
+                    chat.isBroadcastMessage,
+                    chat.isDeletedForAll,
+                    JSON.stringify(chat?.parent_message || {}), // Ensure `parent_message` is an object
+                    chat.isForwarded,
+                    chat.storyId,
+                    chat.isStoryRemoved,
+                    chat.resId,
+                    chat.broadcastMessageId || "",
+                    chat.seenCount,
+                    chat.deliveredCount,
+                    status,
+                    new Date(chat?.createdAt).getTime(), // Ensure createdAt is in timestamp format
+                    chat.updatedAt,
+                    chat.shouldDisappear ? 1 : 0,
+                    chat?.unreadCount || 0,
+                    chat?.disappearTime,
+                    currentDisappearTime,
+                    JSON.stringify(chat?.reactions?.reactions || []),
+                  ],
+                  (tx, result) => {
+                    // console.log(
+                    //   "Data inserted or replaced successfully:",
+                    //   result
+                    // );
+                    if (totalChat - 1 === index) {
+                      console.log("All chats inserted successfully");
+                      AsyncStorage.setItem("lastsynctime", `${Date.now()}`)
+                        .then(() => {
+                          callback(true);
+                        })
+                        .catch((storageError) => {
+                          console.error(
+                            "Failed to set last sync time in AsyncStorage:",
+                            storageError
+                          );
+                          callback(false);
+                        });
+                    } else {
+                      // console.log(
+                      //   "Insertion or replacement successful for index:",
+                      //   index
+                      // );
+                      count++;
+                    }
+                  },
+                  (error) => {
+                    console.error(
+                      "Failed to insert or replace data in Chatmessages:",
+                      error
+                    );
+                    // Optionally, add further error handling here if needed
+                  }
+                );
+              }
+            }
+          );
+        });
+      }
+      if (insertdata?.rooms?.length == 0) {
+        await AsyncStorage.setItem("lastsynctime", `${Date.now()}`);
+      }
+      if (insertdata.blocks) {
+        console.log("in block condication====================================");
+
+        insertdata.blocks.forEach((data) => {
+          tx.executeSql(
+            "INSERT INTO blockusers (fromuser,touser) VALUES (?,?)",
+            [data.from, data.to],
+            () => {
+              console.log("inserted blocks");
+            },
+            (err) => {
+              console.log("insert blocks failed ", err);
+            }
+          );
+        });
+      }
+    });
+  } catch (err) {
+    console.log("Transaction Error:", err);
+  }
+};
+
+export const insertRoomSql = (insertdata, useridddd, callback) => {
+
+
+  try {
+    db.transaction(async (tx) => {
       const membersCount = {};
       if (insertdata.rooms) {
+        // console.log("grouppppppppppp",insertdata.rooms)
         let roomscount = 0;
         let totalrooms = insertdata.rooms.length;
         insertdata.rooms.forEach((data, index) => {
@@ -1886,6 +3592,7 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
             }
           }
           let friend = newMembers[Number(friendId)];
+
           let name = "";
           let image = "";
           let isHide = false;
@@ -1924,7 +3631,7 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                       results.rows.item(0)?.unseenMessageCount;
                   }
                   tx.executeSql(
-                    "INSERT OR REPLACE INTO RoomSql (roomId, roomName, aliasName, aliasImage, roomImage, roomType, archive, lastMessage, messageType, unseenMessageCount, time, lastMessageId, isUserExitedFromGroup, friendId, isNotificationAllowed, owner,allow, isLock, isPublic, isHide,isChatListDelete,ispin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)",
+                    "INSERT OR REPLACE INTO RoomSql (roomId, roomName, aliasName, aliasImage, roomImage, roomType, archive, lastMessage, messageType, unseenMessageCount, time, lastMessageId, isUserExitedFromGroup, friendId, isNotificationAllowed, owner,allow, isLock, isPublic, isHide,isChatListDelete,ispin,premium, isDiamonds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)",
                     [
                       data.roomId._id,
                       name || "Tokee user",
@@ -1948,6 +3655,12 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                       data.roomId.isHide ? 1 : 0,
                       data.roomId.isChatListDelete ? 1 : 0,
                       ispin,
+                      data.roomId.type == "single"
+                        ? friend.user.premium
+                          ? 1
+                          : 0
+                        : 0,
+                      0,
                     ],
                     (tx) => {
                       socket.emit("joinRoom", {
@@ -2010,7 +3723,7 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                         }
 
                         tx.executeSql(
-                          "INSERT OR REPLACE INTO RoomMembers (mongoId,userId,name,image,phone_number,roomId, isAdmin,joinedOn,premium) VALUES (?, ?, ?, ?, ?, ?,?,?,?)", // Define your table schema here
+                          "INSERT OR REPLACE INTO RoomMembers (mongoId,userId,name,image,phone_number,roomId, isAdmin,joinedOn,premium,isDiamonds) VALUES (?, ?, ?, ?, ?, ?, ?,?,?,?)", // Define your table schema here
                           [
                             data.roomId._id + "-" + member.user._id,
                             member.user._id,
@@ -2021,10 +3734,11 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                             data.roomId._id,
                             member.isAdmin ? 1 : 0,
                             new Date(member.addedOn).getTime(),
-                            member.user.premium
+                            member.user.premium,
+                            member.user.isDiamonds || 0,
                           ],
                           () => {
-                            console.log("Room Member Inserted");
+                            // console.log("Room Member Inserted");
                           },
                           (error) => {
                             console.log("", error);
@@ -2049,14 +3763,14 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
           }
         });
       }
-
       if (insertdata.chats) {
+        // console.log("yyyyyyyyyyyyyy", insertdata.chats);
         // eslint-disable-next-line
         let count = 0;
         let totalChat = insertdata.chats.length;
         insertdata.chats.forEach((chat, index) => {
           const totalMembers = membersCount[chat.roomId];
-          console.log("totalMembers", totalMembers);
+          // console.log("chatchatchat", chat);
           let status = "sent";
           if (chat.seenCount >= totalMembers - 1) {
             status = "seen";
@@ -2082,7 +3796,7 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                 currentDisappearTime = results.rows.item(0)?.disappearMsgTime;
 
                 tx.executeSql(
-                  "UPDATE Chatmessages SET isDeletedForAll = ?,storyId = ?, isStoryRemoved = ?,seenCount = ?,deliveredCount = ?,updatedAt = ?,shouldDisappear = ?,unreadCount = ?,disappearTime = ?,disappearMsgTime = ? WHERE mId = ?",
+                  "UPDATE Chatmessages SET isDeletedForAll = ?,storyId = ?, isStoryRemoved = ?,seenCount = ?,deliveredCount = ?,updatedAt = ?,shouldDisappear = ?,unreadCount = ?,disappearTime = ?,disappearMsgTime = ?,reactions = ? WHERE mId = ?",
                   [
                     chat.isDeletedForAll,
                     chat.storyId,
@@ -2094,10 +3808,11 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                     chat?.unreadCount ? chat?.unreadCount : 0,
                     chat?.disappearTime,
                     currentDisappearTime,
+                    JSON.stringify(chat?.reactions?.reactions || []),
                     chat._id,
                   ],
                   (results) => {
-                    console.log("myy messageeee", results);
+                    // console.log("myy messageeee", results);
                     if (totalChat - 1 === index) {
                       console.log("All chats inserted successfully");
                       AsyncStorage.setItem("lastsynctime", `${Date.now()}`)
@@ -2112,10 +3827,10 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                           callback(false);
                         });
                     } else {
-                      console.log(
-                        "Insertion or replacement successful for index:",
-                        index
-                      );
+                      // console.log(
+                      //   "Insertion or replacement successful for index:",
+                      //   index
+                      // );
                       count++;
                     }
                   },
@@ -2125,7 +3840,7 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                 );
               } else {
                 tx.executeSql(
-                  "INSERT OR REPLACE INTO Chatmessages (mId, roomId, fromUser, userName, message, message_type, attachment, isBroadcastMessage, isDeletedForAll, parent_message, isForwarded, storyId, isStoryRemoved, resId, broadcastMessageId, seenCount, deliveredCount, status, createdAt, updatedAt, shouldDisappear, unreadCount, disappearTime, disappearMsgTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+                  "INSERT OR REPLACE INTO Chatmessages (mId, roomId, fromUser, userName, message, message_type, attachment, isBroadcastMessage, isDeletedForAll, parent_message, isForwarded, storyId, isStoryRemoved, resId, broadcastMessageId, seenCount, deliveredCount, status, createdAt, updatedAt, shouldDisappear, unreadCount, disappearTime, disappearMsgTime,reactions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?)",
                   [
                     chat._id,
                     chat.roomId,
@@ -2151,12 +3866,13 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                     chat?.unreadCount || 0,
                     chat?.disappearTime,
                     currentDisappearTime,
+                    JSON.stringify(chat?.reactions?.reactions || []),
                   ],
                   (tx, result) => {
-                    console.log(
-                      "Data inserted or replaced successfully:",
-                      result
-                    );
+                    // console.log(
+                    //   "Data inserted or replaced successfully:",
+                    //   result
+                    // );
                     if (totalChat - 1 === index) {
                       console.log("All chats inserted successfully");
                       AsyncStorage.setItem("lastsynctime", `${Date.now()}`)
@@ -2171,10 +3887,10 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
                           callback(false);
                         });
                     } else {
-                      console.log(
-                        "Insertion or replacement successful for index:",
-                        index
-                      );
+                      // console.log(
+                      //   "Insertion or replacement successful for index:",
+                      //   index
+                      // );
                       count++;
                     }
                   },
@@ -2204,6 +3920,9 @@ export const insertRoomSql = (insertdata, useridddd, callback) => {
             }
           );
         });
+      }
+      if (insertdata?.rooms?.length == 0) {
+        await AsyncStorage.setItem("lastsynctime", `${Date.now()}`);
       }
     });
   } catch (err) {
@@ -2468,7 +4187,7 @@ export const insertRoomSql2 = async (insertdata, useridddd) => {
                 currentDisappearTime = results.rows.item(0)?.disappearMsgTime;
               }
               tx.executeSql(
-                "INSERT OR REPLACE INTO Chatmessages (mId,roomId,fromUser,userName, phoneNumber, message ,message_type ,attachment ,isBroadcastMessage ,isDeletedForAll ,parent_message ,isForwarded ,storyId ,isStoryRemoved ,resId ,broadcastMessageId ,seenCount ,deliveredCount, status, createdAt ,updatedAt, unreadCount, shouldDisappear,disappearTime,disappearMsgTime  ) VALUES ( ?,?, ?, ?, ?, ?, ?, ?,? ,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", // Define your table schema here
+                "INSERT OR REPLACE INTO Chatmessages (mId,roomId,fromUser,userName, phoneNumber, message ,message_type ,attachment ,isBroadcastMessage ,isDeletedForAll ,parent_message ,isForwarded ,storyId ,isStoryRemoved ,resId ,broadcastMessageId ,seenCount ,deliveredCount, status, createdAt ,updatedAt, unreadCount, shouldDisappear,disappearTime,disappearMsgTime,reactions  ) VALUES ( ?,?, ?, ?, ?, ?, ?, ?,? ,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", // Define your table schema here
                 [
                   chat._id,
                   chat.roomId,
@@ -2495,6 +4214,7 @@ export const insertRoomSql2 = async (insertdata, useridddd) => {
                   chat.shouldDisappear ? 1 : 0,
                   chat?.disappearTime,
                   currentDisappearTime,
+                  JSON.stringify(chat?.reactions) || "[]",
                 ],
                 async () => {
                   console.log("Inserting Message");
@@ -2528,7 +4248,53 @@ export const insertRoomSql2 = async (insertdata, useridddd) => {
 };
 
 // POPUP window modulle WORK
-export const getRoomIdFromRes = (number1, number2, callback) => {
+export const getRoomIdFromRes = async (number1, number2, callback) => {
+  try {
+    let currentUserPhoneNumber = number1;
+    let friendUserPhoneNumber = number2;
+
+    currentUserPhoneNumber = Number.parseInt(
+      currentUserPhoneNumber.substr(-10)
+    );
+    friendUserPhoneNumber = Number.parseInt(friendUserPhoneNumber.substr(-10));
+
+    let localRoomId = "";
+    if (currentUserPhoneNumber < friendUserPhoneNumber) {
+      localRoomId = currentUserPhoneNumber + "_" + friendUserPhoneNumber;
+    } else {
+      localRoomId = friendUserPhoneNumber + "_" + currentUserPhoneNumber;
+    }
+
+    db.transaction((tx) => {
+      tx.executeSql(
+        "SELECT * from RoomSql WHERE sId = ? LIMIT 1",
+        [localRoomId],
+        (tx, result) => {
+          if (result.rows.length > 0) {
+            return callback(result.rows.item(0));
+          } else {
+            callback(false);
+            return false;
+          }
+        },
+        (err) => {
+          callback(false);
+          console.log("ddddddddddddd", err);
+          return false;
+        }
+      );
+    });
+  } catch (error) {
+    console.log("ddddddddddddderror", error);
+    return false;
+  }
+};
+
+export const getRoomIdFromResforbarcode = async (
+  number1,
+  number2,
+  callback
+) => {
   try {
     let currentUserPhoneNumber = number1;
     let friendUserPhoneNumber = number2;
@@ -2550,13 +4316,15 @@ export const getRoomIdFromRes = (number1, number2, callback) => {
         [localRoomId],
         (tx, result) => {
           if (result.rows.length > 0) {
-            return callback(result.rows.item(0));
+            return callback(result.rows.item(0), true);
           } else {
+            callback({}, false);
             return false;
           }
         },
         (err) => {
-          console.log("", err);
+          callback(false);
+          console.log("ddddddddddddd", err);
           return false;
         }
       );
@@ -2622,6 +4390,129 @@ export const updateLocalPathInChatMessages = (
   });
 };
 
+// export const updateLocalPathInChannelMessages = (
+//   messageId,
+//   localPath,
+//   callback
+// ) => {
+//   console.log("wwwwwwwwwww", messageId,
+//   localPath)
+//   db.transaction((tx) => {
+//     tx.executeSql(
+//       "SELECT * FROM ChannelMessages WHERE mId = ? LIMIT 1",
+//       [messageId],
+//       (tx, res) => {
+//         if (res.rows.length > 0) {
+//           // message found
+//           const message = res.rows.item(0);
+
+//           try {
+//             // updating local paths
+//             let newLocalPathsString = "[]";
+//             if (message.localPath && JSON.parse(message.localPath).length > 0) {
+//               const localPaths = JSON.parse(message.localPath);
+//               if (!localPaths.includes(localPath)) {
+//                 localPaths?.push(localPath);
+
+//                 newLocalPathsString = JSON.stringify(localPaths);
+//               } else {
+//                 newLocalPathsString = JSON.stringify(localPaths);
+//               }
+//             } else {
+//               newLocalPathsString = JSON.stringify([localPath]);
+//             }
+//             console.log("newLocalPathsString",newLocalPathsString)
+//             tx.executeSql(
+//               "UPDATE ChannelMessages SET localPath = ? WHERE mId = ?",
+//               [newLocalPathsString, messageId],
+//               () => {
+//                 // updated
+//                 callback(true);
+//               },
+//               (err) => {
+//                 console.log("", err);
+//                 // not updated got some error.
+
+//                 callback(false);
+//               }
+//             );
+//           } catch (err) {
+//             console.log("error : ", err);
+//             callback(false);
+//           }
+//         } else {
+//           console.log("message not Found");
+//         }
+//       }
+//     );
+//   });
+// };
+
+export const updateLocalPathInChannelMessages = (
+  messageId,
+  localPath,
+  callback
+) => {
+  console.log("wwwwwwwwwww", messageId, localPath);
+
+  db.transaction((tx) => {
+    tx.executeSql(
+      "SELECT * FROM ChannelMessages WHERE mId = ? LIMIT 1",
+      [messageId],
+      (tx, res) => {
+        if (res.rows.length > 0) {
+          // message found
+          const message = res.rows.item(0);
+
+          try {
+            // Handle case when message.localPath is invalid
+            let localPaths = [];
+
+            if (message.localPath) {
+              try {
+                localPaths = JSON.parse(message.localPath) || [];
+              } catch (e) {
+                console.error("Error parsing localPath JSON: ", e);
+              }
+            }
+
+            // Ensure it's an array before pushing
+            if (!Array.isArray(localPaths)) {
+              localPaths = [];
+            }
+
+            // Update only if localPath doesn't already exist in the array
+            if (!localPaths.includes(localPath)) {
+              localPaths.push(localPath);
+            }
+
+            const newLocalPathsString = JSON.stringify(localPaths);
+            console.log("newLocalPathsString", newLocalPathsString);
+
+            tx.executeSql(
+              "UPDATE ChannelMessages SET localPath = ? WHERE mId = ?",
+              [newLocalPathsString, messageId],
+              () => {
+                // Updated successfully
+                callback(true);
+              },
+              (err) => {
+                console.log("Error updating localPath: ", err);
+                // Update failed
+                callback(false);
+              }
+            );
+          } catch (err) {
+            console.log("Error in transaction: ", err);
+            callback(false);
+          }
+        } else {
+          console.log("Message not found");
+        }
+      }
+    );
+  });
+};
 //for media download work -dinki
 export const removeLocalPathInChatMessages = (
   messageId,
@@ -2687,6 +4578,7 @@ export const replaceLocalPathInChatMessages = (
       "SELECT * FROM Chatmessages WHERE mId = ? LIMIT 1",
       [messageId],
       (tx, res) => {
+        console.log("res.rows", res.rows);
         if (res.rows.length > 0) {
           // message found
           const message = res.rows.item(0);
@@ -2733,7 +4625,64 @@ export const replaceLocalPathInChatMessages = (
   });
 };
 
-export const alterTableForMongoId = (tableName, callback) => {};
+export const replaceLocalPathInChannelMessages = (
+  messageId,
+  preLocalPath,
+  newLocalPath,
+  callback
+) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      "SELECT * FROM ChannelMessages WHERE mId = ? LIMIT 1",
+      [messageId],
+      (tx, res) => {
+        if (res.rows.length > 0) {
+          // message found
+          const message = res.rows.item(0);
+
+          try {
+            // updating local paths
+            let newLocalPathsString = "[]";
+            if (message.localPath) {
+              let localPaths = JSON.parse(message.localPath);
+
+              // localPaths = localPaths.filter(path => path != preLocalPath);
+              const idx = localPaths.findIndex((path) => path == preLocalPath);
+              if (idx >= 0) {
+                localPaths[idx] = newLocalPath;
+              }
+
+              newLocalPathsString = JSON.stringify(localPaths);
+            } else {
+              newLocalPathsString = JSON.stringify([newLocalPath]);
+            }
+
+            tx.executeSql(
+              "UPDATE ChannelMessages SET localPath = ? WHERE mId = ?",
+              [newLocalPathsString, messageId],
+              () => {
+                // updated
+                callback(true);
+              },
+              (err) => {
+                // not updated got some error.
+                console.log("unable to update local path", err);
+                callback(false);
+              }
+            );
+          } catch (err) {
+            console.log("error : ", err);
+            callback(false);
+          }
+        } else {
+          console.log("message not Found");
+        }
+      }
+    );
+  });
+};
+
+// export const alterTableForMongoId = (tableName, callback) => {};
 
 //for media download work -dinki
 export const addColumnIfNotExists = (
@@ -2917,6 +4866,151 @@ export const addMemberToRoomMembersSql = (member, roomId, callback) => {
   });
 };
 
+//piyush work
+
+export const addMemberToChannelRoomMembersSql = (member, roomId, callback) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      "INSERT OR REPLACE INTO ChannelRoomMembers (mongoId,userId,name,image,channelId,joinedOn,premium) VALUES (?,?,?,?,?,?,?)",
+      [
+        roomId + "-" + member.userId,
+        member.userId,
+        member.name,
+        member.image,
+        roomId,
+        Date.now(),
+        member.premium,
+      ],
+      () => {
+        console.log("updatedddddd");
+        callback();
+      },
+      (err) => {
+        console.log("", err);
+        return false;
+      }
+    );
+  });
+};
+
+export const removeMemberFromChannelRoomMembersSql = (
+  userId,
+  channelId,
+  callback
+) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      "DELETE FROM ChannelRoomMembers WHERE userId = ? AND channelId = ?",
+      [userId, channelId],
+      () => {
+        console.log("Member removed successfully");
+        callback();
+      },
+      (err) => {
+        console.log("Error removing member:", err);
+        return false;
+      }
+    );
+  });
+};
+
+export const addMembersToChannelRoomMembersSql = async (
+  members,
+  channelId,
+  callback
+) => {
+  try {
+    const totalMembers = members.length;
+    let completedCount = 0;
+    db.transaction((tx) => {
+      members.forEach((member) => {
+        tx.executeSql(
+          "INSERT OR REPLACE INTO ChannelRoomMembers (mongoId, userId, name, image,channelId,joinedOn,premium) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [
+            channelId + "-" + member?._id,
+            member?._id,
+            member?.name,
+            member?.image,
+            channelId,
+            Date.now(),
+            member.premium,
+          ],
+          (_, result) => {
+            completedCount++;
+            if (completedCount === totalMembers) {
+              console.log("succeessssfull insertttt");
+              callback(); // Invoke callback when all members have been inserted
+            }
+          },
+          (err) => {
+            console.log("Error executing SQL:", err);
+            // Handle error as needed
+          }
+        );
+      });
+    });
+  } catch (error) {
+    console.log("Error in transaction:", error);
+    return false; // Return false or handle error as needed
+  }
+};
+
+export const insertToChannelRoomMembersSql = async (
+  members,
+  channelId,
+  callback
+) => {
+  try {
+    const totalMembers = members.length;
+    let completedCount = 0;
+
+    db.transaction((tx) => {
+      // First, delete existing members for the specified channelId
+      tx.executeSql(
+        "DELETE FROM ChannelRoomMembers WHERE channelId = ?",
+        [channelId],
+        () => {
+          console.log(`Deleted members for channelId: ${channelId}`);
+
+          // Now, insert the new members
+          members.forEach((member) => {
+            tx.executeSql(
+              "INSERT INTO ChannelRoomMembers (mongoId, userId, name, image, channelId, joinedOn, premium) VALUES (?, ?, ?, ?, ?, ?, ?)",
+              [
+                channelId + "-" + member?._id,
+                member?._id,
+                member?.name,
+                member?.image,
+                channelId,
+                Date.now(),
+                member?.premium,
+              ],
+              (_, result) => {
+                completedCount++;
+                if (completedCount === totalMembers) {
+                  // console.log("Successfully inserted all members.",);
+                  callback(); // Invoke callback when all members have been inserted
+                }
+              },
+              (err) => {
+                console.log("Error executing SQL insert:", err);
+                // Handle error as needed
+              }
+            );
+          });
+        },
+        (err) => {
+          console.log("Error executing SQL delete:", err);
+          // Handle error as needed
+        }
+      );
+    });
+  } catch (error) {
+    console.log("Error in transaction:", error);
+    return false; // Return false or handle error as needed
+  }
+};
+
 export const updateUserAdminStatus = (userId, roomId, isAdmin, callback) => {
   try {
     db.transaction(
@@ -2993,7 +5087,7 @@ export const getMembersFromRoomMembersSql = async (
 
           // Query to get the paginated members
           tx.executeSql(
-            `SELECT DISTINCT rm.member_id, rm.userId, rm.name AS userName, 
+            `SELECT DISTINCT rm.member_id,rm.premium, rm.userId, rm.name AS userName, 
                     rm.phone_number, rm.image, rm.isAdmin, 
                     rooms.owner, rooms.roomImage, rooms.allow, 
                     rooms.roomName AS groupName, rooms.isPublic 
@@ -3029,6 +5123,57 @@ export const getMembersFromRoomMembersSql = async (
         },
         (err) => {
           console.log("Error:", err);
+        }
+      );
+    });
+  } catch (error) {
+    console.log("Error:", error);
+    return false;
+  }
+};
+
+export const getMembersFromChannelRoomMembersSql = async (
+  roomId,
+  limit,
+  offset,
+  callback
+) => {
+  try {
+    // Assuming globalThis.userChatId is accessible and holds the current user's ID
+    // const currentUserId = globalThis.userChatId;
+
+    db.transaction((tx) => {
+      // Query to get the total count of members
+      tx.executeSql(
+        `SELECT COUNT(*) AS totalCount FROM ChannelRoomMembers WHERE channelId = ?`,
+        [roomId],
+        (tx, result) => {
+          const totalCount = result.rows.item(0).totalCount;
+          console.log("totalCount", totalCount);
+
+          // Query to get the paginated members
+          tx.executeSql(
+            `SELECT DISTINCT member_id, premium, userId, name, image FROM ChannelRoomMembers 
+             WHERE channelId = ?
+             ORDER BY name 
+             LIMIT ? OFFSET ?`,
+            [roomId, limit, offset], // Only pass the necessary parameters
+            (tx, result) => {
+              const members = [];
+              for (let i = 0; i < result.rows.length; i++) {
+                const member = result.rows.item(i);
+                members.push(member);
+              }
+              // Pass both members and total count to the callback
+              callback(members, totalCount);
+            },
+            (err) => {
+              console.log("Error executing member query:", err);
+            }
+          );
+        },
+        (err) => {
+          console.log("Error executing count query:", err);
         }
       );
     });
@@ -3337,6 +5482,128 @@ export const getChats = (roomId) => {
     return;
   }
 };
+
+// export const getChannelChats = (roomId, callback) => {
+//   console.log("room id :", roomId);  // Ensure roomId is correct
+//   try {
+//     db.transaction((tx) => {
+//       tx.executeSql(
+//         "SELECT * FROM ChannelMessages WHERE channelId = ? AND isDeletedForAll = 0",
+//         [roomId],
+//         (tx, result) => {
+//           console.log("Result length:", result.rows.length);  // Log number of rows
+
+//           const messages = [];
+//           for (let i = 0; i < result.rows.length; i++) {
+//             const messageItem = result.rows.item(i);
+//             try {
+//               messageItem.attachment = JSON.parse(messageItem.attachment);
+//               console.log("Message Reactions >>>>",messageItem.reactions)
+//               messageItem.reactions = JSON.parse(messageItem.reactions);
+//             } catch (error) {
+//               console.log("Error parsing attachment:", error);
+//               messageItem.attachment = []; // Fallback to an empty array if parsing fails
+//             }
+
+//             try {
+//               messageItem.localPath = JSON.parse(messageItem.localPath);
+//             } catch (error) {
+//               console.log("Error parsing localPath:", error);
+//               messageItem.localPath = []; // Fallback to an empty array if parsing fails
+//             }
+//             console.log("Fetched message:", messageItem);  // Log each message item
+//             messages.push(messageItem);
+//           }
+
+//           console.log("messages: in get chanel chats", messages);
+//           callback(messages);
+//         },
+//         (error) => {
+//           console.log("Error in query execution:", error);  // Log any query errors
+//         }
+//       );
+//     });
+//   } catch (error) {
+//     console.log("Error in getChannelChats:", error);  // Log any try-catch errors
+//     return;
+//   }
+// };
+
+export const getChannelChats = (roomId, offset, limit, callback) => {
+  console.log("Fetching channel chats");
+  console.log("Room ID:", roomId, "Offset:", offset, "Limit:", limit); // Ensure roomId, offset, and limit are correct
+
+  // Input validation
+  if (!roomId || typeof offset !== "number" || typeof limit !== "number") {
+    console.error("Invalid parameters for getChannelChats");
+    callback([]);
+    return;
+  }
+
+  try {
+    db.transaction((tx) => {
+      tx.executeSql(
+        `SELECT * FROM ChannelMessages 
+         WHERE channelId = ? AND isDeletedForAll = 0
+         ORDER BY createdAt DESC
+         LIMIT ? OFFSET ?`,
+        [roomId, limit, offset],
+        (tx, result) => {
+          console.log(
+            "Query executed successfully. Result length:",
+            result.rows.length
+          ); // Log number of rows
+
+          const messages = [];
+          for (let i = 0; i < result.rows.length; i++) {
+            const messageItem = result.rows.item(i);
+
+            try {
+              // Parse attachment and reactions
+              messageItem.attachment = JSON.parse(
+                messageItem.attachment || "[]"
+              );
+              messageItem.reactions = JSON.parse(messageItem.reactions || "[]");
+            } catch (error) {
+              console.error(
+                "Error parsing attachment or reactions for message ID:",
+                messageItem.mId,
+                error
+              );
+              messageItem.attachment = [];
+              messageItem.reactions = [];
+            }
+
+            try {
+              // Parse localPath
+              messageItem.localPath = JSON.parse(messageItem.localPath || "[]");
+            } catch (error) {
+              console.error(
+                "Error parsing localPath for message ID:",
+                messageItem.mId,
+                error
+              );
+              messageItem.localPath = [];
+            }
+
+            messages.push(messageItem);
+          }
+
+          // Callback with the processed messages
+          callback(messages);
+        },
+        (error) => {
+          console.error("Error executing query in getChannelChats:", error); // Log query error
+          callback([]); // Return empty array on failure
+        }
+      );
+    });
+  } catch (error) {
+    console.error("Error in getChannelChats transaction:", error); // Log transaction error
+    callback([]);
+  }
+};
+
 export const getContacts = () => {
   try {
     db.transaction((tx) => {
@@ -3743,6 +6010,41 @@ export const DeleteTheGroup = (roomId) => {
   });
 };
 
+export const DeleteTheChannel = (roomId) => {
+  db.transaction((tx) => {
+    tx.executeSql(`BEGIN TRANSACTION;`);
+
+    tx.executeSql(
+      "DELETE FROM ChannelInformation WHERE channelId = ?",
+      [roomId],
+      null, // You can pass null or undefined if you want to explicitly indicate no callback.
+      (error) => {
+        console.log("RoomSql update error", error);
+      }
+    );
+
+    tx.executeSql(
+      "DELETE FROM ChannelRoomMembers WHERE channelId = ?",
+      [roomId],
+      null, // You can pass null or undefined if you want to explicitly indicate no callback.
+      (error) => {
+        console.log("RoomMembers delete error", error);
+      }
+    );
+
+    tx.executeSql(
+      "DELETE FROM ChannelMessages WHERE channelId = ?",
+      [roomId],
+      null, // You can pass null or undefined if you want to explicitly indicate no callback.
+      (error) => {
+        console.log("Chatmessage delete error", error);
+      }
+    );
+
+    tx.executeSql(`COMMIT;`);
+  });
+};
+
 export const getRoomMedia = (roomId, type, callback) => {
   db.transaction((tx) => {
     tx.executeSql(
@@ -3766,6 +6068,53 @@ export const getRoomMedia = (roomId, type, callback) => {
   });
 };
 
+//getchannelmedia
+export const getChannelMedia = (channelId, callback) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      "SELECT attachment, message_type, localPath FROM ChannelMessages WHERE channelId = ?",
+      [channelId],
+      (tx, res) => {
+        let filteredMessages = [];
+
+        for (let i = 0; i < res.rows.length; i++) {
+          let row = res.rows.item(i);
+
+          // Check if the message_type is one of the required types
+          if (
+            ["image", "document", "video", "audio"].includes(row.message_type)
+          ) {
+            let attachments = [];
+            let localPaths = [];
+
+            try {
+              attachments = JSON.parse(row.attachment); // Parse attachment JSON
+            } catch (error) {
+              attachments = [];
+            }
+
+            try {
+              localPaths = JSON.parse(row.localPath); // Parse localPath JSON
+            } catch (error) {
+              localPaths = [];
+            }
+
+            // Update row with parsed attachments and local paths
+            filteredMessages.push({
+              ...row,
+              attachment: attachments,
+              localPath: localPaths,
+            });
+          }
+        }
+
+        // Pass the filtered messages to the callback
+        callback(filteredMessages);
+      }
+    );
+  });
+};
+
 export const HideTheGroup = (data) => {
   let hide = data.isHide ? 1 : 0;
   db.transaction((tx) => {
@@ -3779,6 +6128,89 @@ export const HideTheGroup = (data) => {
     );
   });
 };
+
+export const HideTheChannel = (data) => {
+  let hide = data.isHide ? 1 : 0;
+  db.transaction((tx) => {
+    tx.executeSql(
+      "UPDATE ChannelInformation SET isHide = ? WHERE channelId = ?",
+      [hide, data.channelId],
+      null, // You can pass null or undefined if you want to explicitly indicate no callback.
+      (error) => {
+        console.log("Room hide error", error);
+      }
+    );
+  });
+};
+
+export const getUnseenChannelMessageCount = (
+  roomId,
+  lastMessageTime,
+  callback
+) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      `SELECT COUNT(*) as count FROM ChannelMessages WHERE channelId = ? AND fromUser != ? AND createdAt > '${lastMessageTime}'`,
+      [roomId, globalThis.chatUserId],
+      (tx, res) => {
+        callback(res.rows.item(0));
+      },
+      (err) => {
+        console.log("err", err);
+      }
+    );
+  });
+};
+
+export const updateChannelUnseenMessageCount = (roomId, givenUnseenCount) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      "UPDATE ChannelInformation SET unseenMessageCount = ? WHERE channelId = ?",
+      [givenUnseenCount?.count, roomId],
+      () => {
+        console.log("unread count updated successfullly in channel.");
+      },
+      (error) => {
+        console.log("error of updating unseenmessage count  ", error);
+      }
+    );
+  });
+};
+
+// export const incrementUnseenMessageCount = (channelId, callback) => {
+//   db.transaction((tx) => {
+//     // Step 1: Retrieve the current unseenMessageCount
+//     tx.executeSql(
+//       "SELECT unseenMessageCount FROM ChannelInformation WHERE channelId = ?",
+//       [channelId],
+//       (tx, res) => {
+//         if (res.rows.length > 0) {
+//           let currentCount = res.rows.item(0).unseenMessageCount;
+//             // console.log("current count>>>>>",res.rows.item(0))
+//           // Step 2: Increment the unseenMessageCount
+//           const query = `
+//             UPDATE ChannelInformation
+//             SET unseenMessageCount = unseenMessageCount + 1
+//             WHERE channelId = ?
+//           `;
+// if (currentCount == null || currentCount == undefined || currentCount == 0) {
+//   currentCount = 0;
+// }
+//           tx.executeSql(query, [channelId], (tx, updateRes) => {
+//             if (updateRes.rowsAffected > 0) {
+//               // Callback with the previous unseenMessageCount and a success flag
+//               callback(currentCount, true);
+//             } else {
+//               callback(currentCount, false); // Failed to update unseenMessageCount
+//             }
+//           });
+//         } else {
+//           callback(null, false); // No matching channelId found
+//         }
+//       }
+//     );
+//   });
+// };
 
 export const getUnseenMessageCount = (roomId, lastMessageTime, callback) => {
   db.transaction((tx) => {
@@ -3797,14 +6229,23 @@ export const getUnseenMessageCount = (roomId, lastMessageTime, callback) => {
   });
 };
 
-export const updateUnseenMessageCount = (roomId, givenUnseenCount) => {
+export const updateUnseenMessageCount = (
+  roomId,
+  givenUnseenCount,
+  callback
+) => {
   db.transaction((tx) => {
     tx.executeSql(
       "UPDATE RoomSql SET unseenMessageCount = ? WHERE roomId = ?",
       [givenUnseenCount?.count, roomId],
-      () => {},
+      () => {
+        // Call the callback with success status
+        if (callback) callback(null, "updateUnseenMessageCount successful");
+      },
       (error) => {
-        console.log("error of updating unseenmessage count  ", error);
+        console.log("Error updating unseen message count: ", error);
+        // Call the callback with error status
+        if (callback) callback(error);
       }
     );
   });
@@ -3867,38 +6308,97 @@ export const removeMediaFromLocal = async (messageId, mediaId, callback) => {
   });
 };
 
-export const UpdateProfileImage = async (userId, imageUrl, callback) => {
+export const UpdateProfileImage = async (roomId, imageUrl, callback) => {
   db.transaction((tx) => {
-    // update room image
+    // Update room image based on roomId
     tx.executeSql(
-      "UPDATE RoomSql SET roomImage = ? WHERE roomType = ? AND friendId = ?",
-      [imageUrl, "single", userId],
+      "UPDATE RoomSql SET roomImage = ? WHERE roomType = ? AND roomId = ?",
+      [imageUrl, "single", roomId],
       () => {
+        console.log("Room image updated successfully in RoomSql");
         callback(true);
       },
       (err) => {
-        console.log("Error Update Profie ", err);
+        console.log("Error updating profile image in RoomSql: ", err);
         callback(false);
       }
     );
 
-    // update room member image.
+    // Update room member image based on roomId
     tx.executeSql(
-      "UPDATE RoomMembers SET image = ? WHERE userId = ? AND image != ?",
-      [imageUrl, userId, imageUrl],
+      "UPDATE RoomMembers SET image = ? WHERE roomId = ? AND image != ?",
+      [imageUrl, roomId, imageUrl],
       () => {
+        // console.log("Room member image updated successfully in RoomMembers");
         callback(true);
       },
       (err) => {
-        console.log("", err);
+        // console.log("Error updating profile image in RoomMembers: ", err);
         callback(false);
       }
     );
   });
 };
 
-/////   ARJUN JATAV  /////// 
+export const UpdateIsPremium = async (roomId, premium, callback) => {
+  db.transaction((tx) => {
+    // Update isPremium status in RoomSql based on roomId
+    tx.executeSql(
+      "UPDATE RoomSql SET premium = ? WHERE roomType = ? AND roomId = ?",
+      [premium, "single", roomId],
+      () => {
+        callback(true);
+      },
+      (err) => {
+        //console.log("Error updating premium in RoomSql: ", err);
+        callback(false);
+      }
+    );
 
+    // Update isPremium status in RoomMembers based on roomId
+    tx.executeSql(
+      "UPDATE RoomMembers SET premium = ? WHERE roomId = ?",
+      [premium, roomId],
+      () => {
+        callback(true);
+      },
+      (err) => {
+        // console.log("Error updating premium in RoomMembers: ", err);
+        callback(false);
+      }
+    );
+  });
+};
+
+export const UpdateIsDaimond = async (roomId, isDiamonds, callback) => {
+  db.transaction((tx) => {
+    // Update isPremium status in RoomSql based on roomId
+    tx.executeSql(
+      "UPDATE RoomSql SET isDiamonds = ? WHERE roomType = ? AND roomId = ?",
+      [isDiamonds, "single", roomId],
+      () => {
+        callback(true);
+      },
+      (err) => {
+        // console.log("Error updating isDiamonds in RoomSql: ", err);
+        callback(false);
+      }
+    );
+
+    // Update isPremium status in RoomMembers based on roomId
+    tx.executeSql(
+      "UPDATE RoomMembers SET isDiamonds = ? WHERE roomId = ?",
+      [isDiamonds, roomId],
+      () => {
+        callback(true);
+      },
+      (err) => {
+        console.log("Error updating isDiamonds in RoomMembers: ", err);
+        callback(false);
+      }
+    );
+  });
+};
 
 export const getPublicRoomCount = (callback) => {
   db.transaction((tx) => {
@@ -3918,4 +6418,40 @@ export const getPublicRoomCount = (callback) => {
       }
     );
   });
-}
+};
+
+export const getTableDataByRoomId = async (roomId, callback) => {
+  await db.transaction(async (tx) => {
+    await tx.executeSql(
+      `SELECT DISTINCT rl.id, rl.*, ct.name AS contactName, latestMessage.message as lastMessage, latestMessage.createdAt as lastMessageTime, latestMessage.message_type as lastMessageType, latestMessage.mId as lastMessageId, latestMessage.isDeletedForAll as isLatestMessageDeleted
+       FROM RoomSql AS rl
+       LEFT JOIN (SELECT roomId, mId, message, message_type, createdAt,isDeletedForAll, MAX(createdAt) FROM Chatmessages GROUP BY roomId) as latestMessage ON rl.roomId = latestMessage.roomId
+       LEFT JOIN ContactTable AS ct ON substr(replace(rl.roomName, '.0', ''), -10) = substr(replace(ct.phone_number, '.0', ''), -10)
+       WHERE rl.isHide = '0' AND rl.roomId = ?
+       GROUP BY rl.id`,
+      [roomId],
+      async (_, results) => {
+        try {
+          var temp = [];
+          for (let i = 0; i < results.rows.length; ++i) {
+            let contactName = results.rows.item(i).contactName;
+            let roomName = results.rows.item(i).roomName?.replace(".0", "");
+            temp.push({
+              ...results.rows.item(i),
+              roomName: roomName,
+              contactName: contactName,
+            });
+          }
+
+          callback(temp);
+        } catch (error) {
+          console.log(">>>>>Errrr", error);
+        }
+      },
+      (error) => {
+        console.error("Error fetching data:", error);
+        callback([]); // Handle errors by passing an empty array or specific error indicator
+      }
+    );
+  });
+};

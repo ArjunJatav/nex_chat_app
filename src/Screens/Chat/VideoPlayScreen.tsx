@@ -9,16 +9,17 @@ import {
 } from "react-native";
 import Video from "react-native-video";
 import { Image } from "react-native";
-import { COLORS } from "../../Components/Colors/Colors";
+import { COLORS, themeModule } from "../../Components/Colors/Colors";
 const windowWidth = Dimensions.get("window").width;
 
- // eslint-disable-next-line
-export const VideoPlayScreen = ({ route, navigation }:any) => {
+// eslint-disable-next-line
+export const VideoPlayScreen = ({ route, navigation }: any) => {
+  console.log('video play screen route====================================',route);
+
   const url = route.params?.videoUrl;
   const [isLoading, setIsLoading] = useState(true);
   const isPlaying = true;
 
- 
   return (
     <View style={{ flex: 1 }}>
       <TouchableOpacity
@@ -27,22 +28,7 @@ export const VideoPlayScreen = ({ route, navigation }:any) => {
           borderRadius: 5,
           zIndex: 1001,
           top: Platform.OS === "ios" ? 60 : 20,
-          backgroundColor:
-            globalThis.selectTheme === "mongoliaTheme"
-              ? "#8D3E2D" 
-              : globalThis.selectTheme === "newYearTheme"
-              ? "#CE9D59"
-              : 
-              globalThis.selectTheme === "newYear"
-              ? COLORS.black
-              : 
-              globalThis.selectTheme === "christmas"
-              ? COLORS.primary_light_green 
-              : globalThis.selectTheme == "third"
-              ? COLORS.light_green 
-              : globalThis.selectTheme == "second"
-              ? COLORS.primary_blue
-              : COLORS.purple,
+          backgroundColor:themeModule().premiumBackIcon,
           width: 30,
           height: 30,
           alignItems: "center",
@@ -65,8 +51,6 @@ export const VideoPlayScreen = ({ route, navigation }:any) => {
           resizeMode="contain"
         />
       </TouchableOpacity>
-
-     
 
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         {isLoading && (

@@ -20,6 +20,9 @@ import backupSlice from "./Redux/backupSlice";
 import { sqlSlice } from "./Redux/SqlStorage";
 import friendListSlice from "./reducers/friendListSlice";
 import pinSlice from "./reducers/pinSlice";
+import premiumLimit from "./Redux/premiumLimit";
+import  profileSlice from "./reducers/ProfileCallingReducer";
+import  userBanSlice from "./reducers/userBanSlice";
 const persistConfig = {
   key: "root",
   storage: AsyncStorage,
@@ -47,6 +50,10 @@ export const store = configureStore({
     dataReducer: dataReducer,
     callerIDReducers: callerIDReducers,
     getAppStateReducers: getAppStateReducers,
+    premiumLimitSlice:premiumLimit,
+    profileSlice:profileSlice,
+    userBanSlice: userBanSlice,
+   
   },
 });
 

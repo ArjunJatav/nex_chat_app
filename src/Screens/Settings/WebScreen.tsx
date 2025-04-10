@@ -13,7 +13,7 @@ import { themeModule } from "../../Components/Colors/Colors";
 import CustomStatusBar from "../../Components/CustomStatusBar/CustomStatusBar";
 import MainComponent from "../../Components/MainComponent/MainComponent";
 import TopBar from "../../Components/TopBar/TopBar";
-import { settingTop } from "../../Navigation/Icons";
+import { chatTop, settingTop } from "../../Navigation/Icons";
 import { LoaderModel } from "../Modals/LoaderModel";
 
 const isDarkMode = true;
@@ -98,6 +98,9 @@ export default function WebScreen({ navigation, route }: any) {
           globalThis.selectTheme === "newYearTheme" || 
           globalThis.selectTheme === "mongoliaTheme" || 
           globalThis.selectTheme === "mexicoTheme" || 
+          globalThis.selectTheme === "indiaTheme" ||
+          globalThis.selectTheme === "englandTheme" ||
+          globalThis.selectTheme === "americaTheme" ||
           globalThis.selectTheme === "usindepTheme" ? (
             <ImageBackground
               source={settingTop().BackGroundImage}
@@ -109,6 +112,7 @@ export default function WebScreen({ navigation, route }: any) {
                 position: "absolute",
                 bottom: 0,
                 zIndex: 0,
+                top:  chatTop().top
               }}
             ></ImageBackground>
           ) : null

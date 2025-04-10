@@ -1,7 +1,5 @@
 import CameraRoll from "@react-native-community/cameraroll";
-import {
-  useFocusEffect,
-} from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,16 +16,11 @@ import {
   View,
 } from "react-native";
 import ImagePicker from "react-native-image-crop-picker";
-import {
-  Camera,
-  useCameraDevice,
-} from "react-native-vision-camera";
+import { Camera, useCameraDevice } from "react-native-vision-camera";
 import { font } from "../../Components/Fonts/Font";
 
 import { t } from "i18next";
-import {
-  Video as VideoCompress,
-} from "react-native-compressor";
+import { Video as VideoCompress } from "react-native-compressor";
 import { LoaderModel } from "../Modals/LoaderModel";
 import DeviceInfo from "react-native-device-info";
 
@@ -35,7 +28,7 @@ let cameraAngle = true;
 
 // eslint-disable-next-line
 export default function AddCameraStoryScreen({ navigation }: any) {
- const showCamera = true;
+  const showCamera = true;
   const [data, setData] = useState([]);
   const [startRecord, setStartRecord] = useState(false);
   const [loaderModel, setloaderMoedl] = useState(false);
@@ -50,7 +43,6 @@ export default function AddCameraStoryScreen({ navigation }: any) {
   const recordingTimeout: any = useRef(null);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const camera = useRef(null);
-
 
   const androidVersion = DeviceInfo.getSystemVersion();
 
@@ -79,7 +71,7 @@ export default function AddCameraStoryScreen({ navigation }: any) {
       first: 200,
       assetType: "Photos",
     })
-    // eslint-disable-next-line
+      // eslint-disable-next-line
       .then((res: any) => {
         setData(res.edges);
       })
@@ -105,10 +97,10 @@ export default function AddCameraStoryScreen({ navigation }: any) {
       );
       return;
     }
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-    if(androidVersion > 12 && Platform.OS === "android"){
-      askNewPermission()
-    }else{
+    // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+    if (androidVersion > 12 && Platform.OS === "android") {
+      askNewPermission();
+    } else {
       askPermission();
     }
   };
@@ -147,23 +139,23 @@ export default function AddCameraStoryScreen({ navigation }: any) {
   // **********   method for capture image by using camera ********** ///
   const capturePhoto = async () => {
     if (camera.current) {
-    setShowGellary(false);
-    if (camera) {
-      try {
-     // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-      const photo = await camera.current.takePhoto({});
-      const imagePath = "file://" + photo.path;
-      if (photo.path !== undefined && photo.path !== "") {
-        cameraAngle = cameraType;
-        navigation.navigate("ImageUploadGallery", {
-          path: imagePath,
-        });
+      setShowGellary(false);
+      if (camera) {
+        try {
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+          const photo = await camera.current.takePhoto({});
+          const imagePath = "file://" + photo.path;
+          if (photo.path !== undefined && photo.path !== "") {
+            cameraAngle = cameraType;
+            navigation.navigate("ImageUploadGallery", {
+              path: imagePath,
+            });
+          }
+        } catch (error) {
+          console.error("Failed to capture photo:", error);
+        }
       }
-    }catch (error) {
-      console.error('Failed to capture photo:', error);
     }
-    }
-  }
   };
 
   // eslint-disable-next-line
@@ -219,6 +211,7 @@ export default function AddCameraStoryScreen({ navigation }: any) {
     setIsPhoto(false);
     setShowBackground(!showBackground);
   };
+
   // **********   method for start Recording video  ********** ///
   const startRecording = async () => {
     setShowGellary(false);
@@ -236,23 +229,24 @@ export default function AddCameraStoryScreen({ navigation }: any) {
         });
 
         recordingTimeout.current = setTimeout(() => {
-          if (startRecord == true) {
-            stopRecording();
-          }
+          stopRecording();
         }, 15000); // 15 seconds in milliseconds
       } catch (error) {
         stopRecording(); // Stop recording in case of an error
       }
     }
   };
+
   // **********   method for stop video Recording ********** ///
   const stopRecording = async () => {
     try {
       setStartRecord(false);
 
       if (camera != null) {
-       // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
-        await camera.current.stopRecording();
+        if (camera?.current && showCamera) {
+          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+          await camera?.current?.stopRecording();
+        }
       }
     } catch (error) {
       return;
@@ -301,10 +295,9 @@ export default function AddCameraStoryScreen({ navigation }: any) {
         cropping: false,
         compressImageQuality: 0.2,
         cropperCircleOverlay: false,
-      // eslint-disable-next-line
+        // eslint-disable-next-line
       }).then(async (image: any) => {
         if (image !== undefined) {
-
           // Compress the image if it's a video
           if (image.mime === "image/jpeg") {
             navigation.navigate("ImageUploadGallery", {
@@ -548,7 +541,7 @@ export default function AddCameraStoryScreen({ navigation }: any) {
                           }
                         })
                       : navigation.navigate("ImageUploadGallery", {
-                         // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
+                          // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
                           path: item?.node?.image?.uri,
                           value: "camera",
                         });

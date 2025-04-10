@@ -24,6 +24,7 @@ import { socket } from "../../socket";
 import { changeAliasName } from "../../sqliteStore";
 import { LoaderModel } from "./LoaderModel";
 import { SetProfileModal } from "./SetProfileModel";
+import { t } from "i18next";
 
  // eslint-disable-next-line
 export const SetAliasModel = (props: any) => {
@@ -230,8 +231,8 @@ export const SetAliasModel = (props: any) => {
   const BucketUpload = async (newwwwdata: any) => {
     setloaderMoedl(true);
     const s3 = new AWS.S3({
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
+      accessKeyId: globalThis.accessKey,
+      secretAccessKey: globalThis.awsSecretAccessKey,
       region: "us-east-2",
        // @ts-expect-error - add explanation here, e.g., "Expected type error due to XYZ reason"
       s3Url: "https://tokee-chat-staging.s3.us-east-2.amazonaws.com",
@@ -368,8 +369,8 @@ export const SetAliasModel = (props: any) => {
           }}
         >
           {roomData.aliasName || roomData.aliasImage
-            ? "Update Alias"
-            : "Set Alias"}
+            ? t("Update_Alias")
+            :t("setAlias")}
         </Text>
         <TouchableOpacity style={[styles.cancel_button]} onPress={props.cancel}>
           <Image
@@ -417,7 +418,7 @@ export const SetAliasModel = (props: any) => {
               fontFamily: font.semibold(),
             }}
           >
-            Edit Photo
+           {t("editPhoto")}
           </Text>
           <Image
             source={require("../../Assets/Icons/NotePen.png")}
@@ -435,7 +436,7 @@ export const SetAliasModel = (props: any) => {
               fontFamily: font.semibold(),
             }}
           >
-            Alias Name
+            {t("aliasName")}
           </Text>
         </View>
         <View
@@ -468,7 +469,7 @@ export const SetAliasModel = (props: any) => {
                   updateAlias();
                 }}
               >
-                <Text style={styles.buttonText}> Update </Text>
+                <Text style={styles.buttonText}>{t("Update")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -477,7 +478,7 @@ export const SetAliasModel = (props: any) => {
                   removeAlias();
                 }}
               >
-                <Text style={styles.buttonText}> Remove </Text>
+                <Text style={styles.buttonText}> {t("Remove")} </Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -487,7 +488,7 @@ export const SetAliasModel = (props: any) => {
                 updateAlias();
               }}
             >
-              <Text style={styles.buttonText}> Set Alias </Text>
+              <Text style={styles.buttonText}> {t("setAlias")} </Text>
             </TouchableOpacity>
           )}
         </View>
