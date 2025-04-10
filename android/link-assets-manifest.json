@@ -1,0 +1,33 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "src/Assets/fonts/Dancing_Script_copy.ttf",
+      "sha1": "1edf8e551185efa21e67509ca61d47e7346197d7"
+    },
+    {
+      "path": "src/Assets/fonts/Dearstory-7B79E.ttf",
+      "sha1": "f697034213377087d111db4a175e40f3f1bb9fd8"
+    },
+    {
+      "path": "src/Assets/fonts/FeltCondolences-3zV06.otf",
+      "sha1": "6c940e0f8e7c8ecdeec44b74ab0497487cb9909c"
+    },
+    {
+      "path": "src/Assets/fonts/IBMPlexSans-Bold.ttf",
+      "sha1": "6c829b9e0904df3399e7ac03ee1bb1f72c2d5e52"
+    },
+    {
+      "path": "src/Assets/fonts/PartyStory-ZVA6z.ttf",
+      "sha1": "df173902e3705a4aa7af79fd22f98cacb9544f93"
+    },
+    {
+      "path": "src/Assets/fonts/PinkStory-3lO6p.ttf",
+      "sha1": "1bcc55304be48b6b6ec2f8f88d5e5b4c4e4bcf99"
+    },
+    {
+      "path": "src/Assets/fonts/Skateboarder-mL439.ttf",
+      "sha1": "1e07edd20e83757a5787902de7c2e794d464c075"
+    }
+  ]
+}

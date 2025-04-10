@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>463664671853-udsh3qn0c0bj76g5nddoe02dq0sse001.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.463664671853-udsh3qn0c0bj76g5nddoe02dq0sse001</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>463664671853-0c4ma7u26rmn3u9ieiin450q1ljm7ddr.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyD9V-DKzsuxGkazJEGIdH2ab2EoMzoqsug</string>
+	<key>GCM_SENDER_ID</key>
+	<string>463664671853</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.deucetek.tokee</string>
+	<key>PROJECT_ID</key>
+	<string>tokee-2a07d</string>
+	<key>STORAGE_BUCKET</key>
+	<string>tokee-2a07d.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<true></true>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:463664671853:ios:d0a15e53431fb3ca60e364</string>
+</dict>
+</plist>

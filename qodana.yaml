@@ -1,0 +1,60 @@
+#-------------------------------------------------------------------------------#
+#               Qodana analysis is configured by qodana.yaml file               #
+#             https://www.jetbrains.com/help/qodana/qodana-yaml.html            #
+#-------------------------------------------------------------------------------#
+version: "1.0"
+#Specify IDE code to run analysis without container (Applied in CI/CD pipeline)
+ide: QDNET
+#Specify inspection profile for code analysis
+profile:
+  name: qodana.starter
+include:
+  - name: JSXDomNesting
+  - name: JsCoverageInspection
+  - name: TailRecursionJS
+  - name: PlatformDetectionJS
+  - name: XHTMLIncompatabilitiesJS
+  - name: InnerHTMLJS
+  - name: ES6ConvertToForOf
+  - name: JSFunctionExpressionToArrowFunction
+  - name: ES6ConvertIndexedForToForOf
+  - name: JSStringConcatenationToES6Template
+  - name: FlowJSCoverage
+  - name: FlowJSConfig
+  - name: JSAnnotator
+  - name: JSUndeclaredVariable
+  - name: JSAccessibilityCheck
+  - name: JSUnresolvedLibraryURL
+  - name: JSNonStrictModeUsed
+  - name: JSCheckFunctionSignatures
+  - name: JSLastCommaInArrayLiteral
+  - name: JSLastCommaInObjectLiteral
+  - name: JSFileReferences
+  - name: JSUnresolvedReference
+  - name: CheckValidXmlInScriptTagBody
+  - name: NpmUsedModulesInstalled
+  - name: JSUrlImportUsage
+  - name: MongoJSExtDeprecationInspection
+  - name: MongoJSDeprecationInspection
+  - name: MongoJSResolveInspection
+  - name: MongoJSExtResolveInspection
+  - name: ConfusingPlusesOrMinusesJS
+  - name: DynamicallyGeneratedCodeJS
+  - name: BlockStatementJS
+  - name: CallerJS
+  - name: DebuggerStatementJS
+  - name: ES6BindWithArrowFunction
+  - name: RegExpRedundantEscape
+  - name: ThisExpressionReferencesGlobalObjectJS
+  - name: ReservedWordUsedAsNameJS
+  - name: StringLiteralBreaksHTMLJS
+  - name: UnterminatedStatementJS
+  - name: StandardJS
+  - name: ES6PossiblyAsyncFunction
+  - name: ES6MissingAwait
+  - name: ES6RedundantAwait
+  - name: JSIgnoredPromiseFromCall
+  - name: ES6TopLevelAwaitExpression
+  - name: Eslint
+  - name: W3CssValidation
+  - name: CheckDependencyLicenses
